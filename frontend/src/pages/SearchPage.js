@@ -16,6 +16,7 @@ const SearchPage = () => {
   const [searchMode, setSearchMode] = useState('text'); // 'text' or 'image'
   const [uploadedImage, setUploadedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('SHOES');
 
   const handleSearch = async (e) => {
     e.preventDefault();
