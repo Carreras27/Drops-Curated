@@ -154,7 +154,64 @@ const ProductPage = () => {
           {/* Price Comparison Table */}
           <div>
             <h2 className="text-3xl font-bold mb-6">Price Comparison</h2>
-            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+            
+            {/* Mobile Card Layout */}
+            <div className="lg:hidden space-y-4">
+              {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, index) => (
+                <div 
+                  key={price.id}
+                  className={`bg-white dark:bg-gray-900 rounded-lg border-2 p-5 ${
+                    index === 0 ? 'border-success bg-success bg-opacity-5' : 'border-gray-200 dark:border-gray-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-bold text-lg">{price.store.replace(/_/g, ' ')}</h3>
+                      {index === 0 && (
+                        <span className="text-xs bg-success text-white px-2 py-1 rounded font-bold mt-1 inline-block">
+                          LOWEST PRICE
+                        </span>
+                      )}
+                    </div>
+                    {price.inStock ? (
+                      <span className="text-success font-bold text-sm">In Stock</span>
+                    ) : (
+                      <span className="text-red-500 font-bold text-sm">Out of Stock</span>
+                    )}
+                  </div>
+                  
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className={`text-3xl font-bold ${index === 0 ? 'text-success' : ''}`}>
+                        ₹{price.currentPrice.toLocaleString()}
+                      </span>
+                      {price.originalPrice && price.originalPrice !== price.currentPrice && (
+                        <span className="text-lg text-gray-500 line-through">
+                          ₹{price.originalPrice.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    {price.discountPercent && (
+                      <span className="text-warning font-bold text-sm">
+                        {price.discountPercent}% OFF
+                      </span>
+                    )}
+                  </div>
+                  
+                  <a
+                    href={price.productUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-primary hover:bg-primary-hover text-white text-center px-6 py-3 rounded-lg font-bold transition-colors"
+                  >
+                    Buy Now from {price.store.replace(/_/g, ' ')}
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-800">
