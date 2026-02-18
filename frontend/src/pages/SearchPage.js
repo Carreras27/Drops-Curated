@@ -13,6 +13,9 @@ const SearchPage = () => {
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchMode, setSearchMode] = useState('text'); // 'text' or 'image'
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -30,6 +33,60 @@ const SearchPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be less than 5MB');
+        return;
+      }
+      
+      setUploadedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      toast.success('Image uploaded! Click "Search by Image" to find similar products');
+    }
+  };
+
+  const handleImageSearch = async () => {
+    if (!uploadedImage) {
+      toast.error('Please upload an image first');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadedImage);
+
+      const response = await axios.post(`${API_URL}/visual-search`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setProducts(response.data.products || []);
+      if (response.data.products.length === 0) {
+        toast.info('No similar products found. Try a different image!');
+      } else {
+        toast.success(`Found ${response.data.products.length} similar products!`);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Visual search failed. Feature coming soon!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearImageSearch = () => {
+    setUploadedImage(null);
+    setImagePreview(null);
+    setSearchMode('text');
   };
 
   const handleLogout = () => {
