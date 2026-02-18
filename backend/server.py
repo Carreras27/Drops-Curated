@@ -243,8 +243,8 @@ async def visual_search(
     if not image.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail='File must be an image')
     
-    # Read image
-    contents = await image.read()
+    # Read image (for future CLIP integration)
+    await image.read()
     
     # For MVP: Return products from specified category or shoes by default
     # TODO: Integrate OpenAI CLIP for actual visual similarity
