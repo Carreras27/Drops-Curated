@@ -242,7 +242,7 @@ async def visual_search(
         raise HTTPException(status_code=400, detail='File must be an image')
     
     # Read image (for future CLIP integration)
-    contents = await image.read()
+    await image.read()  # Read and discard for now
     
     # For MVP: Return random products with "similar" label
     # TODO: Integrate OpenAI CLIP for actual visual similarity
