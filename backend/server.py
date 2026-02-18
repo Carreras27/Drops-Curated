@@ -239,64 +239,191 @@ async def visual_search(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Visual search endpoint - finds similar products based on uploaded image
-    Basic implementation: Allows user to specify category for better results
-    Full AI implementation with OpenAI CLIP coming soon
+    AI-Powered Visual Search using OpenAI Vision
+    Analyzes uploaded image and finds similar products
     """
     
     # Validate image
     if not image.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail='File must be an image')
     
-    # Read image (for future CLIP integration)
-    await image.read()
+    # Read and encode image
+    contents = await image.read()
+    base64_image = base64.b64encode(contents).decode('utf-8')
     
-    # For MVP: Return products from specified category or shoes by default
-    # TODO: Integrate OpenAI CLIP for actual visual similarity
-    
-    # Default to SHOES if no category specified (most common visual search use case)
-    search_category = category if category else 'SHOES'
-    
-    # Get products from the category
-    query = {'isActive': True, 'category': search_category}
-    products = await db.products.find(query, {'_id': 0}).to_list(1000)
-    
-    if not products:
-        # Fallback to all products if category has no items
-        products = await db.products.find({'isActive': True}, {'_id': 0}).to_list(1000)
-    
-    # Return up to 8 products
-    similar_products = products[:8] if len(products) >= 8 else products
-    
-    # Enrich with price data
-    for product in similar_products:
-        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
-        if prices:
-            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
-            product['highestPrice'] = max(p['currentPrice'] for p in prices)
-            product['priceCount'] = len(prices)
-        else:
-            product['lowestPrice'] = 0
-            product['highestPrice'] = 0
-            product['priceCount'] = 0
-    
-    # Log visual search
-    search_doc = {
-        'userId': current_user['id'],
-        'query': f'visual_search_{search_category}',
-        'category': search_category,
-        'isImageSearch': True,
-        'resultsCount': len(similar_products),
-        'createdAt': datetime.now(timezone.utc).isoformat()
-    }
-    await db.search_history.insert_one(search_doc)
-    
-    return {
-        'products': similar_products,
-        'category': search_category,
-        'message': f'Showing {search_category.lower()} products. For precise visual matching, OpenAI CLIP integration required.',
-        'note': 'Select category before upload for better results'
-    }
+    try:
+        # Use OpenAI Vision to analyze the image
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": """Analyze this product image and provide:
+1. Product type (shoes/clothes/cosmetics/accessories)
+2. Brand (if visible)
+3. Color
+4. Style/design keywords
+5. Gender target (men/women/unisex)
+
+Format: type|brand|color|style|gender
+Example: shoes|Nike|black|sneakers athletic sporty|men"""
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=200
+        )
+        
+        # Parse AI response
+        ai_analysis = response.choices[0].message.content.strip()
+        logger.info(f"AI Analysis: {ai_analysis}")
+        
+        # Extract features
+        parts = ai_analysis.split('|')
+        detected_type = parts[0].strip().upper() if len(parts) > 0 else None
+        detected_brand = parts[1].strip() if len(parts) > 1 else None
+        detected_color = parts[2].strip().lower() if len(parts) > 2 else None
+        detected_style = parts[3].strip().lower() if len(parts) > 3 else ""
+        
+        # Build search terms
+        search_terms = []
+        if detected_brand and detected_brand.lower() != 'unknown':
+            search_terms.append(detected_brand)
+        if detected_color:
+            search_terms.append(detected_color)
+        search_terms.extend(detected_style.split())
+        
+        # Determine category
+        category_map = {
+            'shoes': 'SHOES',
+            'sneakers': 'SHOES',
+            'footwear': 'SHOES',
+            'clothes': 'CLOTHES',
+            'clothing': 'CLOTHES',
+            'shirt': 'CLOTHES',
+            'tshirt': 'CLOTHES',
+            'hoodie': 'CLOTHES',
+            'cosmetics': 'COSMETICS',
+            'makeup': 'COSMETICS',
+            'lipstick': 'COSMETICS',
+            'accessories': 'ACCESSORIES'
+        }
+        
+        search_category = None
+        if detected_type:
+            for key, value in category_map.items():
+                if key in detected_type.lower():
+                    search_category = value
+                    break
+        
+        if not search_category and category:
+            search_category = category
+        elif not search_category:
+            search_category = 'SHOES'  # Default
+        
+        # Search products in the category
+        query = {'isActive': True, 'category': search_category}
+        all_products = await db.products.find(query, {'_id': 0}).to_list(1000)
+        
+        # Score products based on match
+        scored_products = []
+        for product in all_products:
+            score = 0
+            product_text = f"{product['name']} {product['brand']} {product.get('description', '')} {' '.join(product.get('tags', []))}".lower()
+            
+            # Brand match (highest priority)
+            if detected_brand and detected_brand.lower() in product_text:
+                score += 50
+            
+            # Color match
+            if detected_color and detected_color in product_text:
+                score += 20
+            
+            # Style keywords match
+            for term in search_terms:
+                if term.lower() in product_text:
+                    score += 10
+            
+            # Category match
+            if product['category'] == search_category:
+                score += 5
+            
+            scored_products.append((score, product))
+        
+        # Sort by score and get top results
+        scored_products.sort(reverse=True, key=lambda x: x[0])
+        similar_products = [p[1] for p in scored_products[:8]]
+        
+        if not similar_products:
+            # Fallback: return all products from category
+            similar_products = all_products[:8]
+        
+        # Enrich with price data
+        for product in similar_products:
+            prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
+            if prices:
+                product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+                product['highestPrice'] = max(p['currentPrice'] for p in prices)
+                product['priceCount'] = len(prices)
+            else:
+                product['lowestPrice'] = 0
+                product['highestPrice'] = 0
+                product['priceCount'] = 0
+        
+        # Log visual search
+        search_doc = {
+            'userId': current_user['id'],
+            'query': f'visual_search_{search_category}',
+            'category': search_category,
+            'isImageSearch': True,
+            'resultsCount': len(similar_products),
+            'aiAnalysis': ai_analysis,
+            'createdAt': datetime.now(timezone.utc).isoformat()
+        }
+        await db.search_history.insert_one(search_doc)
+        
+        return {
+            'products': similar_products,
+            'category': search_category,
+            'analysis': {
+                'type': detected_type,
+                'brand': detected_brand,
+                'color': detected_color,
+                'style': detected_style
+            },
+            'message': f'AI detected: {detected_type or "product"} - {detected_brand or "unknown brand"} - {detected_color or "various colors"}',
+            'powered_by': 'OpenAI Vision (GPT-4o-mini)'
+        }
+        
+    except Exception as e:
+        logger.error(f"Visual search error: {str(e)}")
+        # Fallback to category-based search
+        search_category = category if category else 'SHOES'
+        query = {'isActive': True, 'category': search_category}
+        products = await db.products.find(query, {'_id': 0}).limit(8).to_list(8)
+        
+        for product in products:
+            prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
+            if prices:
+                product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+                product['highestPrice'] = max(p['currentPrice'] for p in prices)
+                product['priceCount'] = len(prices)
+        
+        return {
+            'products': products,
+            'category': search_category,
+            'message': f'Showing {search_category.lower()} products. AI analysis unavailable.',
+            'error': str(e)
+        }
 
 # Include router
 app.include_router(api_router)
