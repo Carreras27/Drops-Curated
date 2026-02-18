@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum Category {
+  SHOES
+  CLOTHES
+  COSMETICS
+  ACCESSORIES
+}
+
+enum StoreType {
+  MARKETPLACE
+  D2C_BRAND
+}
+
+enum Store {
+  AMAZON_IN
+  FLIPKART
+  MYNTRA
+  AJIO
+  NYKAA
+  BLU_ORANGE
+  CREP_DOG_CREW
+  DAWN_TAWN
+  COMET
+  CULTURE_CIRCLE
+  VEG_NON_VEG
+  SUPER_KICKS
+  JAYWALKING
+  ALMOST_GODS
+  MIDNIGHT_LAW
+  NOUGHTONE
+  DRIPPINN_MONCKY
+  SMOKELAB
+  SHIARAI
+  EXHALE
+  TOFFLE
+  BISKIT
+  FKNS
+  NARENDRA_KUMAR
+  ASK_BY_AVISHI
+}
+
+enum Gender {
+  MEN
+  WOMEN
+  UNISEX
+  KIDS
+}
+
+enum PriceRange {
+  BUDGET
+  MID_RANGE
+  PREMIUM
+  LUXURY
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  name          String?
+  passwordHash  String
+  preferences   Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  watchlists    Watchlist[]
+  searches      SearchHistory[]
+  subscription  Subscription?
+  
+  @@map("users")
+}
+
+model Brand {
+  id              String      @id @default(cuid())
+  name            String      @unique
+  slug            String      @unique
+  store           Store       @unique
+  storeType       StoreType
+  description     String?
+  logoUrl         String?
+  websiteUrl      String
+  instagramHandle String?
+  isActive        Boolean     @default(true)
+  scrapingEnabled Boolean     @default(true)
+  popularityScore Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  products        Product[]
+  scraperConfig   ScraperConfig?
+  sponsorship     BrandSponsorship?
+  instagramPosts  InstagramPost[]
+  
+  @@index([storeType, isActive])
+  @@map("brands")
+}
+
+model ScraperConfig {
+  id              String      @id @default(cuid())
+  brandId         String      @unique
+  brand           Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  baseUrl         String
+  productListUrl  String?
+  productPageUrl  String?
+  selectors       Json
+  requiresAuth    Boolean     @default(false)
+  usesJavaScript  Boolean     @default(true)
+  rateLimit       Int         @default(5)
+  paginationType  String      @default("number")
+  maxPages        Int?        @default(10)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@map("scraper_configs")
+}
+
+model Product {
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  brandId         String
+  brand           Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  category        Category
+  gender          Gender?
+  description     String?
+  imageUrl        String
+  additionalImages String[]
+  attributes      Json?
+  tags            String[]
+  priceRange      PriceRange?
+  isActive        Boolean     @default(true)
+  isTrending      Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  prices          Price[]
+  watchlists      Watchlist[]
+  
+  @@index([brandId, category])
+  @@index([category, gender, priceRange])
+  @@index([isTrending])
+  @@fulltext([name, description])
+  @@map("products")
+}
+
+model Price {
+  id              String      @id @default(cuid())
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store           Store
+  productUrl      String
+  affiliateUrl    String?
+  currentPrice    Decimal     @db.Decimal(10, 2)
+  originalPrice   Decimal?    @db.Decimal(10, 2)
+  discountPercent Int?
+  inStock         Boolean     @default(true)
+  stockCount      Int?
+  availableSizes  String[]?
+  isLimitedEdition Boolean    @default(false)
+  dropDate        DateTime?
+  lastScrapedAt   DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  
+  @@index([productId, store])
+  @@index([lastScrapedAt])
+  @@index([store, inStock])
+  @@map("prices")
+}
+
+model Watchlist {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  targetPrice     Decimal?    @db.Decimal(10, 2)
+  notifyOnRestock Boolean     @default(false)
+  notifyOnDrop    Boolean     @default(false)
+  notified        Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("watchlists")
+}
+
+model SearchHistory {
+  id              String      @id @default(cuid())
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  query           String
+  category        Category?
+  brandFilters    Store[]
+  priceRange      PriceRange?
+  isImageSearch   Boolean     @default(false)
+  imageUrl        String?
+  resultsCount    Int?
+  createdAt       DateTime    @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("search_history")
+}
+
+model Subscription {
+  id              String           @id @default(cuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier            SubscriptionTier @default(FREE)
+  status          String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  @@map("subscriptions")
+}
+
+model BrandSponsorship {
+  id              String      @id @default(cuid())
+  brandId         String      @unique
+  brand           Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  tier            String
+  monthlyFee      Decimal     @db.Decimal(10, 2)
+  features        Json
+  startDate       DateTime
+  endDate         DateTime?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  
+  @@map("brand_sponsorships")
+}
+
+model AffiliateClick {
+  id              String      @id @default(cuid())
+  userId          String?
+  productId       String
+  store           Store
+  affiliateUrl    String
+  clickedAt       DateTime    @default(now())
+  converted       Boolean     @default(false)
+  conversionDate  DateTime?
+  orderValue      Decimal?    @db.Decimal(10, 2)
+  commission      Decimal?    @db.Decimal(10, 2)
+  
+  @@index([productId, converted])
+  @@index([clickedAt])
+  @@map("affiliate_clicks")
+}
+
+model InstagramPost {
+  id              String      @id @default(cuid())
+  brandId         String
+  brand           Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  postUrl         String
+  imageUrl        String
+  caption         String?
+  isDrop          Boolean     @default(false)
+  extractedProducts Json?
+  dropDate        DateTime?
+  postedAt        DateTime
+  scrapedAt       DateTime    @default(now())
+  
+  @@index([brandId, isDrop])
+  @@index([dropDate])
+  @@map("instagram_posts")
+}
+
+model ScrapeLog {
+  id              String      @id @default(cuid())
+  store           Store
+  storeType       StoreType
+  status          String
+  productsScraped Int         @default(0)
+  pricesUpdated   Int         @default(0)
+  newProducts     Int         @default(0)
+  errors          Json?
+  metadata        Json?
+  startedAt       DateTime
+  completedAt     DateTime?
+  duration        Int?
+  
+  @@index([store, startedAt])
+  @@index([storeType, status])
+  @@map("scrape_logs")
+}
+
+model TrendingProduct {
+  id              String      @id @default(cuid())
+  productId       String      @unique
+  searchCount     Int         @default(0)
+  watchlistCount  Int         @default(0)
+  clickCount      Int         @default(0)
+  trendingScore   Float       @default(0)
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([trendingScore])
+  @@map("trending_products")
+}
