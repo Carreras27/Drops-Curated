@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Query, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 from enum import Enum
+import random
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
