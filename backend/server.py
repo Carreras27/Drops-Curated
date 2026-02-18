@@ -216,6 +216,74 @@ async def get_watchlist(current_user: dict = Depends(get_current_user)):
     
     return {'watchlist': watchlists}
 
+# ============ BRANDS ============
+@api_router.get('/brands')
+async def get_brands():
+    brands = await db.brands.find(
+        {'isActive': True},
+        {'_id': 0}
+    ).sort('popularityScore', -1).to_list(100)
+    
+    return {'brands': brands}
+
+# ============ VISUAL SEARCH ============
+@api_router.post('/visual-search')
+async def visual_search(
+    image: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Visual search endpoint - finds similar products based on uploaded image
+    Currently returns random products as demo. Will integrate OpenAI CLIP for production.
+    """
+    
+    # Validate image
+    if not image.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail='File must be an image')
+    
+    # Read image (for future CLIP integration)
+    contents = await image.read()
+    
+    # For MVP: Return random products with "similar" label
+    # TODO: Integrate OpenAI CLIP for actual visual similarity
+    
+    # Get random products (simulating visual search)
+    all_products = await db.products.find({'isActive': True}, {'_id': 0}).to_list(1000)
+    
+    if not all_products:
+        return {'products': [], 'message': 'No products found'}
+    
+    # Return random 6 products as "similar" results
+    similar_products = random.sample(all_products, min(6, len(all_products)))
+    
+    # Enrich with price data
+    for product in similar_products:
+        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
+        if prices:
+            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+            product['highestPrice'] = max(p['currentPrice'] for p in prices)
+            product['priceCount'] = len(prices)
+        else:
+            product['lowestPrice'] = 0
+            product['highestPrice'] = 0
+            product['priceCount'] = 0
+    
+    # Log visual search
+    search_doc = {
+        'userId': current_user['id'],
+        'query': 'visual_search',
+        'isImageSearch': True,
+        'resultsCount': len(similar_products),
+        'createdAt': datetime.now(timezone.utc).isoformat()
+    }
+    await db.search_history.insert_one(search_doc)
+    
+    return {
+        'products': similar_products,
+        'message': 'Visual search demo - showing sample results. OpenAI CLIP integration coming soon!',
+        'isDemo': True
+    }
+
 # Include router
 app.include_router(api_router)
 
