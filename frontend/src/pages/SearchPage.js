@@ -92,15 +92,31 @@ const SearchPage = () => {
                 <Link
                   key={product.id}
                   to={`/product/${product.id}`}
-                  className="bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-800"
                 >
-                  <div className="aspect-square bg-gray-200 dark:bg-gray-800"></div>
+                  <div className="aspect-square bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                    <img 
+                      src={product.imageUrl} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  </div>
                   <div className="p-4">
                     <h3 className="font-bold mb-2 line-clamp-2">{product.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{product.brand}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-primary">₹{product.lowestPrice || 'N/A'}</span>
-                      <span className="text-xs text-gray-500">{product.priceCount || 0} stores</span>
+                      <div>
+                        <span className="text-lg font-bold text-success">₹{product.lowestPrice || 'N/A'}</span>
+                        {product.priceCount > 1 && (
+                          <span className="text-xs text-gray-500 ml-2">from {product.priceCount} stores</span>
+                        )}
+                      </div>
+                      {product.isTrending && (
+                        <span className="text-xs bg-primary bg-opacity-10 text-primary px-2 py-1 rounded font-bold">
+                          Trending
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Link>
