@@ -1,53 +1,116 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+import { Toaster } from 'sonner';
+import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Pages
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import CustomerDashboard from './pages/CustomerDashboard';
+import ChefDashboard from './pages/ChefDashboard';
+import ChefProfile from './pages/ChefProfile';
+import CheckoutPage from './pages/CheckoutPage';
+import OrderSuccess from './pages/OrderSuccess';
+import OrderTracking from './pages/OrderTracking';
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+const PrivateRoute = ({ children, role }) => {
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (role && user.role !== role) {
+    return <Navigate to={user.role === 'chef' ? '/chef' : '/customer'} />;
+  }
+
+  return children;
+};
+
+function AppRoutes() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    <Routes>
+      <Route path="/" element={user ? <Navigate to={user.role === 'chef' ? '/chef' : '/customer'} /> : <LandingPage />} />
+      <Route path="/login" element={user ? <Navigate to={user.role === 'chef' ? '/chef' : '/customer'} /> : <LoginPage />} />
+      <Route path="/signup" element={user ? <Navigate to={user.role === 'chef' ? '/chef' : '/customer'} /> : <SignupPage />} />
+      <Route
+        path="/customer/*"
+        element={
+          <PrivateRoute role="customer">
+            <CustomerDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/chef/*"
+        element={
+          <PrivateRoute role="chef">
+            <ChefDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route path="/chef/:chefId" element={<ChefProfile />} />
+      <Route
+        path="/checkout"
+        element={
+          <PrivateRoute role="customer">
+            <CheckoutPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/order-success"
+        element={
+          <PrivateRoute role="customer">
+            <OrderSuccess />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/order/:orderId"
+        element={
+          <PrivateRoute>
+            <OrderTracking />
+          </PrivateRoute>
+        }
+      />
+    </Routes>
   );
-};
+}
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <CartProvider>
+          <div className="App">
+            <AppRoutes />
+            <Toaster position="top-center" richColors />
+          </div>
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
