@@ -120,25 +120,119 @@ const SearchPage = () => {
       <main className="container mx-auto px-6 py-12">
         <div className="max-w-3xl mx-auto mb-12">
           <h1 className="text-4xl font-bold mb-8 text-center">Find the Best Prices</h1>
-          <form onSubmit={handleSearch} className="flex gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search for shoes, clothes, cosmetics..."
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
+          
+          {/* Search Mode Toggle */}
+          <div className="flex gap-2 mb-6 justify-center">
             <button
-              type="submit"
-              disabled={loading}
-              className="bg-primary hover:bg-primary-hover text-white font-bold px-8 py-4 rounded-lg disabled:opacity-50"
+              onClick={() => setSearchMode('text')}
+              className={`px-6 py-2 rounded-full font-bold transition-all ${
+                searchMode === 'text'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
+              }`}
             >
-              {loading ? 'Searching...' : 'Search'}
+              Text Search
             </button>
-          </form>
+            <button
+              onClick={() => setSearchMode('image')}
+              className={`px-6 py-2 rounded-full font-bold transition-all ${
+                searchMode === 'image'
+                  ? 'bg-secondary text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
+              }`}
+            >
+              📸 Visual Search
+            </button>
+          </div>
+
+          {/* Text Search */}
+          {searchMode === 'text' && (
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search for shoes, clothes, cosmetics..."
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-primary hover:bg-primary-hover text-white font-bold px-8 py-4 rounded-lg disabled:opacity-50"
+              >
+                {loading ? 'Searching...' : 'Search'}
+              </button>
+            </form>
+          )}
+
+          {/* Visual Search */}
+          {searchMode === 'image' && (
+            <div className="bg-gradient-to-br from-secondary/5 to-primary/5 rounded-2xl p-8 border-2 border-dashed border-gray-300 dark:border-gray-700">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">📸</span>
+                </div>
+                <h3 className="text-xl font-bold mb-2">Upload an Image</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Find similar products by uploading a photo
+                </p>
+              </div>
+
+              {!imagePreview ? (
+                <div>
+                  <label className="block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <div className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 rounded-lg p-8 text-center cursor-pointer hover:border-secondary transition-colors">
+                      <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="font-bold text-gray-700 dark:text-gray-300 mb-1">
+                        Click to upload or drag image here
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        JPG, PNG, WebP (Max 5MB)
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div>
+                  <div className="relative mb-4">
+                    <img
+                      src={imagePreview}
+                      alt="Uploaded"
+                      className="w-full h-64 object-contain bg-white dark:bg-gray-900 rounded-lg"
+                    />
+                    <button
+                      onClick={clearImageSearch}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleImageSearch}
+                    disabled={loading}
+                    className="w-full bg-secondary hover:bg-secondary-hover text-white font-bold py-4 rounded-lg disabled:opacity-50"
+                  >
+                    {loading ? 'Searching...' : '🔍 Search by Image'}
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-6 text-center">
+                <p className="text-xs text-gray-500">
+                  💡 Tip: Upload a clear photo of shoes, clothes, or cosmetics
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {products.length > 0 && (
