@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
-
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 export const AuthProvider = ({ children }) => {
@@ -10,7 +9,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Set up axios interceptor to always include token from localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
@@ -24,8 +22,6 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to fetch user:', error);
-      // Only logout if it's an auth error (401), not network errors
       if (error.response?.status === 401) {
         localStorage.removeItem('token');
         setToken(null);
@@ -43,7 +39,6 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const login = async (email, password) => {
@@ -56,14 +51,8 @@ export const AuthProvider = ({ children }) => {
     return user;
   };
 
-  const signup = async (email, password, name, role, phone) => {
-    const response = await axios.post(`${API_URL}/auth/signup`, {
-      email,
-      password,
-      name,
-      role,
-      phone,
-    });
+  const signup = async (email, password, name) => {
+    const response = await axios.post(`${API_URL}/auth/signup`, { email, password, name });
     const { token, user } = response.data;
     localStorage.setItem('token', token);
     setToken(token);
