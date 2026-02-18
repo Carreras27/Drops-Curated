@@ -28,6 +28,10 @@ JWT_SECRET = os.getenv('JWT_SECRET', 'indiashop-secret-key-change-in-production'
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24 * 30  # 30 days
 
+# OpenAI Configuration (using Emergent LLM Key)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'sk-emergent-541365a2cCb29A3C46')
+openai.api_key = OPENAI_API_KEY
+
 app = FastAPI(title="IndiaShop API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
