@@ -182,6 +182,34 @@ const SearchPage = () => {
                 </p>
               </div>
 
+              {/* Category Selector */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold mb-3 text-center">
+                  What are you looking for?
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { value: 'SHOES', label: '👟 Shoes', emoji: '👟' },
+                    { value: 'CLOTHES', label: '👕 Clothes', emoji: '👕' },
+                    { value: 'COSMETICS', label: '💄 Cosmetics', emoji: '💄' },
+                    { value: 'ACCESSORIES', label: '👜 Accessories', emoji: '👜' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.value)}
+                      className={`py-3 px-4 rounded-lg font-bold text-sm transition-all ${
+                        selectedCategory === cat.value
+                          ? 'bg-secondary text-white shadow-lg scale-105'
+                          : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-secondary'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {!imagePreview ? (
                 <div>
                   <label className="block">
@@ -220,16 +248,22 @@ const SearchPage = () => {
                   <button
                     onClick={handleImageSearch}
                     disabled={loading}
-                    className="w-full bg-secondary hover:bg-secondary-hover text-white font-bold py-4 rounded-lg disabled:opacity-50"
+                    className="w-full bg-secondary hover:bg-secondary-hover text-white font-bold py-4 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? 'Searching...' : '🔍 Search by Image'}
+                    {loading ? (
+                      'Searching...'
+                    ) : (
+                      <>
+                        🔍 Find Similar {selectedCategory === 'SHOES' ? 'Shoes' : selectedCategory === 'CLOTHES' ? 'Clothes' : selectedCategory === 'COSMETICS' ? 'Cosmetics' : 'Accessories'}
+                      </>
+                    )}
                   </button>
                 </div>
               )}
 
               <div className="mt-6 text-center">
                 <p className="text-xs text-gray-500">
-                  💡 Tip: Upload a clear photo of shoes, clothes, or cosmetics
+                  💡 Tip: Select the correct category for better results
                 </p>
               </div>
             </div>
