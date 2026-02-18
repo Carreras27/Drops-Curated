@@ -133,7 +133,16 @@ async def search_products(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100)
 ):
-    query = {'name': {'$regex': q, '$options': 'i'}}
+    # Search in name, description, brand, and tags
+    query = {
+        '$or': [
+            {'name': {'$regex': q, '$options': 'i'}},
+            {'description': {'$regex': q, '$options': 'i'}},
+            {'brand': {'$regex': q, '$options': 'i'}},
+            {'tags': {'$regex': q, '$options': 'i'}},
+        ]
+    }
+    
     if category:
         query['category'] = category
     
