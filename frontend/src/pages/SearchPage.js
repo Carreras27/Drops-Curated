@@ -65,7 +65,7 @@ const SearchPage = () => {
       const formData = new FormData();
       formData.append('image', uploadedImage);
 
-      const response = await axios.post(`${API_URL}/visual-search`, formData, {
+      const response = await axios.post(`${API_URL}/visual-search?category=${selectedCategory}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -73,12 +73,12 @@ const SearchPage = () => {
 
       setProducts(response.data.products || []);
       if (response.data.products.length === 0) {
-        toast.info('No similar products found. Try a different image!');
+        toast.info(`No ${selectedCategory.toLowerCase()} found. Try a different category!`);
       } else {
-        toast.success(`Found ${response.data.products.length} similar products!`);
+        toast.success(`Found ${response.data.products.length} similar ${selectedCategory.toLowerCase()}!`);
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Visual search failed. Feature coming soon!');
+      toast.error(error.response?.data?.detail || 'Visual search failed');
     } finally {
       setLoading(false);
     }
