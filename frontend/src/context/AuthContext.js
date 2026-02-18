@@ -23,10 +23,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await axios.get(`${API_URL}/auth/me`);
       setUser(response.data);
+      setLoading(false);
     } catch (error) {
       console.error('Failed to fetch user:', error);
-      logout();
-    } finally {
+      // Only logout if it's an auth error (401), not network errors
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+        delete axios.defaults.headers.common['Authorization'];
+      }
       setLoading(false);
     }
   };
