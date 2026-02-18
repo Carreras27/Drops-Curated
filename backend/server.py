@@ -230,31 +230,38 @@ async def get_brands():
 @api_router.post('/visual-search')
 async def visual_search(
     image: UploadFile = File(...),
+    category: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
     """
     Visual search endpoint - finds similar products based on uploaded image
-    Currently returns random products as demo. Will integrate OpenAI CLIP for production.
+    Basic implementation: Allows user to specify category for better results
+    Full AI implementation with OpenAI CLIP coming soon
     """
     
     # Validate image
     if not image.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail='File must be an image')
     
-    # Read image (for future CLIP integration)
-    await image.read()  # Read and discard for now
+    # Read image
+    contents = await image.read()
     
-    # For MVP: Return random products with "similar" label
+    # For MVP: Return products from specified category or shoes by default
     # TODO: Integrate OpenAI CLIP for actual visual similarity
     
-    # Get random products (simulating visual search)
-    all_products = await db.products.find({'isActive': True}, {'_id': 0}).to_list(1000)
+    # Default to SHOES if no category specified (most common visual search use case)
+    search_category = category if category else 'SHOES'
     
-    if not all_products:
-        return {'products': [], 'message': 'No products found'}
+    # Get products from the category
+    query = {'isActive': True, 'category': search_category}
+    products = await db.products.find(query, {'_id': 0}).to_list(1000)
     
-    # Return random 6 products as "similar" results
-    similar_products = random.sample(all_products, min(6, len(all_products)))
+    if not products:
+        # Fallback to all products if category has no items
+        products = await db.products.find({'isActive': True}, {'_id': 0}).to_list(1000)
+    
+    # Return up to 8 products
+    similar_products = products[:8] if len(products) >= 8 else products
     
     # Enrich with price data
     for product in similar_products:
@@ -271,7 +278,8 @@ async def visual_search(
     # Log visual search
     search_doc = {
         'userId': current_user['id'],
-        'query': 'visual_search',
+        'query': f'visual_search_{search_category}',
+        'category': search_category,
         'isImageSearch': True,
         'resultsCount': len(similar_products),
         'createdAt': datetime.now(timezone.utc).isoformat()
@@ -280,8 +288,9 @@ async def visual_search(
     
     return {
         'products': similar_products,
-        'message': 'Visual search demo - showing sample results. OpenAI CLIP integration coming soon!',
-        'isDemo': True
+        'category': search_category,
+        'message': f'Showing {search_category.lower()} products. For precise visual matching, OpenAI CLIP integration required.',
+        'note': 'Select category before upload for better results'
     }
 
 # Include router
