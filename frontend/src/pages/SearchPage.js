@@ -92,31 +92,58 @@ const SearchPage = () => {
                 <Link
                   key={product.id}
                   to={`/product/${product.id}`}
-                  className="bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-800"
+                  className="bg-white dark:bg-gray-900 rounded-lg overflow-hidden hover:shadow-xl transition-all border border-gray-200 dark:border-gray-800"
                 >
-                  <div className="aspect-square bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                  <div className="aspect-square bg-gray-200 dark:bg-gray-800 overflow-hidden relative">
                     <img 
                       src={product.imageUrl} 
                       alt={product.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => e.target.style.display = 'none'}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400">No image</div>';
+                      }}
                     />
+                    {product.isTrending && (
+                      <div className="absolute top-3 right-3 bg-primary text-white px-3 py-1 rounded-full text-xs font-bold">
+                        🔥 Trending
+                      </div>
+                    )}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-bold mb-2 line-clamp-2">{product.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{product.brand}</p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-lg font-bold text-success">₹{product.lowestPrice || 'N/A'}</span>
-                        {product.priceCount > 1 && (
-                          <span className="text-xs text-gray-500 ml-2">from {product.priceCount} stores</span>
+                  <div className="p-5">
+                    <h3 className="font-bold mb-2 line-clamp-2 text-lg">{product.name}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{product.brand}</p>
+                    
+                    {/* Price Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-success">₹{product.lowestPrice?.toLocaleString() || 'N/A'}</span>
+                        {product.highestPrice && product.highestPrice !== product.lowestPrice && (
+                          <span className="text-sm text-gray-500 line-through">₹{product.highestPrice.toLocaleString()}</span>
                         )}
                       </div>
-                      {product.isTrending && (
-                        <span className="text-xs bg-primary bg-opacity-10 text-primary px-2 py-1 rounded font-bold">
-                          Trending
-                        </span>
+                      
+                      {product.priceCount > 1 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            Compared from {product.priceCount} stores
+                          </span>
+                          {product.highestPrice && product.highestPrice !== product.lowestPrice && (
+                            <span className="text-xs bg-success bg-opacity-10 text-success px-2 py-1 rounded font-bold">
+                              Save ₹{(product.highestPrice - product.lowestPrice).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
                       )}
+                      
+                      {product.priceCount === 1 && (
+                        <span className="text-xs text-gray-500">Available at 1 store</span>
+                      )}
+                    </div>
+                    
+                    {/* View Comparison CTA */}
+                    <div className="mt-4 text-primary text-sm font-bold hover:underline">
+                      Compare prices →
                     </div>
                   </div>
                 </Link>
