@@ -141,6 +141,18 @@ async def search_products(
     products = await db.products.find(query, {'_id': 0}).skip(skip).limit(limit).to_list(limit)
     total = await db.products.count_documents(query)
     
+    # Enrich products with price data
+    for product in products:
+        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
+        if prices:
+            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+            product['highestPrice'] = max(p['currentPrice'] for p in prices)
+            product['priceCount'] = len(prices)
+        else:
+            product['lowestPrice'] = 0
+            product['highestPrice'] = 0
+            product['priceCount'] = 0
+    
     return {
         'products': products,
         'total': total,
