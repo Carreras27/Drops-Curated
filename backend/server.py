@@ -231,6 +231,50 @@ async def get_brands():
     
     return {'brands': brands}
 
+# ============ REAL-TIME SCRAPING ============
+@api_router.post('/scrape/live')
+async def live_scrape(
+    query: str = Query(...),
+    category: str = Query('SHOES'),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Trigger real-time scraping for a search query
+    This will scrape Amazon.in and Flipkart in real-time
+    """
+    try:
+        from scraper import scrape_and_update_db
+        
+        # Run scraping
+        result = await scrape_and_update_db(query, category)
+        
+        # Get updated products
+        products = await db.products.find(
+            {'category': category},
+            {'_id': 0}
+        ).sort('createdAt', -1).limit(20).to_list(20)
+        
+        # Enrich with prices
+        for product in products:
+            prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
+            if prices:
+                product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+                product['highestPrice'] = max(p['currentPrice'] for p in prices)
+                product['priceCount'] = len(prices)
+        
+        return {
+            'success': True,
+            'scraped': result['scraped'],
+            'products_added': result['products_added'],
+            'prices_added': result['prices_added'],
+            'products': products,
+            'message': f'Scraped {result["scraped"]} products from Amazon & Flipkart'
+        }
+        
+    except Exception as e:
+        logger.error(f"Live scrape error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f'Scraping failed: {str(e)}')
+
 # ============ VISUAL SEARCH ============
 @api_router.post('/visual-search')
 async def visual_search(
