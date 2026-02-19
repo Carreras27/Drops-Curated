@@ -75,12 +75,14 @@ class VegNonVegScraper(BaseScraper):
                     # Use higher res version
                     image_url = image_url.replace("51X60", "680X800")
 
-                # Find product link
-                link_tag = card.find_parent("a") or card.find("a")
+                # Find product link - check parent container for <a> tags
                 product_url = ""
-                if link_tag:
-                    href = link_tag.get("href", "")
-                    product_url = href if href.startswith("http") else f"{self.base_url}{href}"
+                container = card.parent
+                if container:
+                    link_tag = container.find("a", href=True)
+                    if link_tag:
+                        href = link_tag.get("href", "")
+                        product_url = href if href.startswith("http") else f"{self.base_url}{href}"
 
                 # Determine category
                 categories = data.get("category", [])
