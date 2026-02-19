@@ -232,48 +232,148 @@ async def get_brands():
     return {'brands': brands}
 
 # ============ REAL-TIME SCRAPING ============
-@api_router.post('/scrape/live')
-async def live_scrape(
-    query: str = Query(...),
-    category: str = Query('SHOES'),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Trigger real-time scraping for a search query
-    This will scrape Amazon.in and Flipkart in real-time
-    """
-    try:
-        from scraper import scrape_and_update_db
-        
-        # Run scraping
-        result = await scrape_and_update_db(query, category)
-        
-        # Get updated products
-        products = await db.products.find(
-            {'category': category},
-            {'_id': 0}
-        ).sort('createdAt', -1).limit(20).to_list(20)
-        
-        # Enrich with prices
-        for product in products:
-            prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
-            if prices:
-                product['lowestPrice'] = min(p['currentPrice'] for p in prices)
-                product['highestPrice'] = max(p['currentPrice'] for p in prices)
-                product['priceCount'] = len(prices)
-        
-        return {
-            'success': True,
-            'scraped': result['scraped'],
-            'products_added': result['products_added'],
-            'prices_added': result['prices_added'],
-            'products': products,
-            'message': f'Scraped {result["scraped"]} products from Amazon & Flipkart'
-        }
-        
-    except Exception as e:
-        logger.error(f"Live scrape error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f'Scraping failed: {str(e)}')
+from scrapers import SCRAPERS
+
+async def _store_scraped_products(scraped_products: list[dict], brand_key: str) -> dict:
+    """Store scraped products and prices in MongoDB"""
+    products_added = 0
+    products_updated = 0
+    prices_added = 0
+
+    for item in scraped_products:
+        # Generate a stable product ID from name + store
+        slug = item["name"].lower().replace(" ", "-").replace("'", "")[:80]
+        product_id = f"prod_{item['store']}_{hash(item['name']) % 100000}"
+
+        existing = await db.products.find_one({"name": item["name"], "store": item["store"]})
+
+        if existing:
+            # Update existing product
+            await db.products.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {
+                    "imageUrl": item["image_url"],
+                    "isActive": True,
+                    "updatedAt": item["scraped_at"],
+                }}
+            )
+            product_id = existing["id"]
+            products_updated += 1
+        else:
+            product_doc = {
+                "id": product_id,
+                "name": item["name"],
+                "slug": slug,
+                "brand": item["brand"],
+                "category": item["category"],
+                "description": f'{item["brand"]} {item["category"].lower()} from {item["store"].replace("_", " ").title()}',
+                "imageUrl": item["image_url"],
+                "additionalImages": [],
+                "attributes": {"sizes": item.get("available_sizes", [])},
+                "tags": item.get("tags", []) + [item["brand"].lower(), item["category"].lower()],
+                "store": item["store"],
+                "isActive": True,
+                "isTrending": False,
+                "createdAt": item["scraped_at"],
+            }
+            await db.products.insert_one(product_doc)
+            products_added += 1
+
+        # Upsert price record
+        await db.prices.update_one(
+            {"productId": product_id, "store": item["store"]},
+            {"$set": {
+                "id": f"price_{product_id}_{item['store']}",
+                "productId": product_id,
+                "store": item["store"],
+                "productUrl": item.get("product_url", ""),
+                "currentPrice": item["price"],
+                "originalPrice": item.get("original_price", item["price"]),
+                "inStock": item.get("in_stock", True),
+                "lastScrapedAt": item["scraped_at"],
+                "createdAt": item["scraped_at"],
+            }},
+            upsert=True,
+        )
+        prices_added += 1
+
+    # Update brand record
+    scraper_cls = SCRAPERS.get(brand_key)
+    if scraper_cls:
+        s = scraper_cls()
+        await db.brands.update_one(
+            {"key": brand_key},
+            {"$set": {
+                "key": brand_key,
+                "name": s.brand_name,
+                "storeKey": s.store_key,
+                "websiteUrl": s.base_url,
+                "isActive": True,
+                "lastScrapedAt": datetime.now(timezone.utc).isoformat(),
+                "productCount": await db.products.count_documents({"store": s.store_key}),
+            }},
+            upsert=True,
+        )
+
+    return {"products_added": products_added, "products_updated": products_updated, "prices_added": prices_added}
+
+
+@api_router.post("/scrape/{brand_key}")
+async def scrape_brand(brand_key: str):
+    """Scrape products from a specific brand"""
+    if brand_key not in SCRAPERS:
+        raise HTTPException(status_code=400, detail=f"Unknown brand: {brand_key}. Available: {list(SCRAPERS.keys())}")
+
+    scraper = SCRAPERS[brand_key]()
+    logger.info(f"Starting scrape for {scraper.brand_name}")
+
+    scraped = await scraper.scrape_products(max_pages=3)
+    if not scraped:
+        return {"success": False, "message": f"No products found for {scraper.brand_name}", "scraped": 0}
+
+    result = await _store_scraped_products(scraped, brand_key)
+
+    return {
+        "success": True,
+        "brand": scraper.brand_name,
+        "scraped": len(scraped),
+        **result,
+        "message": f"Scraped {len(scraped)} products from {scraper.brand_name}",
+    }
+
+
+@api_router.post("/scrape/all")
+async def scrape_all_brands():
+    """Scrape all available brands"""
+    results = {}
+    for key, scraper_cls in SCRAPERS.items():
+        scraper = scraper_cls()
+        logger.info(f"Scraping {scraper.brand_name}...")
+        try:
+            scraped = await scraper.scrape_products(max_pages=3)
+            result = await _store_scraped_products(scraped, key)
+            results[key] = {"success": True, "scraped": len(scraped), **result}
+        except Exception as e:
+            logger.error(f"Scrape error for {key}: {e}")
+            results[key] = {"success": False, "error": str(e)}
+
+    total = sum(r.get("scraped", 0) for r in results.values())
+    return {"success": True, "total_scraped": total, "results": results}
+
+
+@api_router.get("/scrape/status")
+async def scrape_status():
+    """Get scraping status for all brands"""
+    brands = await db.brands.find({}, {"_id": 0}).to_list(100)
+    total_products = await db.products.count_documents({"isActive": True})
+    total_prices = await db.prices.count_documents({})
+
+    return {
+        "brands": brands,
+        "total_products": total_products,
+        "total_prices": total_prices,
+        "available_scrapers": list(SCRAPERS.keys()),
+    }
 
 # ============ VISUAL SEARCH ============
 @api_router.post('/visual-search')
