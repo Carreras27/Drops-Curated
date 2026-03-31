@@ -5,53 +5,26 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Light mode (default)
-        background: '#FFFFFF',
-        foreground: '#0A0A0A',
-        
-        // Dark mode
-        'dark-background': '#0A0A0A',
-        'dark-foreground': '#FFFFFF',
-        
-        // Pop colors (work in both modes)
+        background: '#FDFBF7',
+        surface: '#FFFFFF',
         primary: {
-          DEFAULT: '#0066FF',
-          hover: '#0052CC',
-          light: '#3385FF',
+          DEFAULT: '#001F3F',
+          hover: '#00152b',
         },
-        secondary: {
-          DEFAULT: '#FF0080',
-          hover: '#CC0066',
-          light: '#FF339D',
+        accent: {
+          DEFAULT: '#D4AF37',
+          hover: '#b8972e',
         },
-        success: {
-          DEFAULT: '#00FF85',
-          hover: '#00CC6A',
-          light: '#33FF9F',
-        },
-        warning: {
-          DEFAULT: '#FF6B00',
-          hover: '#CC5500',
-          light: '#FF8833',
-        },
-        
-        // Neutrals
-        gray: {
-          50: '#FAFAFA',
-          100: '#F5F5F5',
-          200: '#E5E5E5',
-          300: '#D4D4D4',
-          400: '#A3A3A3',
-          500: '#737373',
-          600: '#525252',
-          700: '#404040',
-          800: '#262626',
-          900: '#171717',
-        },
+        foreground: '#001F3F',
+        muted: 'rgba(0, 31, 63, 0.6)',
+        border: 'rgba(0, 31, 63, 0.1)',
+        success: '#16a34a',
+        warning: '#ea580c',
+        danger: '#dc2626',
       },
       fontFamily: {
+        serif: ['Playfair Display', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
       },
       borderRadius: {
         sm: '4px',
@@ -60,9 +33,9 @@ module.exports = {
         xl: '16px',
       },
       boxShadow: {
-        'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        'soft': '0 4px 12px 0 rgba(0, 0, 0, 0.08)',
-        'strong': '0 8px 24px 0 rgba(0, 0, 0, 0.12)',
+        'subtle': '0 1px 2px rgba(0, 31, 63, 0.04)',
+        'soft': '0 4px 20px rgba(0, 31, 63, 0.06)',
+        'lift': '0 8px 30px rgba(0, 31, 63, 0.12)',
       },
     },
   },

@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Heart, ExternalLink, TrendingUp } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { ArrowLeft, ExternalLink, Bell, Share2, Check } from 'lucide-react';
+import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
-const ProductPage = () => {
+export default function ProductPage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const [product, setProduct] = useState(null);
   const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,280 +19,246 @@ const ProductPage = () => {
 
   const fetchProduct = async () => {
     try {
-      const response = await axios.get(`${API_URL}/products/${id}`);
-      setProduct(response.data.product);
-      setPrices(response.data.prices);
-    } catch (error) {
-      toast.error('Failed to load product');
+      const resp = await axios.get(`${API_URL}/products/${id}`);
+      setProduct(resp.data.product);
+      setPrices(resp.data.prices || []);
+    } catch {
+      toast.error('Product not found');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddToWatchlist = async () => {
-    try {
-      await axios.post(`${API_URL}/watchlist?product_id=${id}`);
-      toast.success('Added to watchlist!');
-    } catch (error) {
-      toast.error('Failed to add to watchlist');
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-6 h-6 border border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
-        <p className="text-gray-600">Product not found</p>
+      <div className="min-h-screen bg-background" data-testid="product-not-found">
+        <Header />
+        <div className="pt-32 text-center">
+          <p className="font-serif text-3xl text-primary/30">Product not found</p>
+          <Link to="/browse" className="text-sm text-accent mt-4 inline-block">Back to drops</Link>
+        </div>
       </div>
     );
   }
 
   const lowestPrice = prices.length > 0 ? Math.min(...prices.map(p => p.currentPrice)) : 0;
   const highestPrice = prices.length > 0 ? Math.max(...prices.map(p => p.currentPrice)) : 0;
+  const savings = highestPrice - lowestPrice;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
-      {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-800">
-        <nav className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/search" className="flex items-center gap-2 hover:text-primary">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Search</span>
-          </Link>
-          <Link to="/search" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold">IndiaShop</span>
-          </Link>
-        </nav>
-      </header>
+    <div className="bg-background min-h-screen" data-testid="product-page">
+      <Header />
 
-      <main className="container mx-auto px-6 py-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
-            {/* Product Image */}
-            <div className="aspect-square bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-              <img 
-                src={product.imageUrl} 
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
+      <main className="pt-24 pb-16">
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          {/* Breadcrumb */}
+          <Link to="/browse" className="inline-flex items-center gap-2 text-sm text-primary/40 hover:text-primary mb-8 transition-colors" data-testid="back-link">
+            <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
+            Back to drops
+          </Link>
 
-            {/* Product Info */}
-            <div>
-              <div className="mb-4">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{product.brand}</span>
-                {product.isTrending && (
-                  <span className="ml-2 text-xs bg-primary bg-opacity-10 text-primary px-2 py-1 rounded font-bold">
-                    🔥 Trending
-                  </span>
-                )}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+            {/* Image */}
+            <div className="lg:col-span-7">
+              <div className="aspect-square overflow-hidden bg-surface">
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  data-testid="product-image"
+                />
               </div>
-              
-              <h1 className="text-4xl font-bold mb-4">{product.name}</h1>
-              
+            </div>
+
+            {/* Info */}
+            <div className="lg:col-span-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-3">{product.brand}</p>
+              <h1 className="font-serif text-3xl md:text-4xl tracking-tight mb-4" data-testid="product-name">{product.name}</h1>
+
               {product.description && (
-                <p className="text-gray-600 dark:text-gray-400 mb-6">{product.description}</p>
+                <p className="text-sm text-primary/50 leading-relaxed mb-8">{product.description}</p>
               )}
 
-              {/* Price Summary */}
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 mb-6">
+              {/* Price block */}
+              <div className="border border-primary/10 p-6 mb-6" data-testid="price-summary">
                 <div className="flex items-baseline gap-3 mb-2">
-                  <span className="text-4xl font-bold text-success">₹{lowestPrice.toLocaleString()}</span>
-                  {highestPrice !== lowestPrice && (
-                    <span className="text-xl text-gray-500 line-through">₹{highestPrice.toLocaleString()}</span>
+                  <span className="font-serif text-4xl">{lowestPrice > 0 ? `₹${lowestPrice.toLocaleString('en-IN')}` : '—'}</span>
+                  {savings > 0 && (
+                    <span className="text-sm text-primary/30 line-through">₹{highestPrice.toLocaleString('en-IN')}</span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Lowest price from {prices.length} store{prices.length !== 1 ? 's' : ''}
+                <p className="text-xs text-primary/40 mb-4">
+                  {prices.length > 0 ? `Best price from ${prices.length} source${prices.length > 1 ? 's' : ''}` : 'Price unavailable'}
                 </p>
-                {highestPrice !== lowestPrice && (
-                  <div className="bg-success bg-opacity-10 text-success px-4 py-2 rounded inline-block font-bold">
-                    💰 Save up to ₹{(highestPrice - lowestPrice).toLocaleString()}
+                {savings > 0 && (
+                  <div className="inline-flex items-center gap-2 border border-accent/30 text-accent text-xs uppercase tracking-widest px-3 py-1.5">
+                    <Check className="w-3 h-3" strokeWidth={1.5} />
+                    Save ₹{savings.toLocaleString('en-IN')}
                   </div>
                 )}
               </div>
 
-              {/* Product Attributes */}
-              {product.attributes && Object.keys(product.attributes).length > 0 && (
-                <div className="mb-6">
-                  <h3 className="font-bold mb-3">Details</h3>
-                  <div className="space-y-2">
-                    {Object.entries(product.attributes).map(([key, value]) => (
-                      <div key={key} className="flex gap-2">
-                        <span className="text-gray-600 dark:text-gray-400 capitalize">{key}:</span>
-                        <span className="font-medium">
-                          {Array.isArray(value) ? value.join(', ') : value}
-                        </span>
-                      </div>
+              {/* Actions */}
+              <div className="flex gap-3 mb-8">
+                <Link
+                  to="/subscribe"
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-primary text-background py-3.5 font-medium text-sm hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+                  data-testid="alert-cta"
+                >
+                  <Bell className="w-4 h-4" strokeWidth={1.5} />
+                  Get Price Alerts
+                </Link>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied!'); }}
+                  className="border border-primary/10 px-4 hover:border-accent transition-colors"
+                  data-testid="share-btn"
+                >
+                  <Share2 className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              {/* Attributes */}
+              {product.attributes && product.attributes.sizes?.length > 0 && (
+                <div className="mb-8">
+                  <p className="text-xs text-primary/40 uppercase tracking-widest mb-3">Available Sizes</p>
+                  <div className="flex flex-wrap gap-2">
+                    {product.attributes.sizes.map((s, i) => (
+                      <span key={i} className="text-xs border border-primary/10 px-3 py-1.5 text-primary/60">{s}</span>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Add to Watchlist */}
-              <button
-                onClick={handleAddToWatchlist}
-                className="w-full bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 hover:border-primary text-foreground font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
-              >
-                <Heart className="w-5 h-5" />
-                Add to Watchlist
-              </button>
+              {/* Tags */}
+              {product.tags?.length > 0 && (
+                <div>
+                  <p className="text-xs text-primary/40 uppercase tracking-widest mb-3">Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {product.tags.slice(0, 8).map((t, i) => (
+                      <span key={i} className="text-[10px] text-primary/30 uppercase tracking-widest">#{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Price Comparison Table */}
-          <div>
-            <h2 className="text-3xl font-bold mb-6">Price Comparison</h2>
-            
-            {/* Mobile Card Layout */}
-            <div className="lg:hidden space-y-4">
-              {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, index) => (
-                <div 
-                  key={price.id}
-                  className={`bg-white dark:bg-gray-900 rounded-lg border-2 p-5 ${
-                    index === 0 ? 'border-success bg-success bg-opacity-5' : 'border-gray-200 dark:border-gray-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-bold text-lg">{price.store.replace(/_/g, ' ')}</h3>
-                      {index === 0 && (
-                        <span className="text-xs bg-success text-white px-2 py-1 rounded font-bold mt-1 inline-block">
-                          LOWEST PRICE
-                        </span>
+          {/* Price Comparison */}
+          {prices.length > 0 && (
+            <div className="mt-16 md:mt-24">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-3">Price Comparison</p>
+              <h2 className="font-serif text-3xl tracking-tight mb-8">Where to Buy</h2>
+
+              {/* Desktop table */}
+              <div className="hidden md:block border border-primary/10" data-testid="price-table">
+                <div className="grid grid-cols-5 border-b border-primary/10 text-xs text-primary/40 uppercase tracking-widest">
+                  <div className="px-6 py-4">Store</div>
+                  <div className="px-6 py-4">Price</div>
+                  <div className="px-6 py-4">Original</div>
+                  <div className="px-6 py-4">Stock</div>
+                  <div className="px-6 py-4 text-right">Action</div>
+                </div>
+                {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, i) => (
+                  <div
+                    key={price.id || i}
+                    className={`grid grid-cols-5 border-b border-primary/10 items-center hover:bg-primary/[0.02] transition-colors ${i === 0 ? 'bg-accent/[0.03]' : ''}`}
+                    data-testid={`price-row-${i}`}
+                  >
+                    <div className="px-6 py-5 flex items-center gap-3">
+                      <span className="text-sm font-medium">{price.store?.replace(/_/g, ' ')}</span>
+                      {i === 0 && (
+                        <span className="border border-accent text-accent text-[9px] uppercase tracking-widest px-2 py-0.5">Best</span>
                       )}
                     </div>
-                    {price.inStock ? (
-                      <span className="text-success font-bold text-sm">In Stock</span>
-                    ) : (
-                      <span className="text-red-500 font-bold text-sm">Out of Stock</span>
-                    )}
+                    <div className="px-6 py-5">
+                      <span className={`text-lg font-medium ${i === 0 ? 'text-accent' : ''}`}>
+                        ₹{price.currentPrice?.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="px-6 py-5">
+                      {price.originalPrice && price.originalPrice !== price.currentPrice ? (
+                        <span className="text-sm text-primary/30 line-through">₹{price.originalPrice?.toLocaleString('en-IN')}</span>
+                      ) : (
+                        <span className="text-sm text-primary/20">—</span>
+                      )}
+                    </div>
+                    <div className="px-6 py-5">
+                      <span className={`text-xs ${price.inStock ? 'text-success' : 'text-danger'}`}>
+                        {price.inStock ? 'In Stock' : 'Out of Stock'}
+                      </span>
+                    </div>
+                    <div className="px-6 py-5 text-right">
+                      {price.productUrl && (
+                        <a
+                          href={price.productUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 bg-primary text-background text-xs font-medium px-4 py-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+                          data-testid={`buy-btn-${i}`}
+                        >
+                          Buy Now
+                          <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div className="mb-4">
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className={`text-3xl font-bold ${index === 0 ? 'text-success' : ''}`}>
-                        ₹{price.currentPrice.toLocaleString()}
+                ))}
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-3">
+                {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, i) => (
+                  <div key={price.id || i} className={`border border-primary/10 p-5 ${i === 0 ? 'bg-accent/[0.03]' : ''}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{price.store?.replace(/_/g, ' ')}</span>
+                        {i === 0 && (
+                          <span className="border border-accent text-accent text-[9px] uppercase tracking-widest px-2 py-0.5">Best</span>
+                        )}
+                      </div>
+                      <span className={`text-xs ${price.inStock ? 'text-success' : 'text-danger'}`}>
+                        {price.inStock ? 'In Stock' : 'Out'}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span className={`text-2xl font-medium ${i === 0 ? 'text-accent' : ''}`}>
+                        ₹{price.currentPrice?.toLocaleString('en-IN')}
                       </span>
                       {price.originalPrice && price.originalPrice !== price.currentPrice && (
-                        <span className="text-lg text-gray-500 line-through">
-                          ₹{price.originalPrice.toLocaleString()}
-                        </span>
+                        <span className="text-sm text-primary/30 line-through">₹{price.originalPrice?.toLocaleString('en-IN')}</span>
                       )}
                     </div>
-                    {price.discountPercent && (
-                      <span className="text-warning font-bold text-sm">
-                        {price.discountPercent}% OFF
-                      </span>
+                    {price.productUrl && (
+                      <a
+                        href={price.productUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full text-center bg-primary text-background text-sm font-medium py-3 hover:bg-primary-hover transition-colors"
+                      >
+                        Buy Now
+                      </a>
                     )}
                   </div>
-                  
-                  <a
-                    href={price.productUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full bg-primary hover:bg-primary-hover text-white text-center px-6 py-3 rounded-lg font-bold transition-colors"
-                  >
-                    Buy Now from {price.store.replace(/_/g, ' ')}
-                  </a>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop Table Layout */}
-            <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th className="text-left px-6 py-4 font-bold">Store</th>
-                      <th className="text-left px-6 py-4 font-bold">Price</th>
-                      <th className="text-left px-6 py-4 font-bold">Discount</th>
-                      <th className="text-left px-6 py-4 font-bold">Stock</th>
-                      <th className="text-right px-6 py-4 font-bold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, index) => (
-                      <tr 
-                        key={price.id}
-                        className={`border-t border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                          index === 0 ? 'bg-success bg-opacity-5' : ''
-                        }`}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold">{price.store.replace(/_/g, ' ')}</span>
-                            {index === 0 && (
-                              <span className="text-xs bg-success text-white px-2 py-1 rounded font-bold">
-                                LOWEST
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div>
-                            <span className={`text-xl font-bold ${index === 0 ? 'text-success' : ''}`}>
-                              ₹{price.currentPrice.toLocaleString()}
-                            </span>
-                            {price.originalPrice && price.originalPrice !== price.currentPrice && (
-                              <span className="text-sm text-gray-500 line-through ml-2">
-                                ₹{price.originalPrice.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {price.discountPercent ? (
-                            <span className="text-warning font-bold">{price.discountPercent}% OFF</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {price.inStock ? (
-                            <span className="text-success font-medium">In Stock</span>
-                          ) : (
-                            <span className="text-red-500 font-medium">Out of Stock</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <a
-                            href={price.productUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded font-bold transition-colors"
-                          >
-                            Buy Now
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                ))}
               </div>
-            </div>
 
-            {/* Last Updated */}
-            <p className="text-sm text-gray-500 mt-4">
-              Prices last updated: {new Date(prices[0]?.lastScrapedAt || Date.now()).toLocaleString()}
-            </p>
-          </div>
+              <p className="text-[10px] text-primary/20 mt-4">
+                Prices updated: {prices[0]?.lastScrapedAt ? new Date(prices[0].lastScrapedAt).toLocaleString() : 'Recently'}
+              </p>
+            </div>
+          )}
         </div>
       </main>
+
+      <Footer />
     </div>
   );
-};
-
-export default ProductPage;
+}

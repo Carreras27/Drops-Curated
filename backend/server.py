@@ -32,7 +32,7 @@ JWT_EXPIRATION_HOURS = 24 * 30  # 30 days
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'sk-emergent-541365a2cCb29A3C46')
 openai.api_key = OPENAI_API_KEY
 
-app = FastAPI(title="IndiaShop API", version="1.0.0")
+app = FastAPI(title="Drops Curated API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 
@@ -134,21 +134,20 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 # ============ SEARCH & PRODUCTS ============
 @api_router.get('/search')
 async def search_products(
-    q: str = Query(..., min_length=2),
+    q: str = Query(''),
     category: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100)
 ):
-    # Search in name, description, brand, and tags
-    query = {
-        '$or': [
+    query = {}
+    if q.strip():
+        query['$or'] = [
             {'name': {'$regex': q, '$options': 'i'}},
             {'description': {'$regex': q, '$options': 'i'}},
             {'brand': {'$regex': q, '$options': 'i'}},
             {'tags': {'$regex': q, '$options': 'i'}},
         ]
-    }
-    
+
     if category:
         query['category'] = category
     
@@ -230,6 +229,41 @@ async def get_brands():
     ).sort('popularityScore', -1).to_list(100)
     
     return {'brands': brands}
+
+# ============ SUBSCRIPTIONS ============
+class SubscribeRequest(BaseModel):
+    name: str
+    phone: str
+    plan: str = "Pro"
+
+@api_router.post('/subscribe')
+async def subscribe(data: SubscribeRequest):
+    if not data.phone or len(data.phone) != 10:
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+
+    existing = await db.subscribers.find_one({'phone': data.phone})
+    if existing:
+        await db.subscribers.update_one(
+            {'phone': data.phone},
+            {'$set': {'plan': data.plan, 'name': data.name, 'updatedAt': datetime.now(timezone.utc).isoformat()}}
+        )
+        return {'message': 'Subscription updated', 'status': 'updated'}
+
+    sub_doc = {
+        'id': f"sub_{datetime.now(timezone.utc).timestamp()}",
+        'name': data.name,
+        'phone': data.phone,
+        'plan': data.plan,
+        'isActive': True,
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    await db.subscribers.insert_one(sub_doc)
+    return {'message': 'Subscription created', 'status': 'created'}
+
+@api_router.get('/subscribers/count')
+async def subscriber_count():
+    count = await db.subscribers.count_documents({'isActive': True})
+    return {'count': count}
 
 # ============ REAL-TIME SCRAPING ============
 from scrapers import SCRAPERS
