@@ -1,156 +1,136 @@
 {
-  "identity": {
-    "name": "House of Kitchens",
-    "persona": "The Social Kitchen",
-    "tone": "Vibrant, Playful, Appetizing, Welcoming",
-    "theme_mode": "light",
-    "design_principles": [
-      "Appetite First: Food photos must be large, high-quality, and the hero of every screen.",
-      "Playful Geometry: Use rounded corners, pill shapes, and soft blobs to feel friendly.",
-      "Clear Status: Chef availability (Online/Offline) must be instantly visible.",
-      "Community Vibe: Highlight chef stories and faces, not just food items."
-    ]
+  "theme": "light",
+  "brand_identity": {
+    "name": "Drops Curated",
+    "vibe": "Digital boutique, luxury, warm minimalist, exclusive",
+    "target_audience": "Indian consumers 18-35, streetwear enthusiasts, sneakerheads."
   },
   "typography": {
-    "headings": {
-      "font_family": "Fredoka, sans-serif",
-      "weights": ["600", "700"],
-      "usage": "Main headings, section titles, chef names",
-      "tailwind_classes": "font-['Fredoka'] tracking-tight"
+    "primary_font": "Playfair Display",
+    "secondary_font": "Inter",
+    "scale": {
+      "hero_heading": "text-6xl md:text-8xl font-medium tracking-tight text-[#001F3F]",
+      "section_heading": "text-4xl md:text-5xl font-normal tracking-tight text-[#001F3F]",
+      "card_title": "text-xl md:text-2xl font-normal text-[#001F3F]",
+      "body": "text-base font-normal text-[#001F3F]/80 leading-relaxed",
+      "overline": "text-xs font-semibold uppercase tracking-[0.2em] text-[#D4AF37]",
+      "price": "text-lg font-medium text-[#001F3F]"
     },
-    "body": {
-      "font_family": "DM Sans, sans-serif",
-      "weights": ["400", "500", "700"],
-      "usage": "Paragraphs, menu descriptions, UI elements",
-      "tailwind_classes": "font-['DM_Sans']"
-    },
-    "installation": "Import from Google Fonts: https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,100..1000&family=Fredoka:wght@300..700&display=swap"
+    "rules": [
+      "NEVER use Inter for headings.",
+      "Use Playfair Display for all expressive typography and section headers.",
+      "Use Inter for functional data: prices, sizes, labels, and navigation links.",
+      "Always apply 'tracking-tight' to headings larger than 32px."
+    ]
   },
   "colors": {
-    "primary": {
-      "name": "Zest Orange",
-      "hex": "#FF6B35",
-      "tailwind": "bg-[#FF6B35] text-white",
-      "usage": "Primary buttons, CTAs, active states, price tags"
-    },
-    "secondary": {
-      "name": "Fresh Mint",
-      "hex": "#2EC4B6",
-      "tailwind": "bg-[#2EC4B6] text-white",
-      "usage": "Success states, vegetarian indicators, secondary buttons"
-    },
-    "accent": {
-      "name": "Sunny Yolk",
-      "hex": "#FF9F1C",
-      "tailwind": "bg-[#FF9F1C] text-black",
-      "usage": "Ratings, highlights, promotional banners"
-    },
-    "neutral": {
-      "background": "#FDFFFC",
+    "palette": {
+      "background": "#FDFBF7",
       "surface": "#FFFFFF",
-      "text_main": "#011627",
-      "text_muted": "#70798C",
-      "border": "#E6E8E6"
+      "primary": "#001F3F",
+      "primary_hover": "#00152b",
+      "accent": "#D4AF37",
+      "accent_hover": "#b8972e",
+      "text_main": "#001F3F",
+      "text_muted": "rgba(0, 31, 63, 0.6)",
+      "border": "rgba(0, 31, 63, 0.1)"
     },
-    "status": {
-      "online": "#2EC4B6",
-      "offline": "#E71D36"
+    "rules": [
+      "The primary background must strictly be #FDFBF7 to establish the warm, premium eggshell canvas.",
+      "Use #001F3F (Deep Navy) instead of black for all dark text to add depth and elegance.",
+      "Use #D4AF37 (Antique Gold) sparingly as an accent for verified badges, 'Subscribe' CTA borders, or micro-interactions.",
+      "Ensure high contrast. Normal text must meet 4.5:1 against #FDFBF7."
+    ]
+  },
+  "layouts": {
+    "spacing": {
+      "strategy": "Generous Spacing Philosophy. Use 2-3x more spacing than typical e-commerce.",
+      "section_padding": "py-24 md:py-32",
+      "container": "max-w-7xl mx-auto px-6 md:px-12",
+      "grid_gap": "gap-8 md:gap-12"
+    },
+    "patterns": {
+      "hero": "Asymmetrical editorial layout. Huge serif text spanning 6 columns, with an overlapping hero image on the right. High negative space.",
+      "product_grid": "Bento Grid Protocol (Tetris Mode) for featured drops. Use varying spans (e.g., col-span-full for hero drop, col-span-4 for standard drops) to break symmetry. No borders on the cards, let the image shine against the eggshell background.",
+      "price_comparison": "Grid Borders strategy. Expose the skeleton with 1px borders (border-[#001F3F]/10) for a clean, technical, high-fashion spec-sheet vibe."
     }
   },
-  "visual_enhancers": {
-    "radius": {
-      "default": "rounded-2xl",
-      "buttons": "rounded-full",
-      "cards": "rounded-3xl"
-    },
-    "shadows": {
-      "card": "shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
-      "hover": "shadow-[0_8px_30px_rgb(0,0,0,0.12)]",
-      "floating": "shadow-[0_20px_50px_rgb(0,0,0,0.1)]"
-    },
-    "gradients": {
-      "hero": "bg-gradient-to-r from-[#FF6B35] to-[#FF9F1C]",
-      "overlay": "bg-gradient-to-t from-black/60 to-transparent"
-    }
-  },
-  "layout_strategies": {
-    "marketing_hero": {
-      "type": "Bento Grid",
-      "description": "Asymmetrical grid showcasing happy chefs, raw ingredients, and final dishes.",
-      "structure": "grid-cols-1 md:grid-cols-12 gap-4"
-    },
-    "food_feed": {
-      "type": "Masonry or Card Grid",
-      "description": "Large cards with full-width images. Price and Chef face floating on top of image.",
-      "structure": "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-    },
-    "chef_dashboard": {
-      "type": "Dense Grid",
-      "description": "High information density but with 'air' between sections. Use cards for metrics.",
-      "structure": "Sidebar navigation + Main content area"
-    }
-  },
-  "components": {
-    "buttons": {
-      "primary": "bg-[#FF6B35] hover:bg-[#E85D2A] text-white rounded-full px-8 py-3 font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5",
-      "secondary": "bg-white border-2 border-[#FF6B35] text-[#FF6B35] hover:bg-[#FFF5F0] rounded-full px-8 py-3 font-bold transition-all"
-    },
-    "cards": {
-      "food_item": "bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all group cursor-pointer border border-gray-100",
-      "chef_profile": "bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center text-center"
-    },
-    "inputs": {
-      "default": "bg-gray-50 border-transparent focus:border-[#FF6B35] focus:bg-white rounded-xl px-4 py-3 transition-all outline-none ring-0 focus:ring-2 focus:ring-[#FF6B35]/20"
-    },
-    "badges": {
-      "status": "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-    }
-  },
-  "image_assets": {
-    "hero_collage": [
-      {
-        "url": "https://images.unsplash.com/photo-1758522484068-4ba2b78add9e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxob21lJTIwY2hlZiUyMGNvb2tpbmclMjBraXRjaGVuJTIwaGFwcHl8ZW58MHx8fHwxNzcxNDAxMzE1fDA&ixlib=rb-4.1.0&q=85",
-        "alt": "Happy home chef cooking in blue kitchen",
-        "category": "hero_main"
-      },
-      {
-        "url": "https://images.pexels.com/photos/3785706/pexels-photo-3785706.jpeg",
-        "alt": "Chef preparing food",
-        "category": "hero_secondary"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1696385793103-71f51f6fd3b7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwxfHxkZWxpY2lvdXMlMjBob21lbWFkZSUyMGZvb2QlMjBzcHJlYWQlMjB2aWJyYW50fGVufDB8fHx8MTc3MTQwMTMxNnww&ixlib=rb-4.1.0&q=85",
-        "alt": "Delicious meat and veggies plate",
-        "category": "food_showcase"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1727018953313-403d17215a1b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwzfHxkZWxpY2lvdXMlMjBob21lbWFkZSUyMGZvb2QlMjBzcHJlYWQlMjB2aWJyYW50fGVufDB8fHx8MTc3MTQwMTMxNnww&ixlib=rb-4.1.0&q=85",
-        "alt": "Traditional Indian Thali",
-        "category": "food_showcase"
-      }
-    ],
-    "placeholders": {
-      "chef_avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
-      "food_item": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
-    }
+  "surfaces": {
+    "header": "Crystal Glassmorphism. bg-[#FDFBF7]/85 backdrop-blur-xl border-b border-[#001F3F]/10. CRITICAL: NEVER use a completely transparent background.",
+    "cards": "Cardless design. Do not use standard Shadcn Card component wrapping. Just render the image container and text below it. Use flat backgrounds with NO default shadows to mimic high-end fashion boutiques.",
+    "modals": "Solid #FDFBF7 background with a delicate 1px border-[#D4AF37]/20 and soft, diffuse ambient shadow."
   },
   "motion": {
-    "page_transition": {
-      "initial": { "opacity": 0, "y": 20 },
-      "animate": { "opacity": 1, "y": 0 },
-      "exit": { "opacity": 0, "y": -20 },
-      "transition": { "duration": 0.3, "ease": "easeOut" }
-    },
-    "hover_scale": "hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200"
+    "hover_states": [
+      "Product Images: Subtle scale 'hover:scale-105' wrapped in an 'overflow-hidden' container. Duration 500ms ease-out.",
+      "Buttons: Translate Y lift '-translate-y-1' and shadow expansion 'shadow-[0_8px_30px_rgba(0,31,63,0.15)]'."
+    ],
+    "page_transitions": "Staggered fade-up for product grids. Soft opacity and Y-axis translation.",
+    "rules": [
+      "Respect 'prefers-reduced-motion'.",
+      "Use specific transitions (e.g., 'transition-transform duration-500 ease-out'). NEVER use 'transition: all'."
+    ]
   },
-  "universal_guidelines": [
-    "Do not use generic 'Inter' font for headings. Use 'Fredoka'.",
-    "Do not use dark mode by default. Food looks best on white/light backgrounds.",
-    "Use 'sonner' for all toast notifications.",
-    "Ensure all interactive elements have 'data-testid'.",
-    "Use 'lucide-react' for icons.",
-    "Never use pure black (#000000). Use #011627.",
-    "Buttons must be pill-shaped (rounded-full) to match the playful theme."
+  "components": {
+    "buttons": "Pill-shaped (rounded-full) or completely sharp edges (rounded-none) for a brutalist luxury feel. Default CTA: bg-[#001F3F] text-[#FDFBF7] hover:bg-[#001F3F]/90.",
+    "badges": "Minimalist. border border-[#D4AF37] text-[#D4AF37] bg-transparent text-xs uppercase tracking-widest px-3 py-1 rounded-full.",
+    "icons": "Use Lucide React. Set stroke-width to 1.5 or 1 for a delicate, refined look. NEVER use emojis."
+  },
+  "accessibility": {
+    "contrast": "All text must pass WCAG AA standards. Navy (#001F3F) against Eggshell (#FDFBF7) provides excellent contrast.",
+    "testing": "All interactive and key informational elements MUST include a 'data-testid' attribute (e.g., 'data-testid=\"subscribe-cta\"').",
+    "focus": "Focus states must be visible: 'focus:ring-2 focus:ring-[#D4AF37] focus:outline-none'."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.pexels.com/photos/14773444/pexels-photo-14773444.jpeg",
+      "category": "hero",
+      "description": "Elegant close-up of premium sneakers, showcasing luxury branding. Perfect for the main landing page hero."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1523398002811-999ca8dec234?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxzdHJlZXR3ZWFyJTIwZmFzaGlvbnxlbnwwfHx8fDE3NzQ5NzI4NDR8MA&ixlib=rb-4.1.0&q=85",
+      "category": "featured_drop_apparel",
+      "description": "Man wearing high-end streetwear jacket near a textured wall. Use in the featured drops grid."
+    },
+    {
+      "url": "https://images.pexels.com/photos/28994265/pexels-photo-28994265.jpeg",
+      "category": "featured_drop_apparel",
+      "description": "Model wearing streetwear fashion t-shirt in urban setting. Use in the product grid."
+    },
+    {
+      "url": "https://images.pexels.com/photos/5904464/pexels-photo-5904464.jpeg",
+      "category": "brand_directory",
+      "description": "Beautifully styled fashion display in a luxurious boutique setting. Use for the Brand Directory header or background."
+    }
   ],
-  "instructions_to_main_agent": "1. Install 'lucide-react', 'framer-motion', 'clsx', 'tailwind-merge' if not present. 2. Update 'tailwind.config.js' with the custom colors and fonts. 3. Create a 'Layout' component that handles the navigation and footer. 4. Use the provided image URLs for the landing page and dummy data. 5. Implement the 'Chef Availability' toggle as a prominent UI element in the Chef Dashboard."
+  "instructions_to_main_agent": [
+    "CRITICAL: Write components in .js or .jsx, NOT .tsx (TypeScript is not used).",
+    "Do not build standard e-commerce UI. Avoid generic 'Add to Cart' grids. Drops Curated is a discovery platform for curated drops. Build it like an editorial magazine.",
+    "Implement Shadcn UI, but strip Vercel-like borders and soft rounding. Override defaults to match the Warm Minimalist luxury aesthetic.",
+    "The Subscribe page must include a form to capture WhatsApp numbers and integrate a mockup for UPI payment processing.",
+    "Ensure 'Lucide React' is used for all icons. NO EMOJIS.",
+    "Use standard semantic HTML sections combined with Tailwind CSS for layouts. Only use Shadcn for complex interactive logic like Select, Dialog, or Forms.",
+    "For the Product Detail Page, build a pristine, minimal 'Price Comparison Table' using the Grid Borders strategy (1px navy borders) instead of standard table formatting.",
+    "Add 'data-testid' to ALL interactive elements."
+  ],
+  "universal_guidelines_for_main_agent": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: 'transition: all'. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms.",
+    "You MUST NOT center align the app container, ie do not add '.App { text-align: center; }' in the css file. This disrupts the human natural reading flow of text.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Create new components that match the style and conventions of existing components when needed.",
+    "Components MUST use named exports (export const ComponentName = ...).",
+    "Pages MUST use default exports (export default function PageName() {...}).",
+    "Use 'sonner' for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx."
+  ]
 }
