@@ -20,6 +20,10 @@ SHOPIFY_BRANDS = [
     {"key": "superkicks", "name": "Superkicks", "store_key": "SUPERKICKS", "url": "https://www.superkicks.in"},
     {"key": "mainstreet", "name": "Mainstreet Marketplace", "store_key": "MAINSTREET", "url": "https://marketplace.mainstreet.co.in"},
     {"key": "limited_edt", "name": "Limited Edt", "store_key": "LIMITED_EDT", "url": "https://www.limitededt.com"},
+    {"key": "kickass_kicks", "name": "Kickass Kicks", "store_key": "KICKASS_KICKS", "url": "https://www.kickasskickss.com"},
+    {"key": "hype_elixir", "name": "Hype Elixir", "store_key": "HYPE_ELIXIR", "url": "https://www.hypeelixir.com"},
+    {"key": "sneakersnstuff", "name": "Sneakersnstuff", "store_key": "SNEAKERSNSTUFF", "url": "https://www.sneakersnstuff.com"},
+    {"key": "stadium_goods", "name": "Stadium Goods", "store_key": "STADIUM_GOODS", "url": "https://www.stadiumgoods.com"},
 ]
 
 # Build SCRAPERS dict
