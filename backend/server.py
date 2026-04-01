@@ -438,6 +438,57 @@ async def subscriber_count():
     count = await db.subscribers.count_documents({'isActive': True})
     return {'count': count}
 
+# ============ USER PREFERENCES ============
+class UpdatePreferences(BaseModel):
+    phone: str
+    brands: list[str] = []  # Empty = all brands
+    alert_types: list[str] = ["price_drop", "new_release"]  # price_drop, new_release
+
+@api_router.post('/preferences')
+async def update_preferences(data: UpdatePreferences):
+    phone = data.phone.strip()
+    result = await db.subscribers.update_one(
+        {'phone': phone},
+        {'$set': {
+            'preferences': {
+                'brands': data.brands,
+                'alert_types': data.alert_types,
+            },
+            'updatedAt': datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    return {'message': 'Preferences updated'}
+
+@api_router.get('/preferences/{phone}')
+async def get_preferences(phone: str):
+    sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0, 'preferences': 1, 'phone': 1})
+    if not sub:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    prefs = sub.get('preferences', {'brands': [], 'alert_types': ['price_drop', 'new_release']})
+    return {'phone': phone, 'preferences': prefs}
+
+# ============ SCHEDULER STATUS ============
+from scheduler import get_scheduler_status, scrape_all_brands as run_full_scrape
+
+@api_router.get('/scheduler/status')
+async def scheduler_status():
+    return get_scheduler_status()
+
+@api_router.post('/scheduler/trigger')
+async def trigger_scrape():
+    """Manually trigger a full scrape cycle"""
+    import asyncio
+    asyncio.create_task(run_full_scrape())
+    return {'message': 'Scrape cycle triggered', 'status': 'running'}
+
+# ============ ALERT LOG ============
+@api_router.get('/alerts/recent')
+async def recent_alerts():
+    alerts = await db.alert_log.find({}, {'_id': 0}).sort('createdAt', -1).limit(50).to_list(50)
+    return {'alerts': alerts, 'count': len(alerts)}
+
 # ============ PARTNER INQUIRIES ============
 class PartnerInquiry(BaseModel):
     brand: str
@@ -818,3 +869,9 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+@app.on_event("startup")
+async def startup_scheduler():
+    from scheduler import init_scheduler
+    init_scheduler(db)
+    logger.info("Scheduler initialized - auto-scraping every 15 minutes")

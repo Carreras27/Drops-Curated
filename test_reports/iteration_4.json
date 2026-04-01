@@ -1,0 +1,81 @@
+{
+  "summary": "Comprehensive testing of Drops Curated v4 - Scheduler, Preferences, and Alerts. All 17 backend API tests passed. All frontend UI flows working correctly including the new 5-step subscription flow with preferences step.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_scheduler_preferences_alerts.py",
+    "/app/test_reports/pytest/pytest_results_v4.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_scheduler_preferences_alerts.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (all UI flows working)"
+  },
+  "test_credentials": "Test phones: 9876543210 (existing subscriber), 9876543219-9876543220 (new test subscribers). Sandbox OTP auto-returned.",
+  "seed_data_creation": "None - used existing 7097+ scraped products from 14 brands",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "App is fully functional with scheduler, preferences, and alerts. Backend has 17 passing API tests covering: scheduler status (is_running, last_run, next_run, results), scheduler trigger, preferences CRUD (save/get with brands and alert_types), alerts recent log, scrape status (7000+ products, 14 brands, 14 scrapers), and full subscription flow with preferences. Frontend has 5-step subscription flow: Verify → Details → Pay → Alerts (preferences) → Done. Preferences step shows all 14 brands as checkboxes, alert type toggles (price_drop, new_release), and saves correctly. Success step shows membership card with alert preferences summary.",
+  "features_tested": {
+    "scheduler_api": {
+      "GET /api/scheduler/status": "PASS - Returns is_running, last_run, next_run, interval_minutes=15, results",
+      "POST /api/scheduler/trigger": "PASS - Triggers scrape cycle, returns status=running",
+      "scheduler_results": "PASS - Results include scraped count, new products, price drops, alerts sent per brand"
+    },
+    "preferences_api": {
+      "POST /api/preferences": "PASS - Saves brands and alert_types for subscriber",
+      "GET /api/preferences/{phone}": "PASS - Returns saved preferences",
+      "empty_brands": "PASS - Empty brands array means all brands",
+      "price_drop_only": "PASS - Can save with only price_drop alert type",
+      "new_release_only": "PASS - Can save with only new_release alert type",
+      "all_14_brands": "PASS - Can save all 14 brands",
+      "nonexistent_phone": "PASS - Returns 404 for unknown phone"
+    },
+    "alerts_api": {
+      "GET /api/alerts/recent": "PASS - Returns recent alert log entries",
+      "alert_structure": "PASS - Entries have phone, store, message, sent, createdAt",
+      "sorted_by_date": "PASS - Most recent first"
+    },
+    "scrape_status_api": {
+      "total_products": "PASS - 7097+ products",
+      "brands_count": "PASS - 14 brands",
+      "available_scrapers": "PASS - 14 scrapers"
+    },
+    "subscription_flow_5_steps": {
+      "step_1_verify": "PASS - Phone input, send OTP, verify OTP",
+      "step_2_details": "PASS - Name input, proceed to payment",
+      "step_3_payment": "PASS - Sandbox payment confirmation",
+      "step_4_preferences": "PASS - Alert type toggles, 14 brand checkboxes, save preferences",
+      "step_5_success": "PASS - Membership card with alert preferences summary"
+    },
+    "landing_page": {
+      "product_count": "PASS - Shows 7097+ Products Tracked",
+      "brands_monitored": "PASS - Shows 14 brands monitored"
+    },
+    "browse_page": {
+      "products_grid": "PASS - 60 products per page",
+      "search_input": "PASS - Search functionality available",
+      "filters_button": "PASS - Filters panel available"
+    }
+  },
+  "mocked_apis": {
+    "twilio_whatsapp": "SANDBOX mode - logs messages, doesn't actually send",
+    "razorpay_payment": "SANDBOX mode - auto-approved"
+  },
+  "scheduler_last_run_results": {
+    "crepdog_crew": {"scraped": 1250, "new": 930, "price_drops": 25, "alerts_sent": 9},
+    "huemn": {"scraped": 986, "new": 237, "price_drops": 2, "alerts_sent": 12},
+    "veg_non_veg": {"scraped": 67, "new": 67, "price_drops": 1, "alerts_sent": 3}
+  }
+}
