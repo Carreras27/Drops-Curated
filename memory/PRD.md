@@ -73,7 +73,7 @@
 - [ ] **P0**: Apple/Google Wallet certificates setup
 - [ ] **P1**: WhatsApp bot for preference management
 - [ ] **P1**: Price history charts on product pages
-- [ ] **P1**: Amazon.in, Flipkart, Myntra scrapers
+- [ ] **P1**: Drop Calendar UI (upcoming releases)
 - [ ] **P2**: Visual search (image upload)
 - [ ] **P2**: Brand partner self-serve dashboard
 - [ ] **P3**: Instagram drop tracking
