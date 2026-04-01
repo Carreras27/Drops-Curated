@@ -5,6 +5,75 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
+// Monotone Line Drawing SVGs for background decoration
+const SneakerOutline = ({ className }) => (
+  <svg className={className} viewBox="0 0 200 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 70 L25 65 Q35 60 50 60 L120 60 Q140 60 155 55 L175 45 Q185 42 190 50 L190 65 Q190 75 180 78 L40 78 Q25 78 18 72 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M50 60 L55 45 Q60 35 75 32 L110 32 Q125 32 130 40 L140 55" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M75 32 L80 20 Q85 15 95 15 L105 15" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <circle cx="60" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="80" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="100" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="120" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
+    <path d="M155 55 L160 50 L165 55" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+  </svg>
+);
+
+const HoodieOutline = ({ className }) => (
+  <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M70 40 Q100 25 130 40" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M70 40 L50 55 L30 140 L30 180 L85 180 L85 160" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M130 40 L150 55 L170 140 L170 180 L115 180 L115 160" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M85 160 Q100 155 115 160" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <ellipse cx="100" cy="165" rx="20" ry="8" stroke="currentColor" strokeWidth="1"/>
+    <path d="M30 140 L10 145 L10 100 L30 95" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M170 140 L190 145 L190 100 L170 95" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M75 50 Q100 70 125 50" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M80 55 Q100 75 120 55" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M70 40 L60 30 Q100 10 140 30 L130 40" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+  </svg>
+);
+
+const TShirtOutline = ({ className }) => (
+  <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30 Q100 20 125 30" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M75 30 L45 45 L20 80 L40 90 L55 70 L55 180 L145 180 L145 70 L160 90 L180 80 L155 45 L125 30" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+    <ellipse cx="100" cy="30" rx="15" ry="8" stroke="currentColor" strokeWidth="1"/>
+  </svg>
+);
+
+const JacketOutline = ({ className }) => (
+  <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M80 25 Q100 18 120 25" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M80 25 L60 35 L40 60 L25 140 L25 185 L90 185 L90 60" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M120 25 L140 35 L160 60 L175 140 L175 185 L110 185 L110 60" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M90 60 L100 185" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M110 60 L100 185" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M25 140 L5 145 L5 90 L25 85" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M175 140 L195 145 L195 90 L175 85" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <rect x="35" y="110" width="20" height="25" rx="2" stroke="currentColor" strokeWidth="1"/>
+    <rect x="145" y="110" width="20" height="25" rx="2" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="95" cy="80" r="3" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="95" cy="100" r="3" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="95" cy="120" r="3" stroke="currentColor" strokeWidth="1"/>
+  </svg>
+);
+
+const HighTopOutline = ({ className }) => (
+  <svg className={className} viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M30 110 L45 105 Q60 100 80 100 L140 100 Q160 100 170 95 L185 85 Q195 80 195 90 L195 110 Q195 120 185 122 L50 122 Q35 122 32 115 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M80 100 L80 50 Q80 35 95 30 L130 30 Q145 30 150 45 L155 95" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    <path d="M90 45 L145 45" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+    <path d="M88 55 L147 55" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+    <path d="M86 65 L149 65" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+    <path d="M84 75 L151 75" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+    <path d="M82 85 L153 85" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+    <circle cx="70" cy="122" r="4" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="95" cy="122" r="4" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="120" cy="122" r="4" stroke="currentColor" strokeWidth="1"/>
+  </svg>
+);
+
 const NAV_LINKS = [
   { label: 'Drops', to: '/browse' },
   { label: 'Partners', to: '/partners' },
@@ -93,8 +162,17 @@ export default function LandingPage() {
       <Header transparent />
 
       {/* Hero */}
-      <section className="pt-28 pb-20 md:pt-36 md:pb-28 lg:pt-40 lg:pb-32">
-        <div className="max-w-7xl mx-auto px-6 md:px-12">
+      <section className="pt-28 pb-20 md:pt-36 md:pb-28 lg:pt-40 lg:pb-32 relative overflow-hidden">
+        {/* Background Line Drawings */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <SneakerOutline className="absolute top-20 -left-10 w-48 h-24 text-primary/[0.06] rotate-[-15deg]" />
+          <HoodieOutline className="absolute top-40 right-0 w-40 h-40 text-primary/[0.06] rotate-[10deg] translate-x-1/4" />
+          <TShirtOutline className="absolute bottom-20 left-10 w-32 h-32 text-primary/[0.06] rotate-[5deg]" />
+          <HighTopOutline className="absolute bottom-10 right-20 w-44 h-32 text-primary/[0.06] rotate-[-8deg]" />
+          <JacketOutline className="absolute top-1/2 left-1/4 w-28 h-28 text-primary/[0.05] rotate-[12deg] hidden lg:block" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 border border-accent/30 px-4 py-1.5 mb-8 animate-fade-up">
@@ -148,8 +226,14 @@ export default function LandingPage() {
       </section>
 
       {/* 3 Pillars */}
-      <section className="py-20 md:py-28 border-t border-primary/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12">
+      <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden">
+        {/* Background Line Drawings */}
+        <div className="absolute inset-0 pointer-events-none">
+          <SneakerOutline className="absolute top-10 right-10 w-56 h-28 text-primary/[0.05] rotate-[8deg]" />
+          <TShirtOutline className="absolute bottom-10 left-20 w-36 h-36 text-primary/[0.05] rotate-[-5deg]" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Three Pillars</p>
           <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-14">What We Do</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16">
@@ -171,8 +255,15 @@ export default function LandingPage() {
       </section>
 
       {/* Why Different */}
-      <section className="py-20 md:py-28 bg-primary text-background">
-        <div className="max-w-7xl mx-auto px-6 md:px-12">
+      <section className="py-20 md:py-28 bg-primary text-background relative overflow-hidden">
+        {/* Background Line Drawings - lighter for dark bg */}
+        <div className="absolute inset-0 pointer-events-none">
+          <HighTopOutline className="absolute top-5 left-5 w-52 h-36 text-background/[0.06] rotate-[-10deg]" />
+          <HoodieOutline className="absolute bottom-5 right-5 w-44 h-44 text-background/[0.06] rotate-[15deg]" />
+          <JacketOutline className="absolute top-1/2 right-1/4 w-36 h-36 text-background/[0.05] -translate-y-1/2 hidden lg:block" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Why Us</p>
           <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-14">Built Different</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -192,8 +283,14 @@ export default function LandingPage() {
       </section>
 
       {/* For Brands */}
-      <section className="py-20 md:py-28 border-t border-primary/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12">
+      <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden">
+        {/* Background Line Drawings */}
+        <div className="absolute inset-0 pointer-events-none">
+          <SneakerOutline className="absolute bottom-20 right-10 w-48 h-24 text-primary/[0.05] rotate-[5deg]" />
+          <TShirtOutline className="absolute top-20 left-5 w-32 h-32 text-primary/[0.05] rotate-[-8deg]" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">For Brands</p>
@@ -239,8 +336,16 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 md:py-28 bg-primary text-background">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 text-center">
+      <section className="py-20 md:py-28 bg-primary text-background relative overflow-hidden">
+        {/* Background Line Drawings */}
+        <div className="absolute inset-0 pointer-events-none">
+          <SneakerOutline className="absolute top-10 left-10 w-40 h-20 text-background/[0.06] rotate-[12deg]" />
+          <HighTopOutline className="absolute top-5 right-20 w-48 h-32 text-background/[0.06] rotate-[-5deg]" />
+          <HoodieOutline className="absolute bottom-5 left-1/4 w-36 h-36 text-background/[0.05] rotate-[8deg]" />
+          <TShirtOutline className="absolute bottom-10 right-10 w-32 h-32 text-background/[0.06] rotate-[-12deg]" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 md:px-12 text-center relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-6">Join the Inner Circle</p>
           <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl tracking-tight mb-4">Stop Missing Out</h2>
           <p className="text-base text-background/50 max-w-md mx-auto mb-10">
