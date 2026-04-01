@@ -18,6 +18,8 @@ SHOPIFY_BRANDS = [
     {"key": "house_of_koala", "name": "House of Koala", "store_key": "HOUSE_OF_KOALA", "url": "https://houseofkoala.com"},
     {"key": "farak", "name": "Farak", "store_key": "FARAK", "url": "https://farak.co"},
     {"key": "superkicks", "name": "Superkicks", "store_key": "SUPERKICKS", "url": "https://www.superkicks.in"},
+    {"key": "mainstreet", "name": "Mainstreet Marketplace", "store_key": "MAINSTREET", "url": "https://marketplace.mainstreet.co.in"},
+    {"key": "limited_edt", "name": "Limited Edt", "store_key": "LIMITED_EDT", "url": "https://www.limitededt.com"},
 ]
 
 # Build SCRAPERS dict

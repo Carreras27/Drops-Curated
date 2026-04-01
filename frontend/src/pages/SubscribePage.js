@@ -132,6 +132,8 @@ const ALL_BRANDS = [
   { key: 'VEG_NON_VEG', name: 'Veg Non Veg' },
   { key: 'CULTURE_CIRCLE', name: 'Culture Circle' },
   { key: 'SUPERKICKS', name: 'Superkicks' },
+  { key: 'MAINSTREET', name: 'Mainstreet Marketplace' },
+  { key: 'LIMITED_EDT', name: 'Limited Edt' },
 ];
 
 const STEPS = ['verify', 'details', 'payment', 'preferences', 'success'];

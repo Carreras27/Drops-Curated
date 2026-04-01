@@ -18,13 +18,15 @@
 - Scraping: Generic Shopify scraper + WooCommerce + httpx/BeautifulSoup + Playwright
 - Scheduler: APScheduler (every 15 minutes)
 
-## Live Brands (15 total, 7,800+ products)
+## Live Brands (17 total, 9,300+ products)
 | Brand | Platform | Products |
 |-------|----------|----------|
 | Crep Dog Crew | Shopify | 1660 |
 | Capsul | Shopify | 1250 |
 | Urban Monkey | Shopify | 1241 |
 | Huemn | Shopify | 985 |
+| Mainstreet Marketplace | Shopify | 750 |
+| Limited Edt | Shopify | 750 |
 | Superkicks | Shopify | 741 |
 | Bluorng | Shopify | 551 |
 | House of Koala | Shopify | 306 |
