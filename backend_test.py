@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class HouseOfKitchensAPITester:
-    def __init__(self, base_url="https://streetwear-deals-1.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://drops-curated.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.chef_token = None
         self.customer_token = None
@@ -256,7 +256,7 @@ class HouseOfKitchensAPITester:
         order_data = {
             "items": order_items,
             "delivery_address": "123 Test Street, Test City, TC 12345",
-            "origin_url": "https://streetwear-deals-1.preview.emergentagent.com"
+            "origin_url": "https://drops-curated.preview.emergentagent.com"
         }
         
         success, response = self.run_test(
@@ -308,7 +308,7 @@ class HouseOfKitchensAPITester:
             
         checkout_data = {
             "order_id": self.created_order_id,
-            "origin_url": "https://streetwear-deals-1.preview.emergentagent.com"
+            "origin_url": "https://drops-curated.preview.emergentagent.com"
         }
         
         success, response = self.run_test(

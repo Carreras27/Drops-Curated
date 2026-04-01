@@ -443,6 +443,8 @@ class UpdatePreferences(BaseModel):
     phone: str
     brands: list[str] = []  # Empty = all brands
     alert_types: list[str] = ["price_drop", "new_release"]  # price_drop, new_release
+    categories: list[str] = []  # Empty = all categories (garments, sneakers, accessories)
+    sizes: list[str] = []  # Empty = all sizes
 
 @api_router.post('/preferences')
 async def update_preferences(data: UpdatePreferences):
@@ -453,6 +455,8 @@ async def update_preferences(data: UpdatePreferences):
             'preferences': {
                 'brands': data.brands,
                 'alert_types': data.alert_types,
+                'categories': data.categories,
+                'sizes': data.sizes,
             },
             'updatedAt': datetime.now(timezone.utc).isoformat(),
         }}
@@ -466,7 +470,7 @@ async def get_preferences(phone: str):
     sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0, 'preferences': 1, 'phone': 1})
     if not sub:
         raise HTTPException(status_code=404, detail='Subscriber not found')
-    prefs = sub.get('preferences', {'brands': [], 'alert_types': ['price_drop', 'new_release']})
+    prefs = sub.get('preferences', {'brands': [], 'alert_types': ['price_drop', 'new_release'], 'categories': [], 'sizes': []})
     return {'phone': phone, 'preferences': prefs}
 
 # ============ SCHEDULER STATUS ============

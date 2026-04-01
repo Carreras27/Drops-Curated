@@ -1,0 +1,147 @@
+<analysis>**original_problem_statement:**
+The project is Drops Curated — a premium VIP subscription platform (₹399/month) for the Indian luxury streetwear market. The core value proposition is sending real-time WhatsApp alerts for new streetwear drops and price reductions within 10 seconds of them happening. 
+PRODUCT REQUIREMENTS: 
+- Track 14 premium Indian streetwear brands (Almost Gods, Bluorng, Capsul, etc.) via auto-scraping every 15 minutes.
+- Warm Minimalist, luxury digital boutique UI design (Navy, Gold, Eggshell).
+- WhatsApp-based OTP authentication (to prevent bans).
+- Razorpay UPI integration for monthly subscriptions.
+- Customizable alert preferences (brand, category, size).
+- Digital membership cards for Apple/Google Wallet.
+
+**User's preferred language**: English (INSTRUCT next agent to respond in English)
+
+**what currently exists?** 
+A fully functional React frontend and FastAPI backend. The app features a luxury UI, a robust background auto-scraper () managing 14 specific brand scrapers, Twilio integration for WhatsApp OTPs and alerts (Sandbox mode), and Razorpay for subscription payments (Sandbox mode). The database holds ~7,000 real scraped products, with old fake seed data successfully purged.
+
+**Last working item**:
+    - Last item agent was working: Updating the subscriber preferences flow to include  (garments/sneakers) and  filters, allowing users to customize their WhatsApp drops.
+    - Status: TESTING PENDING
+    - Agent Testing Done: N (The agent injected the code via  into  and  but the session ended before testing).
+    - Which testing method agent to use? Both (Run  or use screenshot tool + curl to verify the updated UI and DB preference saving).
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:  
+  Issue 1: Verify Category and Size Preferences Feature (P0)
+     - Attempted fixes: Agent updated  and backend API using .
+     - Next debug checklist: Start backend/frontend, navigate to  (or trigger the preference update flow), ensure categories and sizes UI renders properly, submit form, and verify MongoDB updates the user's document correctly.
+     - Why fix this issue and what will be achieved with the fix? This fulfills the user's very last explicit request to allow detailed alert customization.
+     - Status: TESTING PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on other issue: None
+
+**In progress Task List**: 
+  Task 1: Finalize Subscription Customization Flow (P0)
+     - Where to resume: Verify the UI for category/size selection on  and ensure the FastAPI backend correctly saves and applies these filters in .
+     - What will be achieved with this? Users will only receive WhatsApp alerts for their specific sizes and preferred garment types.
+     - Status: TESTING PENDING
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on something: None
+
+**Upcoming and Future Tasks**
+    Upcoming Tasks:
+    - (P1) Apple/Google Wallet Integration: The user requested A membership card to be sent via WhatsApp that can be stored in apple and google wallet. Currently, this is just a UI card. Needs generation of  / Google Wallet API integration.
+    - (P1) Production Keys Migration: Transition Twilio and Razorpay from Sandbox mode to Production mode once the user provides actual API keys.
+    Future Tasks:
+    - (P2) Drop Calendar UI: A calendar showing upcoming releases from all tracked brands.
+    - (P2) Brand Partner Dashboard: A portal for partnered brands to showcase collections or buy bulk memberships.
+
+**Completed work in this session**
+- Complete project pivot to Drops Curated with luxury Warm Minimalist design.
+- WhatsApp OTP auth via Twilio integration (Sandbox).
+- Razorpay subscription payment flow integration (Sandbox).
+- Built 14 custom web scrapers for Indian streetwear brands (Shopify, WooCommerce, Playwright).
+- Purged all fake/seed data (H&M, Zara, Cosmetics).
+- Implemented 15-minute background auto-scraping via .
+- Implemented Twilio WhatsApp alert dispatch logic for price drops and new items.
+
+**Earlier issues found/mentioned but not fixed**
+   Issue 1: Apple/Google Wallet actual integration
+   - Debug checklist: Check  and  where the membership card is generated. Research  generation in Python.
+   - Why to solve this issue and what will be achieved with this? User explicitly requested this feature for the VIP feel; currently, it is missing actual wallet integration.
+   - Should Test frontend/backend/both after fix: Both
+   - Is recurring issue? N
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: N/A
+  - Recurrence count: 0
+  - Status: RESOLVED
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- Frontend: React, Tailwind CSS (Custom luxury theme)
+- Backend: FastAPI, Python
+- Database: MongoDB
+- Background Tasks: 
+- Notifications: Twilio API (WhatsApp Business)
+- Payments: Razorpay API
+
+**key DB schema**
+  - : 
+  - : 
+  - : 
+
+**changes in tech stack**
+  - Transitioned fully to MongoDB (Prisma/PostgreSQL from the original handoff is no longer in use).
+  - Added  for cron jobs.
+  - Added  and  SDKs.
+
+**All files of reference** 
+  -  (Updated with size/category filters)
+  -  (Updated to handle preference arrays)
+  -  (Needs verification that size/category filters are respected when sending WhatsApp messages)
+  - 
+
+**Areas that need refactoring**: 
+  -  is getting very large (>800 lines). API routes should be extracted into a  directory (e.g., , , ) to maintain clean architecture.
+
+**key api endpoints**
+  -  & 
+  -  & 
+  -  & 
+  -  (Manual scrape trigger)
+  - 
+
+**Critical Info for New Agent** 
+- Twilio and Razorpay are currently operating in **SANDBOX/TEST** mode. Do not request or search for production keys unless instructed by the user.
+- The platform relies on a continuous background scheduler (). If you restart the backend, ensure the scheduler spins up correctly.
+- Always exclude the MongoDB  field in your API responses using  in projections.
+- Never use Zara, H&M, or cosmetics in dummy data; the app is strictly for 14 specific premium Indian streetwear brands.
+
+**documents and test reports created in this job** 
+  - 
+  - 
+  - 
+
+**Last 10 User Messages and any pending HUMAN messages** 
+1. User: Asked to remove Zara, H&M, and incorrect cosmetic items (Cleanup completed).
+2. User: Emphasized that real-time scraping and immediate WhatsApp push alerts are critical for the business to survive (Completed).
+3. User: Requested a 15-minute auto-scraper and WhatsApp Business API. Also requested user-configurable brand/notification preferences (Completed).
+4. User: Asked which WhatsApp provider is best/low cost.
+5. User: Approved using Twilio (Completed).
+6. User: Requested to add category (garments/sneakers) and size filters to the subscriber preferences (Code written, **TESTING PENDING**).
+
+**Project Health Check:**
+- Mocked: Twilio WhatsApp delivery (Sandbox mode), Razorpay payments (Test mode).
+- Functional: Scraping, Database, Frontend UI.
+
+**3rd Party Integrations** 
+  - Twilio (WhatsApp API) — requires User API Key (currently using Sandbox)
+  - Razorpay (Payments) — requires User API Key (currently using Test Mode)
+  - OpenAI GPT-4o/Vision — uses Emergent LLM Key (Visual search functionality left over from previous pivot, currently secondary).
+
+**Testing status**
+  - Testing agent used after significant changes: YES (Iterations 1 through 4 passed 100%).
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: 
+  - Known regressions: None, but the latest preference update has NOT been tested.
+
+**Credentials to test flow:**
+  - Phone: Any 10-digit Indian number starting with 6-9 (e.g., )
+  - OTP Sandbox mock value: Usually  (Check backend console logs to see the generated sandbox OTP).
+
+**What agent forgot to execute**
+- The agent completely forgot to test the final user request (Category and Size preferences). The files were edited using , but no frontend preview or backend curl checks were performed before the context ended.
+- The agent has not implemented the actual  / Apple Wallet integration, which was requested earlier by the user as part of the membership card generation.</analysis>

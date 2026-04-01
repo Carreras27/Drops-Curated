@@ -38,6 +38,8 @@ export default function SubscribePage() {
   // Preferences
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [alertTypes, setAlertTypes] = useState(['price_drop', 'new_release']);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedSizes, setSelectedSizes] = useState([]);
 
   const sendOtp = async () => {
     if (phone.length !== 10 || !'6789'.includes(phone[0])) {
@@ -124,8 +126,16 @@ export default function SubscribePage() {
   const toggleAlertType = (type) => {
     setAlertTypes(prev => {
       const next = prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type];
-      return next.length > 0 ? next : prev; // Must have at least one
+      return next.length > 0 ? next : prev;
     });
+  };
+
+  const toggleCategory = (cat) => {
+    setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+  };
+
+  const toggleSize = (size) => {
+    setSelectedSizes(prev => prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]);
   };
 
   const savePreferences = async () => {
@@ -133,8 +143,10 @@ export default function SubscribePage() {
     try {
       await axios.post(`${API_URL}/preferences`, {
         phone,
-        brands: selectedBrands, // Empty = all brands
+        brands: selectedBrands,
         alert_types: alertTypes,
+        categories: selectedCategories,
+        sizes: selectedSizes,
       });
       toast.success('Preferences saved!');
       setStep('success');
@@ -327,6 +339,59 @@ export default function SubscribePage() {
                       </div>
                     </div>
 
+                    {/* Categories */}
+                    <div>
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Product Categories</p>
+                      {selectedCategories.length === 0 && (
+                        <p className="text-[10px] text-accent/60 mb-3">No categories selected = alerts for ALL categories</p>
+                      )}
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { key: 'garments', label: 'Garments' },
+                          { key: 'sneakers', label: 'Sneakers' },
+                          { key: 'accessories', label: 'Accessories' },
+                        ].map(cat => (
+                          <button
+                            key={cat.key}
+                            onClick={() => toggleCategory(cat.key)}
+                            className={`flex items-center justify-center gap-2 p-3 border text-xs transition-all ${
+                              selectedCategories.includes(cat.key) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                            }`}
+                            data-testid={`pref-category-${cat.key}`}
+                          >
+                            <div className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                              selectedCategories.includes(cat.key) ? 'bg-accent border-accent' : 'border-primary/20'
+                            }`}>
+                              {selectedCategories.includes(cat.key) && <Check className="w-2.5 h-2.5 text-primary" strokeWidth={2} />}
+                            </div>
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sizes */}
+                    <div>
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Preferred Sizes</p>
+                      {selectedSizes.length === 0 && (
+                        <p className="text-[10px] text-accent/60 mb-3">No sizes selected = alerts for ALL sizes</p>
+                      )}
+                      <div className="grid grid-cols-5 gap-2">
+                        {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'UK6', 'UK7', 'UK8', 'UK9', 'UK10', 'UK11', 'UK12', 'Free Size'].map(size => (
+                          <button
+                            key={size}
+                            onClick={() => toggleSize(size)}
+                            className={`flex items-center justify-center p-2 border text-xs transition-all ${
+                              selectedSizes.includes(size) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                            }`}
+                            data-testid={`pref-size-${size}`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Brands */}
                     <div>
                       <div className="flex items-center justify-between mb-4">
@@ -401,6 +466,8 @@ export default function SubscribePage() {
                     <div className="text-xs text-primary/40 mb-6 space-y-1">
                       <p>Alerts: {alertTypes.includes('price_drop') && alertTypes.includes('new_release') ? 'Price drops + New releases' : alertTypes.includes('price_drop') ? 'Price drops only' : 'New releases only'}</p>
                       <p>Brands: {selectedBrands.length === 0 ? 'All 14 brands' : `${selectedBrands.length} brand${selectedBrands.length > 1 ? 's' : ''} selected`}</p>
+                      <p>Categories: {selectedCategories.length === 0 ? 'All categories' : selectedCategories.join(', ')}</p>
+                      <p>Sizes: {selectedSizes.length === 0 ? 'All sizes' : selectedSizes.join(', ')}</p>
                     </div>
 
                     <div className="space-y-3 mb-8">
