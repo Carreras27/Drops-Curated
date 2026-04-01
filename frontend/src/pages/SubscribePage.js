@@ -1,9 +1,118 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings } from 'lucide-react';
+import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
+
+// Size Guide Modal Component
+const SizeGuideModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-background border border-primary/10 max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-background border-b border-primary/10 p-6 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-accent uppercase tracking-widest mb-1">Reference</p>
+            <h3 className="font-serif text-xl">Size Guide</h3>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 border border-primary/10 flex items-center justify-center hover:border-accent transition-colors" data-testid="close-size-guide">
+            <X className="w-4 h-4" strokeWidth={1.5} />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-8">
+          {/* Garments */}
+          <div>
+            <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 bg-accent/10 flex items-center justify-center text-accent text-xs">1</span>
+              Garments (T-shirts, Hoodies, Jackets)
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-primary/10">
+                    <th className="text-left py-2 pr-4 text-primary/40 font-medium">Size</th>
+                    <th className="text-center py-2 px-4 text-primary/40 font-medium">Chest (in)</th>
+                    <th className="text-center py-2 px-4 text-primary/40 font-medium">Length (in)</th>
+                    <th className="text-center py-2 pl-4 text-primary/40 font-medium">Fits</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { size: 'XS', chest: '36-38', length: '26', fits: 'Extra Small' },
+                    { size: 'S', chest: '38-40', length: '27', fits: 'Small' },
+                    { size: 'M', chest: '40-42', length: '28', fits: 'Medium' },
+                    { size: 'L', chest: '42-44', length: '29', fits: 'Large' },
+                    { size: 'XL', chest: '44-46', length: '30', fits: 'Extra Large' },
+                    { size: 'XXL', chest: '46-48', length: '31', fits: 'Double XL' },
+                  ].map(row => (
+                    <tr key={row.size} className="border-b border-primary/5">
+                      <td className="py-2 pr-4 font-medium">{row.size}</td>
+                      <td className="py-2 px-4 text-center text-primary/60">{row.chest}</td>
+                      <td className="py-2 px-4 text-center text-primary/60">{row.length}</td>
+                      <td className="py-2 pl-4 text-center text-primary/40">{row.fits}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Sneakers */}
+          <div>
+            <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 bg-accent/10 flex items-center justify-center text-accent text-xs">2</span>
+              Sneakers (UK to EU/US Conversion)
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-primary/10">
+                    <th className="text-left py-2 pr-4 text-primary/40 font-medium">UK</th>
+                    <th className="text-center py-2 px-4 text-primary/40 font-medium">EU</th>
+                    <th className="text-center py-2 px-4 text-primary/40 font-medium">US Men</th>
+                    <th className="text-center py-2 pl-4 text-primary/40 font-medium">CM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { uk: 'UK6', eu: '39.5', us: '7', cm: '25' },
+                    { uk: 'UK7', eu: '40.5', us: '8', cm: '26' },
+                    { uk: 'UK8', eu: '42', us: '9', cm: '27' },
+                    { uk: 'UK9', eu: '43', us: '10', cm: '28' },
+                    { uk: 'UK10', eu: '44.5', us: '11', cm: '29' },
+                    { uk: 'UK11', eu: '45.5', us: '12', cm: '30' },
+                    { uk: 'UK12', eu: '47', us: '13', cm: '31' },
+                  ].map(row => (
+                    <tr key={row.uk} className="border-b border-primary/5">
+                      <td className="py-2 pr-4 font-medium">{row.uk}</td>
+                      <td className="py-2 px-4 text-center text-primary/60">{row.eu}</td>
+                      <td className="py-2 px-4 text-center text-primary/60">{row.us}</td>
+                      <td className="py-2 pl-4 text-center text-primary/40">{row.cm}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-primary/[0.02] border border-primary/10 p-4">
+            <p className="text-xs font-medium mb-2">Pro Tips</p>
+            <ul className="text-xs text-primary/50 space-y-1">
+              <li>• Indian streetwear brands often run slightly smaller - consider sizing up</li>
+              <li>• For oversized fits (popular in streetwear), go 1-2 sizes up</li>
+              <li>• Sneaker sizes are consistent across most brands on our platform</li>
+              <li>• When in doubt, check brand-specific size guides on their websites</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -40,6 +149,8 @@ export default function SubscribePage() {
   const [alertTypes, setAlertTypes] = useState(['price_drop', 'new_release']);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [walletLoading, setWalletLoading] = useState({ apple: false, google: false });
 
   const sendOtp = async () => {
     if (phone.length !== 10 || !'6789'.includes(phone[0])) {
@@ -154,6 +265,33 @@ export default function SubscribePage() {
       toast.error('Failed to save preferences');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addToWallet = async (walletType) => {
+    if (!membership) return;
+    
+    setWalletLoading(prev => ({ ...prev, [walletType]: true }));
+    try {
+      const resp = await axios.post(`${API_URL}/wallet/${walletType}`, {
+        phone,
+        name,
+        membership_id: membership.membership_id,
+        expires_at: membership.expires_at,
+      });
+      
+      if (resp.data.pass_url) {
+        // Download or redirect to pass
+        window.open(resp.data.pass_url, '_blank');
+        toast.success(`${walletType === 'apple' ? 'Apple' : 'Google'} Wallet pass ready!`);
+      } else if (resp.data.message) {
+        toast.info(resp.data.message);
+      }
+    } catch (err) {
+      const message = err.response?.data?.detail || `Failed to generate ${walletType} pass`;
+      toast.error(message);
+    } finally {
+      setWalletLoading(prev => ({ ...prev, [walletType]: false }));
     }
   };
 
@@ -372,7 +510,16 @@ export default function SubscribePage() {
 
                     {/* Sizes */}
                     <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Preferred Sizes</p>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-xs text-primary/40 uppercase tracking-widest">Preferred Sizes</p>
+                        <button
+                          onClick={() => setShowSizeGuide(true)}
+                          className="text-[10px] text-accent hover:text-primary transition-colors flex items-center gap-1"
+                          data-testid="open-size-guide"
+                        >
+                          <Ruler className="w-3 h-3" /> Size Guide
+                        </button>
+                      </div>
                       {selectedSizes.length === 0 && (
                         <p className="text-[10px] text-accent/60 mb-3">No sizes selected = alerts for ALL sizes</p>
                       )}
@@ -471,11 +618,25 @@ export default function SubscribePage() {
                     </div>
 
                     <div className="space-y-3 mb-8">
-                      <button className="w-full border border-primary/10 py-3 text-sm font-medium flex items-center justify-center gap-2 hover:border-accent transition-colors" data-testid="add-apple-wallet">
-                        Add to Apple Wallet <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
+                      <button 
+                        onClick={() => addToWallet('apple')}
+                        disabled={walletLoading.apple}
+                        className="w-full border border-primary/10 py-3 text-sm font-medium flex items-center justify-center gap-2 hover:border-accent transition-colors disabled:opacity-50" 
+                        data-testid="add-apple-wallet"
+                      >
+                        <Apple className="w-4 h-4" strokeWidth={1.5} />
+                        {walletLoading.apple ? 'Generating...' : 'Add to Apple Wallet'}
+                        <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
                       </button>
-                      <button className="w-full border border-primary/10 py-3 text-sm font-medium flex items-center justify-center gap-2 hover:border-accent transition-colors" data-testid="add-google-wallet">
-                        Add to Google Wallet <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
+                      <button 
+                        onClick={() => addToWallet('google')}
+                        disabled={walletLoading.google}
+                        className="w-full border border-primary/10 py-3 text-sm font-medium flex items-center justify-center gap-2 hover:border-accent transition-colors disabled:opacity-50" 
+                        data-testid="add-google-wallet"
+                      >
+                        <Wallet className="w-4 h-4" strokeWidth={1.5} />
+                        {walletLoading.google ? 'Generating...' : 'Add to Google Wallet'}
+                        <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
                       </button>
                     </div>
 
@@ -521,6 +682,9 @@ export default function SubscribePage() {
       </main>
 
       <Footer />
+      
+      {/* Size Guide Modal */}
+      <SizeGuideModal isOpen={showSizeGuide} onClose={() => setShowSizeGuide(false)} />
     </div>
   );
 }

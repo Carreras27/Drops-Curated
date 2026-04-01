@@ -473,6 +473,218 @@ async def get_preferences(phone: str):
     prefs = sub.get('preferences', {'brands': [], 'alert_types': ['price_drop', 'new_release'], 'categories': [], 'sizes': []})
     return {'phone': phone, 'preferences': prefs}
 
+# ============ WALLET PASS GENERATION ============
+import json
+import hashlib
+import zipfile
+import io
+
+# Apple Wallet Configuration (requires Apple Developer certificates)
+APPLE_PASS_TYPE_ID = os.getenv('APPLE_PASS_TYPE_ID', '')
+APPLE_TEAM_ID = os.getenv('APPLE_TEAM_ID', '')
+APPLE_CERT_PATH = os.getenv('APPLE_CERT_PATH', '')
+APPLE_KEY_PATH = os.getenv('APPLE_KEY_PATH', '')
+APPLE_WWDR_PATH = os.getenv('APPLE_WWDR_PATH', '')
+
+# Google Wallet Configuration
+GOOGLE_WALLET_ISSUER_ID = os.getenv('GOOGLE_WALLET_ISSUER_ID', '')
+GOOGLE_WALLET_SERVICE_ACCOUNT = os.getenv('GOOGLE_WALLET_SERVICE_ACCOUNT_JSON', '')
+
+class WalletPassRequest(BaseModel):
+    phone: str
+    name: str
+    membership_id: str
+    expires_at: str
+
+@api_router.post('/wallet/apple')
+async def generate_apple_wallet_pass(data: WalletPassRequest):
+    """Generate Apple Wallet .pkpass file for membership card"""
+    
+    # Check if Apple Wallet is configured
+    if not APPLE_PASS_TYPE_ID or not APPLE_TEAM_ID:
+        # Return helpful message about configuration
+        return {
+            'configured': False,
+            'message': 'Apple Wallet integration requires Apple Developer certificates. Contact support to enable this feature.',
+            'requirements': [
+                'Apple Developer Account ($99/year)',
+                'Pass Type ID certificate',
+                'WWDR certificate'
+            ]
+        }
+    
+    try:
+        # Generate pass.json structure
+        pass_data = {
+            "formatVersion": 1,
+            "passTypeIdentifier": APPLE_PASS_TYPE_ID,
+            "serialNumber": data.membership_id,
+            "teamIdentifier": APPLE_TEAM_ID,
+            "organizationName": "Drops Curated",
+            "description": "VIP Membership Card",
+            "logoText": "Drops Curated",
+            "foregroundColor": "rgb(212, 175, 55)",
+            "backgroundColor": "rgb(0, 31, 63)",
+            "labelColor": "rgb(255, 255, 255)",
+            "storeCard": {
+                "headerFields": [
+                    {
+                        "key": "member",
+                        "label": "MEMBER",
+                        "value": data.name
+                    }
+                ],
+                "primaryFields": [
+                    {
+                        "key": "membership",
+                        "label": "VIP MEMBERSHIP",
+                        "value": "Active"
+                    }
+                ],
+                "secondaryFields": [
+                    {
+                        "key": "id",
+                        "label": "MEMBER ID",
+                        "value": data.membership_id
+                    },
+                    {
+                        "key": "phone",
+                        "label": "PHONE",
+                        "value": f"+91 {data.phone}"
+                    }
+                ],
+                "auxiliaryFields": [
+                    {
+                        "key": "expires",
+                        "label": "VALID UNTIL",
+                        "value": data.expires_at[:10]
+                    }
+                ],
+                "backFields": [
+                    {
+                        "key": "terms",
+                        "label": "MEMBERSHIP BENEFITS",
+                        "value": "• Instant WhatsApp alerts (<10 seconds)\\n• Price drop notifications\\n• New collection drops\\n• Access to all 14 premium Indian streetwear brands\\n\\nSupport: hello@dropscurated.com"
+                    }
+                ]
+            },
+            "barcode": {
+                "message": data.membership_id,
+                "format": "PKBarcodeFormatQR",
+                "messageEncoding": "iso-8859-1"
+            }
+        }
+        
+        # In production with certificates, generate actual .pkpass file
+        # For now, store pass data and return placeholder
+        await db.wallet_passes.update_one(
+            {'membership_id': data.membership_id, 'type': 'apple'},
+            {'$set': {
+                'pass_data': pass_data,
+                'phone': data.phone,
+                'name': data.name,
+                'createdAt': datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+        
+        return {
+            'configured': False,
+            'message': 'Apple Wallet pass data saved! Full .pkpass generation requires Apple Developer certificates.',
+            'pass_preview': {
+                'member': data.name,
+                'id': data.membership_id,
+                'expires': data.expires_at[:10]
+            }
+        }
+        
+    except Exception as e:
+        logging.error(f"Apple Wallet error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post('/wallet/google')
+async def generate_google_wallet_pass(data: WalletPassRequest):
+    """Generate Google Wallet pass for membership card"""
+    
+    # Check if Google Wallet is configured
+    if not GOOGLE_WALLET_ISSUER_ID:
+        return {
+            'configured': False,
+            'message': 'Google Wallet integration requires Google Cloud setup. Contact support to enable this feature.',
+            'requirements': [
+                'Google Cloud Account',
+                'Google Wallet API enabled',
+                'Service Account with Wallet permissions'
+            ]
+        }
+    
+    try:
+        # Google Wallet pass object structure
+        pass_object = {
+            "id": f"{GOOGLE_WALLET_ISSUER_ID}.{data.membership_id}",
+            "classId": f"{GOOGLE_WALLET_ISSUER_ID}.drops_curated_vip",
+            "state": "ACTIVE",
+            "heroImage": {
+                "sourceUri": {
+                    "uri": "https://dropscurated.com/card-hero.png"
+                }
+            },
+            "textModulesData": [
+                {
+                    "header": "Member Name",
+                    "body": data.name
+                },
+                {
+                    "header": "Phone",
+                    "body": f"+91 {data.phone}"
+                }
+            ],
+            "linksModuleData": {
+                "uris": [
+                    {
+                        "uri": "https://dropscurated.com",
+                        "description": "Visit Drops Curated"
+                    }
+                ]
+            },
+            "barcode": {
+                "type": "QR_CODE",
+                "value": data.membership_id,
+                "alternateText": data.membership_id
+            },
+            "validTimeInterval": {
+                "end": {
+                    "date": data.expires_at
+                }
+            }
+        }
+        
+        # Store pass data
+        await db.wallet_passes.update_one(
+            {'membership_id': data.membership_id, 'type': 'google'},
+            {'$set': {
+                'pass_object': pass_object,
+                'phone': data.phone,
+                'name': data.name,
+                'createdAt': datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+        
+        return {
+            'configured': False,
+            'message': 'Google Wallet pass data saved! Full integration requires Google Cloud credentials.',
+            'pass_preview': {
+                'member': data.name,
+                'id': data.membership_id,
+                'expires': data.expires_at[:10]
+            }
+        }
+        
+    except Exception as e:
+        logging.error(f"Google Wallet error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ============ SCHEDULER STATUS ============
 from scheduler import get_scheduler_status, scrape_all_brands as run_full_scrape
 
