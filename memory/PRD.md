@@ -18,36 +18,26 @@
 - Scraping: Generic Shopify scraper + WooCommerce + httpx/BeautifulSoup + Playwright
 - Scheduler: APScheduler (every 15 minutes)
 
-## Live Brands (21 total, 11,400+ products)
-
-### Indian Stores
-| Brand | Platform | Products | Type |
-|-------|----------|----------|------|
-| Crep Dog Crew | Shopify | 1660 | Resale/Hype |
-| Capsul | Shopify | 1250 | Streetwear |
-| Urban Monkey | Shopify | 1241 | Caps/Streetwear |
-| Huemn | Shopify | 985 | Streetwear |
-| Mainstreet Marketplace | Shopify | 750 | Hype/Resale |
-| Superkicks | Shopify | 741 | Premium Sneakers |
-| Kickass Kicks | Shopify | 750 | Sneakers |
-| Hype Elixir | Shopify | 750 | Premium/Luxury |
-| Bluorng | Shopify | 551 | Streetwear |
-| House of Koala | Shopify | 306 | Streetwear |
-| Farak | Shopify | 270 | Streetwear |
-| Almost Gods | Shopify | 190 | Streetwear |
-| Jaywalking | Shopify | 190 | Streetwear |
-| Veg Non Veg | HTML parse | 156 | Sneakers |
-| Hiyest | WooCommerce | 126 | Streetwear |
-| Culture Circle | Playwright | 114 | Hype/Auth |
-| Code Brown | Shopify | 53 | Streetwear |
-| Noughtone | Shopify | 26 | Streetwear |
-
-### International Stores
-| Brand | Platform | Products | Region |
-|-------|----------|----------|--------|
-| Limited Edt | Shopify | 750 | Singapore |
-| Stadium Goods | Shopify | 581 | USA (NYC) |
-| Sneakersnstuff | Shopify | — | Sweden (blocked) |
+## Live Brands (17 total, 9,300+ products)
+| Brand | Platform | Products |
+|-------|----------|----------|
+| Crep Dog Crew | Shopify | 1660 |
+| Capsul | Shopify | 1250 |
+| Urban Monkey | Shopify | 1241 |
+| Huemn | Shopify | 985 |
+| Mainstreet Marketplace | Shopify | 750 |
+| Limited Edt | Shopify | 750 |
+| Superkicks | Shopify | 741 |
+| Bluorng | Shopify | 551 |
+| House of Koala | Shopify | 306 |
+| Farak | Shopify | 270 |
+| Almost Gods | Shopify | 190 |
+| Jaywalking | Shopify | 190 |
+| Veg Non Veg | HTML parse | 156 |
+| Hiyest | WooCommerce | 126 |
+| Culture Circle | Playwright | 114 |
+| Code Brown | Shopify | 53 |
+| Noughtone | Shopify | 26 |
 
 ## Core System Architecture
 1. **Auto-Scraper** (every 15 min): Scrapes all 14 brands, detects price changes + new products

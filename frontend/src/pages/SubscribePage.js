@@ -134,10 +134,6 @@ const ALL_BRANDS = [
   { key: 'SUPERKICKS', name: 'Superkicks' },
   { key: 'MAINSTREET', name: 'Mainstreet Marketplace' },
   { key: 'LIMITED_EDT', name: 'Limited Edt' },
-  { key: 'KICKASS_KICKS', name: 'Kickass Kicks' },
-  { key: 'HYPE_ELIXIR', name: 'Hype Elixir' },
-  { key: 'SNEAKERSNSTUFF', name: 'Sneakersnstuff (SNS)' },
-  { key: 'STADIUM_GOODS', name: 'Stadium Goods' },
 ];
 
 const STEPS = ['verify', 'details', 'payment', 'preferences', 'success'];
