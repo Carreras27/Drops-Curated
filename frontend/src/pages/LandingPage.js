@@ -114,12 +114,12 @@ export const Footer = () => (
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Brands</p>
           <div className="flex flex-col gap-2.5">
+            <span className="text-xs text-primary/40">Superkicks</span>
             <span className="text-xs text-primary/40">Crep Dog Crew</span>
             <span className="text-xs text-primary/40">Veg Non Veg</span>
             <span className="text-xs text-primary/40">Culture Circle</span>
             <span className="text-xs text-primary/40">Huemn</span>
-            <span className="text-xs text-primary/40">Urban Monkey</span>
-            <Link to="/browse" className="text-xs text-accent hover:text-primary transition-colors">+ 9 more</Link>
+            <Link to="/browse" className="text-xs text-accent hover:text-primary transition-colors">+ 10 more</Link>
           </div>
         </div>
         <div>

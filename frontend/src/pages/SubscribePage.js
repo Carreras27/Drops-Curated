@@ -131,6 +131,7 @@ const ALL_BRANDS = [
   { key: 'HIYEST', name: 'Hiyest' },
   { key: 'VEG_NON_VEG', name: 'Veg Non Veg' },
   { key: 'CULTURE_CIRCLE', name: 'Culture Circle' },
+  { key: 'SUPERKICKS', name: 'Superkicks' },
 ];
 
 const STEPS = ['verify', 'details', 'payment', 'preferences', 'success'];

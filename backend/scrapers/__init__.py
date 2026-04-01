@@ -17,6 +17,7 @@ SHOPIFY_BRANDS = [
     {"key": "urban_monkey", "name": "Urban Monkey", "store_key": "URBAN_MONKEY", "url": "https://urbanmonkey.com"},
     {"key": "house_of_koala", "name": "House of Koala", "store_key": "HOUSE_OF_KOALA", "url": "https://houseofkoala.com"},
     {"key": "farak", "name": "Farak", "store_key": "FARAK", "url": "https://farak.co"},
+    {"key": "superkicks", "name": "Superkicks", "store_key": "SUPERKICKS", "url": "https://www.superkicks.in"},
 ]
 
 # Build SCRAPERS dict

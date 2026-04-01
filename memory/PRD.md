@@ -18,23 +18,24 @@
 - Scraping: Generic Shopify scraper + WooCommerce + httpx/BeautifulSoup + Playwright
 - Scheduler: APScheduler (every 15 minutes)
 
-## Live Brands (14 total, 7,097+ products)
+## Live Brands (15 total, 7,800+ products)
 | Brand | Platform | Products |
 |-------|----------|----------|
-| Crep Dog Crew | Shopify | 1680 |
-| Capsul | Shopify | 750 |
+| Crep Dog Crew | Shopify | 1660 |
+| Capsul | Shopify | 1250 |
+| Urban Monkey | Shopify | 1241 |
 | Huemn | Shopify | 985 |
-| Urban Monkey | Shopify | 743 |
+| Superkicks | Shopify | 741 |
 | Bluorng | Shopify | 551 |
 | House of Koala | Shopify | 306 |
 | Farak | Shopify | 270 |
-| Almost Gods | Shopify | 224 |
+| Almost Gods | Shopify | 190 |
 | Jaywalking | Shopify | 190 |
+| Veg Non Veg | HTML parse | 156 |
 | Hiyest | WooCommerce | 126 |
-| Veg Non Veg | HTML parse | 153 |
 | Culture Circle | Playwright | 114 |
 | Code Brown | Shopify | 53 |
-| Noughtone | Shopify | 37 |
+| Noughtone | Shopify | 26 |
 
 ## Core System Architecture
 1. **Auto-Scraper** (every 15 min): Scrapes all 14 brands, detects price changes + new products
