@@ -7,6 +7,7 @@ import LandingPage from './pages/LandingPage';
 import BrowsePage from './pages/BrowsePage';
 import ProductPage from './pages/ProductPage';
 import SubscribePage from './pages/SubscribePage';
+import PartnersPage from './pages/PartnersPage';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/subscribe" element={<SubscribePage />} />
+          <Route path="/partners" element={<PartnersPage />} />
         </Routes>
         <Toaster position="top-center" richColors />
       </div>

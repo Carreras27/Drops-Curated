@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 import bcrypt
 import jwt
 from enum import Enum
@@ -230,40 +230,233 @@ async def get_brands():
     
     return {'brands': brands}
 
-# ============ SUBSCRIPTIONS ============
-class SubscribeRequest(BaseModel):
-    name: str
+# ============ SUBSCRIPTIONS & PAYMENTS ============
+import random
+import string
+import os
+
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
+SANDBOX_MODE = RAZORPAY_KEY_ID.startswith('rzp_test')
+
+# In-memory OTP store (use Redis in production)
+otp_store: dict = {}
+
+class OTPRequest(BaseModel):
     phone: str
-    plan: str = "Pro"
 
-@api_router.post('/subscribe')
-async def subscribe(data: SubscribeRequest):
-    if not data.phone or len(data.phone) != 10:
-        raise HTTPException(status_code=400, detail='Invalid phone number')
+class OTPVerify(BaseModel):
+    phone: str
+    otp: str
 
-    existing = await db.subscribers.find_one({'phone': data.phone})
-    if existing:
-        await db.subscribers.update_one(
-            {'phone': data.phone},
-            {'$set': {'plan': data.plan, 'name': data.name, 'updatedAt': datetime.now(timezone.utc).isoformat()}}
-        )
-        return {'message': 'Subscription updated', 'status': 'updated'}
+class CreateOrderRequest(BaseModel):
+    phone: str
+    name: str
+    plan: str = "monthly"
 
-    sub_doc = {
-        'id': f"sub_{datetime.now(timezone.utc).timestamp()}",
-        'name': data.name,
-        'phone': data.phone,
-        'plan': data.plan,
-        'isActive': True,
-        'createdAt': datetime.now(timezone.utc).isoformat(),
+class VerifyPaymentRequest(BaseModel):
+    phone: str
+    order_id: str
+    payment_id: str = ""
+    signature: str = ""
+
+@api_router.post('/otp/send')
+async def send_otp(data: OTPRequest):
+    """Send OTP via WhatsApp (sandbox: returns OTP for testing)"""
+    phone = data.phone.strip()
+    if len(phone) != 10 or phone[0] not in '6789':
+        raise HTTPException(status_code=400, detail='Invalid Indian mobile number')
+
+    otp = ''.join(random.choices(string.digits, k=6))
+    otp_store[phone] = {
+        'otp': otp,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'verified': False,
     }
-    await db.subscribers.insert_one(sub_doc)
-    return {'message': 'Subscription created', 'status': 'created'}
+
+    # In sandbox mode, return OTP directly for testing
+    # In production, send via WhatsApp Business API
+    logger.info(f"OTP for {phone}: {otp}")
+
+    return {
+        'message': 'OTP sent to WhatsApp',
+        'sandbox_otp': otp if SANDBOX_MODE else None,
+    }
+
+@api_router.post('/otp/verify')
+async def verify_otp(data: OTPVerify):
+    """Verify OTP"""
+    phone = data.phone.strip()
+    stored = otp_store.get(phone)
+
+    if not stored:
+        raise HTTPException(status_code=400, detail='OTP expired. Request a new one.')
+    if stored['otp'] != data.otp:
+        raise HTTPException(status_code=400, detail='Invalid OTP')
+
+    otp_store[phone]['verified'] = True
+
+    # Create or get subscriber
+    existing = await db.subscribers.find_one({'phone': phone})
+    if not existing:
+        await db.subscribers.insert_one({
+            'id': f"sub_{int(datetime.now(timezone.utc).timestamp())}",
+            'phone': phone,
+            'isActive': False,
+            'isPaid': False,
+            'createdAt': datetime.now(timezone.utc).isoformat(),
+        })
+
+    return {'message': 'OTP verified', 'verified': True}
+
+@api_router.post('/payment/create-order')
+async def create_payment_order(data: CreateOrderRequest):
+    """Create a Razorpay order for subscription"""
+    phone = data.phone.strip()
+    stored = otp_store.get(phone)
+    if not stored or not stored.get('verified'):
+        raise HTTPException(status_code=400, detail='Phone not verified. Complete OTP first.')
+
+    amount = 39900  # ₹399 in paise
+
+    if SANDBOX_MODE:
+        # Sandbox: simulate order
+        order_id = f"order_sandbox_{int(datetime.now(timezone.utc).timestamp())}"
+        order_data = {
+            'id': order_id,
+            'amount': amount,
+            'currency': 'INR',
+            'status': 'created',
+        }
+    else:
+        import razorpay
+        rz_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        order_data = rz_client.order.create({
+            'amount': amount,
+            'currency': 'INR',
+            'payment_capture': 1,
+            'notes': {'phone': phone, 'plan': data.plan},
+        })
+
+    # Store order
+    await db.orders.insert_one({
+        'orderId': order_data['id'],
+        'phone': phone,
+        'name': data.name,
+        'amount': amount,
+        'status': 'created',
+        'plan': data.plan,
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {
+        'order_id': order_data['id'],
+        'amount': amount,
+        'currency': 'INR',
+        'key_id': RAZORPAY_KEY_ID,
+        'sandbox': SANDBOX_MODE,
+    }
+
+@api_router.post('/payment/verify')
+async def verify_payment(data: VerifyPaymentRequest):
+    """Verify payment and activate membership"""
+    phone = data.phone.strip()
+
+    # Find the order
+    order = await db.orders.find_one({'orderId': data.order_id, 'phone': phone})
+    if not order:
+        raise HTTPException(status_code=400, detail='Order not found')
+
+    if SANDBOX_MODE:
+        # Auto-approve in sandbox
+        is_valid = True
+    else:
+        import razorpay, hmac, hashlib
+        rz_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        try:
+            rz_client.utility.verify_payment_signature({
+                'razorpay_order_id': data.order_id,
+                'razorpay_payment_id': data.payment_id,
+                'razorpay_signature': data.signature,
+            })
+            is_valid = True
+        except Exception:
+            is_valid = False
+
+    if not is_valid:
+        raise HTTPException(status_code=400, detail='Payment verification failed')
+
+    # Activate membership
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=30)
+    membership_id = f"DC-{now.strftime('%Y%m')}-{random.randint(10000, 99999)}"
+
+    await db.orders.update_one(
+        {'orderId': data.order_id},
+        {'$set': {'status': 'paid', 'paymentId': data.payment_id, 'paidAt': now.isoformat()}}
+    )
+
+    await db.subscribers.update_one(
+        {'phone': phone},
+        {'$set': {
+            'name': order.get('name', ''),
+            'isActive': True,
+            'isPaid': True,
+            'membershipId': membership_id,
+            'plan': order.get('plan', 'monthly'),
+            'paidAt': now.isoformat(),
+            'expiresAt': expires.isoformat(),
+            'updatedAt': now.isoformat(),
+        }},
+        upsert=True,
+    )
+
+    return {
+        'success': True,
+        'membership_id': membership_id,
+        'expires_at': expires.isoformat(),
+        'message': 'Welcome to Drops Curated!',
+    }
+
+@api_router.get('/membership/{phone}')
+async def get_membership(phone: str):
+    """Get membership details"""
+    sub = await db.subscribers.find_one({'phone': phone, 'isPaid': True}, {'_id': 0})
+    if not sub:
+        raise HTTPException(status_code=404, detail='No active membership found')
+    return {
+        'membership_id': sub.get('membershipId', ''),
+        'name': sub.get('name', ''),
+        'phone': sub.get('phone', ''),
+        'plan': sub.get('plan', 'monthly'),
+        'expires_at': sub.get('expiresAt', ''),
+        'is_active': sub.get('isActive', False),
+    }
 
 @api_router.get('/subscribers/count')
 async def subscriber_count():
     count = await db.subscribers.count_documents({'isActive': True})
     return {'count': count}
+
+# ============ PARTNER INQUIRIES ============
+class PartnerInquiry(BaseModel):
+    brand: str
+    contact: str
+    email: str
+    message: str = ""
+
+@api_router.post('/partner-inquiry')
+async def partner_inquiry(data: PartnerInquiry):
+    doc = {
+        'brand': data.brand,
+        'contact': data.contact,
+        'email': data.email,
+        'message': data.message,
+        'status': 'new',
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    await db.partner_inquiries.insert_one(doc)
+    return {'message': 'Inquiry received', 'status': 'created'}
 
 # ============ REAL-TIME SCRAPING ============
 from scrapers import SCRAPERS

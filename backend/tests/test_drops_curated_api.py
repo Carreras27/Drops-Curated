@@ -129,58 +129,8 @@ class TestProductDetailAPI:
             print(f"✓ Product has no prices (acceptable)")
 
 
-class TestSubscribeAPI:
-    """Subscribe endpoint tests - /api/subscribe"""
-    
-    def test_subscribe_valid_phone(self):
-        """POST /api/subscribe with valid Indian phone should succeed"""
-        payload = {
-            "name": "TEST_User",
-            "phone": "9876543210",
-            "plan": "Pro"
-        }
-        response = requests.post(f"{BASE_URL}/api/subscribe", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert 'message' in data
-        assert 'status' in data
-        assert data['status'] in ['created', 'updated']
-        print(f"✓ Subscription {data['status']} successfully")
-    
-    def test_subscribe_invalid_phone_short(self):
-        """POST /api/subscribe with short phone should fail"""
-        payload = {
-            "name": "TEST_User",
-            "phone": "12345",
-            "plan": "Pro"
-        }
-        response = requests.post(f"{BASE_URL}/api/subscribe", json=payload)
-        assert response.status_code == 400
-        print(f"✓ Short phone number rejected with 400")
-    
-    def test_subscribe_invalid_phone_long(self):
-        """POST /api/subscribe with long phone should fail"""
-        payload = {
-            "name": "TEST_User",
-            "phone": "12345678901234",
-            "plan": "Pro"
-        }
-        response = requests.post(f"{BASE_URL}/api/subscribe", json=payload)
-        assert response.status_code == 400
-        print(f"✓ Long phone number rejected with 400")
-    
-    def test_subscribe_update_existing(self):
-        """POST /api/subscribe with existing phone should update"""
-        payload = {
-            "name": "TEST_Updated_User",
-            "phone": "9876543210",
-            "plan": "Premium"
-        }
-        response = requests.post(f"{BASE_URL}/api/subscribe", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert data['status'] == 'updated'
-        print(f"✓ Existing subscription updated")
+# NOTE: Old /api/subscribe endpoint replaced with OTP-based flow
+# See test_otp_payment_partner.py for new subscription tests
 
 
 class TestScrapeStatusAPI:
