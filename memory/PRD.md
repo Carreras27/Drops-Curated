@@ -56,19 +56,19 @@
 5. **Partners** (`/partners`) — Brand partnership + contact form
 
 ## What's Implemented (December 2025)
-- [x] VIP luxury UI, fully responsive
-- [x] 14 brand scrapers (7,097+ real products)
-- [x] Auto-scraping every 15 minutes
+- [x] VIP luxury UI with funky Gen Z design elements
+- [x] 17 brand scrapers (9,355+ real products)
+- [x] **Auto-scraping every 15 minutes** (APScheduler)
 - [x] Price drop detection + new product detection
 - [x] WhatsApp alert engine (SANDBOX - Twilio)
-- [x] User preferences (brand + alert type + **category + size** selection)
-- [x] **Size Guide modal** with garments/sneakers sizing tables
+- [x] User preferences (brand + alert type + category + size selection)
+- [x] Size Guide modal with garments/sneakers sizing tables
 - [x] WhatsApp OTP registration (SANDBOX)
 - [x] Razorpay UPI payment (SANDBOX)
 - [x] Digital membership card (UI)
-- [x] **Apple/Google Wallet API endpoints** (requires certificates to activate)
+- [x] Apple/Google Wallet API endpoints (requires certificates to activate)
 - [x] Brand partnership page
-- [x] All tests: 100% pass (6 iterations)
+- [x] All tests: 100% pass (7 iterations)
 
 ## Upcoming Tasks
 - [ ] **P0**: Twilio production keys (real WhatsApp delivery)
