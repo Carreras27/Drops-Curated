@@ -31,7 +31,6 @@ def init_scheduler(db):
         id='auto_scrape',
         max_instances=1,
         replace_existing=True,
-        next_run_time=None,  # Don't run immediately on startup
     )
     scheduler.start()
     logger.info("[Scheduler] Started — scraping every 15 minutes")
