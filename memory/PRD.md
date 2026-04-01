@@ -39,7 +39,11 @@
 ## Core System Architecture
 1. **Auto-Scraper** (every 15 min): Scrapes all 14 brands, detects price changes + new products
 2. **Alert Engine**: Compares prices, sends targeted WhatsApp alerts based on user preferences
-3. **Preference System**: Users choose brands + alert types (price drops / new releases / both)
+3. **Preference System**: Users choose:
+   - **Brands**: Select specific brands or all 14
+   - **Alert Types**: Price drops / new releases / both
+   - **Categories**: Garments / Sneakers / Accessories (or all)
+   - **Sizes**: XS, S, M, L, XL, XXL, UK6-UK12, Free Size (or all)
 
 ## Pages
 1. **Landing** (`/`) — Hero, 3 pillars, stats, partners, CTA
@@ -48,18 +52,18 @@
 4. **Subscribe** (`/subscribe`) — 5-step: OTP → Details → Payment → Preferences → Card
 5. **Partners** (`/partners`) — Brand partnership + contact form
 
-## What's Implemented (April 2026)
+## What's Implemented (December 2025)
 - [x] VIP luxury UI, fully responsive
 - [x] 14 brand scrapers (7,097+ real products)
 - [x] Auto-scraping every 15 minutes
 - [x] Price drop detection + new product detection
 - [x] WhatsApp alert engine (SANDBOX - Twilio)
-- [x] User preferences (brand selection + alert types)
+- [x] User preferences (brand + alert type + **category + size** selection)
 - [x] WhatsApp OTP registration (SANDBOX)
 - [x] Razorpay UPI payment (SANDBOX)
-- [x] Digital membership card
+- [x] Digital membership card (UI only)
 - [x] Brand partnership page
-- [x] All tests: 100% pass (4 iterations)
+- [x] All tests: 100% pass (5 iterations)
 
 ## Upcoming Tasks
 - [ ] **P0**: Twilio production keys (real WhatsApp delivery)
