@@ -59,6 +59,9 @@ export const Footer = () => (
             <span className="text-xs text-primary/40">Crep Dog Crew</span>
             <span className="text-xs text-primary/40">Veg Non Veg</span>
             <span className="text-xs text-primary/40">Culture Circle</span>
+            <span className="text-xs text-primary/40">Huemn</span>
+            <span className="text-xs text-primary/40">Urban Monkey</span>
+            <Link to="/browse" className="text-xs text-accent hover:text-primary transition-colors">+ 9 more</Link>
           </div>
         </div>
         <div>
@@ -176,7 +179,7 @@ export default function LandingPage() {
             {[
               { stat: '<10s', label: 'Alert delivery speed. Fastest in India.' },
               { stat: '₹399', label: 'Per month. No hidden fees. Cancel anytime.' },
-              { stat: '998+', label: 'Products tracked in real-time across brands.' },
+              { stat: `${stats.products || '4,900'}+`, label: 'Products tracked in real-time across brands.' },
               { stat: '0%', label: 'Commission on your purchases. We never take a cut.' },
             ].map((s, i) => (
               <div key={i} className="animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`stat-${i}`}>
@@ -224,7 +227,7 @@ export default function LandingPage() {
             </div>
             <div className="hidden lg:flex justify-center">
               <div className="grid grid-cols-2 gap-4">
-                {['Crep Dog Crew', 'Veg Non Veg', 'Culture Circle', 'Your Brand?'].map((b, i) => (
+                {['Crep Dog Crew', 'Huemn', 'Urban Monkey', 'Your Brand?'].map((b, i) => (
                   <div key={i} className={`border ${i === 3 ? 'border-accent/30 border-dashed' : 'border-primary/10'} p-6 flex items-center justify-center min-h-[120px]`}>
                     <p className={`text-sm font-medium text-center ${i === 3 ? 'text-accent' : 'text-primary/60'}`}>{b}</p>
                   </div>
