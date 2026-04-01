@@ -59,19 +59,51 @@
 - [x] Price drop detection + new product detection
 - [x] WhatsApp alert engine (SANDBOX - Twilio)
 - [x] User preferences (brand + alert type + **category + size** selection)
+- [x] **Size Guide modal** with garments/sneakers sizing tables
 - [x] WhatsApp OTP registration (SANDBOX)
 - [x] Razorpay UPI payment (SANDBOX)
-- [x] Digital membership card (UI only)
+- [x] Digital membership card (UI)
+- [x] **Apple/Google Wallet API endpoints** (requires certificates to activate)
 - [x] Brand partnership page
-- [x] All tests: 100% pass (5 iterations)
+- [x] All tests: 100% pass (6 iterations)
 
 ## Upcoming Tasks
 - [ ] **P0**: Twilio production keys (real WhatsApp delivery)
 - [ ] **P0**: Razorpay production keys (live UPI)
-- [ ] **P0**: Apple/Google Wallet pass generation
+- [ ] **P0**: Apple/Google Wallet certificates setup
 - [ ] **P1**: WhatsApp bot for preference management
 - [ ] **P1**: Price history charts on product pages
 - [ ] **P1**: Amazon.in, Flipkart, Myntra scrapers
 - [ ] **P2**: Visual search (image upload)
 - [ ] **P2**: Brand partner self-serve dashboard
 - [ ] **P3**: Instagram drop tracking
+
+## Wallet Integration Requirements (for activation)
+
+### Apple Wallet
+1. Apple Developer Account ($99/year)
+2. Pass Type ID certificate from iOS Provisioning Portal
+3. Export Certificates.p12 from Keychain
+4. Generate certificate.pem and private.key
+5. Download WWDR (Apple Worldwide Developer Relations) certificate
+
+Environment variables needed:
+```
+APPLE_PASS_TYPE_ID=pass.com.yourorg.dropscurated
+APPLE_TEAM_ID=YOUR_TEAM_ID
+APPLE_CERT_PATH=/path/to/certificate.pem
+APPLE_KEY_PATH=/path/to/private.key
+APPLE_WWDR_PATH=/path/to/wwdr.pem
+```
+
+### Google Wallet
+1. Google Cloud Account
+2. Enable Google Wallet API
+3. Create Service Account with Wallet permissions
+4. Download service account JSON key
+
+Environment variables needed:
+```
+GOOGLE_WALLET_ISSUER_ID=YOUR_ISSUER_ID
+GOOGLE_WALLET_SERVICE_ACCOUNT_JSON=/path/to/service-account.json
+```

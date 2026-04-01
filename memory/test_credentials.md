@@ -9,12 +9,9 @@
 - Click "Confirm Payment (Sandbox)" to proceed
 
 ## Test Subscribers Created by Testing Agent
-- `9876543221` - Test subscriber for categories/sizes
-- `9876543222` - Test subscriber for categories/sizes
-- `9876543223` - Test subscriber for categories/sizes
-- `9876543224` - Test subscriber (preferences: garments, sneakers, M, L, UK9)
-- `9876543225` - Test subscriber for categories/sizes
-- `9999888877` - Test subscriber
+- `9876543221-9876543225` - Test subscribers for categories/sizes
+- `9876543230-9876543240` - Test subscribers for wallet tests
+- `9111222333` - VIP Member test subscriber
 
 ## API Endpoints
 - POST `/api/otp/send` - Send OTP to phone
@@ -23,8 +20,17 @@
 - POST `/api/payment/verify` - Verify payment
 - POST `/api/preferences` - Save user preferences
 - GET `/api/preferences/{phone}` - Get user preferences
+- POST `/api/wallet/apple` - Generate Apple Wallet pass
+- POST `/api/wallet/google` - Generate Google Wallet pass
+
+## Wallet Integration Status
+- **Apple Wallet**: API ready, requires Apple Developer certificates to activate
+- **Google Wallet**: API ready, requires Google Cloud credentials to activate
+
+Both wallet buttons show informative messages about requirements when clicked.
 
 ## Notes
 - Twilio and Razorpay are in SANDBOX/TEST mode
 - Real WhatsApp messages are NOT sent (logged only)
 - Real payments are NOT processed
+- Wallet passes are NOT generated until certificates are provided
