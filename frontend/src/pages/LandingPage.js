@@ -5,72 +5,61 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
-// Monotone Line Drawing SVGs for background decoration
-const SneakerOutline = ({ className }) => (
-  <svg className={className} viewBox="0 0 200 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 70 L25 65 Q35 60 50 60 L120 60 Q140 60 155 55 L175 45 Q185 42 190 50 L190 65 Q190 75 180 78 L40 78 Q25 78 18 72 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M50 60 L55 45 Q60 35 75 32 L110 32 Q125 32 130 40 L140 55" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M75 32 L80 20 Q85 15 95 15 L105 15" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <circle cx="60" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="80" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="100" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="120" cy="78" r="3" stroke="currentColor" strokeWidth="1"/>
-    <path d="M155 55 L160 50 L165 55" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-  </svg>
+// Funky Gen Z Style Background Elements
+const GradientBlob = ({ className, color1 = "#D4AF37", color2 = "#001F3F", opacity = 0.15 }) => (
+  <div 
+    className={`absolute rounded-full blur-3xl ${className}`}
+    style={{
+      background: `radial-gradient(circle, ${color1} 0%, ${color2} 70%, transparent 100%)`,
+      opacity
+    }}
+  />
 );
 
-const HoodieOutline = ({ className }) => (
-  <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M70 40 Q100 25 130 40" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M70 40 L50 55 L30 140 L30 180 L85 180 L85 160" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M130 40 L150 55 L170 140 L170 180 L115 180 L115 160" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M85 160 Q100 155 115 160" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <ellipse cx="100" cy="165" rx="20" ry="8" stroke="currentColor" strokeWidth="1"/>
-    <path d="M30 140 L10 145 L10 100 L30 95" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M170 140 L190 145 L190 100 L170 95" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M75 50 Q100 70 125 50" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M80 55 Q100 75 120 55" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M70 40 L60 30 Q100 10 140 30 L130 40" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-  </svg>
+const FloatingCircle = ({ className, filled = false }) => (
+  <div 
+    className={`absolute rounded-full ${filled ? 'bg-accent' : 'border-2 border-accent'} ${className}`}
+  />
 );
 
-const TShirtOutline = ({ className }) => (
-  <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M75 30 Q100 20 125 30" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M75 30 L45 45 L20 80 L40 90 L55 70 L55 180 L145 180 L145 70 L160 90 L180 80 L155 45 L125 30" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
-    <ellipse cx="100" cy="30" rx="15" ry="8" stroke="currentColor" strokeWidth="1"/>
-  </svg>
+const GlitchLine = ({ className }) => (
+  <div className={`absolute h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent ${className}`} />
 );
 
-const JacketOutline = ({ className }) => (
-  <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M80 25 Q100 18 120 25" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M80 25 L60 35 L40 60 L25 140 L25 185 L90 185 L90 60" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M120 25 L140 35 L160 60 L175 140 L175 185 L110 185 L110 60" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M90 60 L100 185" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M110 60 L100 185" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M25 140 L5 145 L5 90 L25 85" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M175 140 L195 145 L195 90 L175 85" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <rect x="35" y="110" width="20" height="25" rx="2" stroke="currentColor" strokeWidth="1"/>
-    <rect x="145" y="110" width="20" height="25" rx="2" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="95" cy="80" r="3" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="95" cy="100" r="3" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="95" cy="120" r="3" stroke="currentColor" strokeWidth="1"/>
-  </svg>
+const NoiseOverlay = () => (
+  <div 
+    className="absolute inset-0 pointer-events-none opacity-[0.03] mix-blend-overlay"
+    style={{
+      backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+    }}
+  />
 );
 
-const HighTopOutline = ({ className }) => (
-  <svg className={className} viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M30 110 L45 105 Q60 100 80 100 L140 100 Q160 100 170 95 L185 85 Q195 80 195 90 L195 110 Q195 120 185 122 L50 122 Q35 122 32 115 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M80 100 L80 50 Q80 35 95 30 L130 30 Q145 30 150 45 L155 95" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    <path d="M90 45 L145 45" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
-    <path d="M88 55 L147 55" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
-    <path d="M86 65 L149 65" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
-    <path d="M84 75 L151 75" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
-    <path d="M82 85 L153 85" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
-    <circle cx="70" cy="122" r="4" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="95" cy="122" r="4" stroke="currentColor" strokeWidth="1"/>
-    <circle cx="120" cy="122" r="4" stroke="currentColor" strokeWidth="1"/>
+const GeometricShape = ({ className, type = "square" }) => {
+  if (type === "square") {
+    return <div className={`absolute border border-accent/20 rotate-45 ${className}`} />;
+  }
+  if (type === "triangle") {
+    return (
+      <div 
+        className={`absolute ${className}`}
+        style={{
+          width: 0,
+          height: 0,
+          borderLeft: '20px solid transparent',
+          borderRight: '20px solid transparent',
+          borderBottom: '35px solid',
+          borderBottomColor: 'rgba(212, 175, 55, 0.15)',
+        }}
+      />
+    );
+  }
+  return <div className={`absolute rounded-full border border-accent/20 ${className}`} />;
+};
+
+const StarBurst = ({ className }) => (
+  <svg className={className} viewBox="0 0 100 100" fill="none">
+    <path d="M50 0 L53 47 L100 50 L53 53 L50 100 L47 53 L0 50 L47 47 Z" fill="currentColor"/>
   </svg>
 );
 
@@ -163,13 +152,31 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="pt-28 pb-20 md:pt-36 md:pb-28 lg:pt-40 lg:pb-32 relative overflow-hidden">
-        {/* Background Line Drawings */}
+        {/* Funky Gen Z Background Elements */}
+        <NoiseOverlay />
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <SneakerOutline className="absolute top-20 -left-10 w-48 h-24 text-primary/[0.06] rotate-[-15deg]" />
-          <HoodieOutline className="absolute top-40 right-0 w-40 h-40 text-primary/[0.06] rotate-[10deg] translate-x-1/4" />
-          <TShirtOutline className="absolute bottom-20 left-10 w-32 h-32 text-primary/[0.06] rotate-[5deg]" />
-          <HighTopOutline className="absolute bottom-10 right-20 w-44 h-32 text-primary/[0.06] rotate-[-8deg]" />
-          <JacketOutline className="absolute top-1/2 left-1/4 w-28 h-28 text-primary/[0.05] rotate-[12deg] hidden lg:block" />
+          {/* Gradient Blobs */}
+          <GradientBlob className="w-[600px] h-[600px] -top-40 -right-40" opacity={0.08} />
+          <GradientBlob className="w-[400px] h-[400px] bottom-0 -left-20" color1="#D4AF37" color2="#F5F5DC" opacity={0.06} />
+          
+          {/* Floating Circles */}
+          <FloatingCircle className="w-4 h-4 top-32 left-[15%] opacity-20" />
+          <FloatingCircle className="w-6 h-6 top-48 right-[30%] opacity-15" filled />
+          <FloatingCircle className="w-3 h-3 bottom-40 left-[25%] opacity-25" />
+          <FloatingCircle className="w-8 h-8 bottom-20 right-[15%] opacity-10" />
+          
+          {/* Geometric Shapes */}
+          <GeometricShape className="w-12 h-12 top-40 left-[8%] opacity-30" type="square" />
+          <GeometricShape className="w-16 h-16 bottom-32 right-[25%] opacity-20" type="circle" />
+          <GeometricShape className="top-60 right-[10%] opacity-40" type="triangle" />
+          
+          {/* Glitch Lines */}
+          <GlitchLine className="w-32 top-36 left-[5%] opacity-30" />
+          <GlitchLine className="w-24 bottom-48 right-[20%] opacity-20" />
+          
+          {/* Star Bursts */}
+          <StarBurst className="w-6 h-6 top-28 right-[35%] text-accent/20" />
+          <StarBurst className="w-4 h-4 bottom-36 left-[30%] text-accent/15" />
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
@@ -227,10 +234,14 @@ export default function LandingPage() {
 
       {/* 3 Pillars */}
       <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden">
-        {/* Background Line Drawings */}
+        {/* Funky Background */}
+        <NoiseOverlay />
         <div className="absolute inset-0 pointer-events-none">
-          <SneakerOutline className="absolute top-10 right-10 w-56 h-28 text-primary/[0.05] rotate-[8deg]" />
-          <TShirtOutline className="absolute bottom-10 left-20 w-36 h-36 text-primary/[0.05] rotate-[-5deg]" />
+          <GradientBlob className="w-[500px] h-[500px] -top-60 -left-40" color1="#F5F5DC" color2="#D4AF37" opacity={0.04} />
+          <FloatingCircle className="w-5 h-5 top-20 right-[20%] opacity-15" filled />
+          <FloatingCircle className="w-10 h-10 bottom-20 left-[10%] opacity-10" />
+          <GeometricShape className="w-14 h-14 top-32 right-[8%] opacity-25" type="square" />
+          <StarBurst className="w-5 h-5 bottom-40 right-[30%] text-accent/15" />
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
@@ -256,11 +267,22 @@ export default function LandingPage() {
 
       {/* Why Different */}
       <section className="py-20 md:py-28 bg-primary text-background relative overflow-hidden">
-        {/* Background Line Drawings - lighter for dark bg */}
+        {/* Funky Dark Background */}
         <div className="absolute inset-0 pointer-events-none">
-          <HighTopOutline className="absolute top-5 left-5 w-52 h-36 text-background/[0.06] rotate-[-10deg]" />
-          <HoodieOutline className="absolute bottom-5 right-5 w-44 h-44 text-background/[0.06] rotate-[15deg]" />
-          <JacketOutline className="absolute top-1/2 right-1/4 w-36 h-36 text-background/[0.05] -translate-y-1/2 hidden lg:block" />
+          <GradientBlob className="w-[700px] h-[700px] -top-40 -right-60" color1="#D4AF37" color2="#001F3F" opacity={0.12} />
+          <GradientBlob className="w-[400px] h-[400px] bottom-0 left-0" color1="#F5F5DC" color2="#001F3F" opacity={0.06} />
+          
+          {/* Floating elements on dark */}
+          <FloatingCircle className="w-6 h-6 top-24 left-[15%] opacity-10 border-background/30" />
+          <FloatingCircle className="w-4 h-4 bottom-32 right-[25%] opacity-15 bg-accent/20" filled />
+          <FloatingCircle className="w-8 h-8 top-40 right-[12%] opacity-8 border-accent/20" />
+          
+          <GeometricShape className="w-16 h-16 bottom-24 left-[8%] opacity-15 border-background/20" type="square" />
+          <StarBurst className="w-8 h-8 top-32 right-[30%] text-accent/10" />
+          <StarBurst className="w-5 h-5 bottom-40 left-[35%] text-background/10" />
+          
+          <GlitchLine className="w-40 top-20 left-[10%] opacity-15" />
+          <GlitchLine className="w-28 bottom-28 right-[15%] opacity-10" />
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
@@ -284,10 +306,14 @@ export default function LandingPage() {
 
       {/* For Brands */}
       <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden">
-        {/* Background Line Drawings */}
+        {/* Funky Background */}
+        <NoiseOverlay />
         <div className="absolute inset-0 pointer-events-none">
-          <SneakerOutline className="absolute bottom-20 right-10 w-48 h-24 text-primary/[0.05] rotate-[5deg]" />
-          <TShirtOutline className="absolute top-20 left-5 w-32 h-32 text-primary/[0.05] rotate-[-8deg]" />
+          <GradientBlob className="w-[450px] h-[450px] -bottom-40 -right-40" opacity={0.05} />
+          <FloatingCircle className="w-5 h-5 top-32 right-[15%] opacity-20" />
+          <FloatingCircle className="w-3 h-3 bottom-24 left-[20%] opacity-15" filled />
+          <GeometricShape className="w-10 h-10 top-20 left-[5%] opacity-20" type="square" />
+          <StarBurst className="w-4 h-4 top-48 right-[25%] text-accent/20" />
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
@@ -337,12 +363,25 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="py-20 md:py-28 bg-primary text-background relative overflow-hidden">
-        {/* Background Line Drawings */}
+        {/* Funky Dark CTA Background */}
         <div className="absolute inset-0 pointer-events-none">
-          <SneakerOutline className="absolute top-10 left-10 w-40 h-20 text-background/[0.06] rotate-[12deg]" />
-          <HighTopOutline className="absolute top-5 right-20 w-48 h-32 text-background/[0.06] rotate-[-5deg]" />
-          <HoodieOutline className="absolute bottom-5 left-1/4 w-36 h-36 text-background/[0.05] rotate-[8deg]" />
-          <TShirtOutline className="absolute bottom-10 right-10 w-32 h-32 text-background/[0.06] rotate-[-12deg]" />
+          <GradientBlob className="w-[600px] h-[600px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" color1="#D4AF37" color2="#001F3F" opacity={0.15} />
+          
+          {/* Scattered elements */}
+          <FloatingCircle className="w-4 h-4 top-16 left-[12%] opacity-15 bg-accent/30" filled />
+          <FloatingCircle className="w-6 h-6 top-20 right-[18%] opacity-10 border-background/20" />
+          <FloatingCircle className="w-3 h-3 bottom-20 left-[25%] opacity-20 bg-background/20" filled />
+          <FloatingCircle className="w-5 h-5 bottom-16 right-[15%] opacity-15 border-accent/30" />
+          
+          <GeometricShape className="w-12 h-12 top-24 left-[8%] opacity-15 border-accent/20" type="square" />
+          <GeometricShape className="w-10 h-10 bottom-28 right-[10%] opacity-10 border-background/15" type="square" />
+          
+          <StarBurst className="w-6 h-6 top-12 right-[30%] text-accent/15" />
+          <StarBurst className="w-4 h-4 bottom-24 left-[35%] text-background/10" />
+          <StarBurst className="w-5 h-5 top-1/2 left-[5%] text-accent/10" />
+          
+          <GlitchLine className="w-32 top-28 left-[15%] opacity-15" />
+          <GlitchLine className="w-24 bottom-32 right-[20%] opacity-10" />
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 text-center relative z-10">
