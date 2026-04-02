@@ -5,6 +5,75 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
+// Live Timestamp Component
+const LiveTimestamp = () => {
+  const [time, setTime] = useState(new Date());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  const formatTime = (date) => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return { hour: hour12.toString().padStart(2, '0'), minutes, seconds, ampm };
+  };
+  
+  const formatDate = (date) => {
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return {
+      day: days[date.getDay()],
+      date: date.getDate().toString().padStart(2, '0'),
+      month: months[date.getMonth()],
+      year: date.getFullYear()
+    };
+  };
+  
+  const t = formatTime(time);
+  const d = formatDate(time);
+  
+  return (
+    <div className="fixed bottom-6 left-6 z-50 hidden md:block" data-testid="live-timestamp">
+      <div className="bg-primary/95 backdrop-blur-sm border border-accent/20 px-4 py-3 shadow-2xl">
+        <div className="flex items-center gap-4">
+          {/* Date Block */}
+          <div className="flex items-center gap-2 border-r border-accent/20 pr-4">
+            <div className="text-center">
+              <p className="text-[10px] font-medium text-accent tracking-widest">{d.day}</p>
+              <p className="text-2xl font-serif text-background leading-none">{d.date}</p>
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-medium text-background/80">{d.month}</p>
+              <p className="text-[10px] text-background/50">{d.year}</p>
+            </div>
+          </div>
+          
+          {/* Time Block */}
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-mono font-bold text-accent">{t.hour}</span>
+            <span className="text-accent animate-pulse">:</span>
+            <span className="text-2xl font-mono font-bold text-accent">{t.minutes}</span>
+            <span className="text-accent animate-pulse">:</span>
+            <span className="text-lg font-mono text-background/60">{t.seconds}</span>
+            <span className="text-[10px] font-semibold text-background/40 ml-1">{t.ampm}</span>
+          </div>
+          
+          {/* Live Indicator */}
+          <div className="flex items-center gap-1.5 pl-3 border-l border-accent/20">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-background/50">LIVE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Funky Gen Z Style Background Elements
 const GradientBlob = ({ className, color1 = "#D4AF37", color2 = "#001F3F", opacity = 0.15 }) => (
   <div 
@@ -402,6 +471,9 @@ export default function LandingPage() {
       </section>
 
       <Footer />
+      
+      {/* Live Timestamp */}
+      <LiveTimestamp />
     </div>
   );
 }
