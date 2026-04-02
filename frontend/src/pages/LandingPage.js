@@ -38,8 +38,26 @@ const LiveTimestamp = () => {
   const d = formatDate(time);
   
   return (
-    <div className="fixed bottom-6 left-6 z-50 hidden md:block" data-testid="live-timestamp">
-      <div className="bg-primary/95 backdrop-blur-sm border border-accent/20 px-4 py-3 shadow-2xl">
+    <div className="fixed bottom-4 left-4 md:bottom-6 md:left-6 z-50" data-testid="live-timestamp">
+      {/* Mobile Version */}
+      <div className="md:hidden bg-primary/95 backdrop-blur-sm border border-accent/20 px-3 py-2 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-medium text-accent">{d.day}</span>
+            <span className="text-lg font-serif text-background">{d.date}</span>
+            <span className="text-[10px] text-background/60">{d.month}</span>
+          </div>
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-lg font-mono font-bold text-accent">{t.hour}:{t.minutes}</span>
+            <span className="text-xs text-background/50">:{t.seconds}</span>
+            <span className="text-[8px] font-semibold text-background/40 ml-0.5">{t.ampm}</span>
+          </div>
+          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+        </div>
+      </div>
+      
+      {/* Tablet & Desktop Version */}
+      <div className="hidden md:block bg-primary/95 backdrop-blur-sm border border-accent/20 px-4 py-3 shadow-2xl">
         <div className="flex items-center gap-4">
           {/* Date Block */}
           <div className="flex items-center gap-2 border-r border-accent/20 pr-4">
