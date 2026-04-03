@@ -7,6 +7,50 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES'];
+const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in ms
+
+// Last Updated Component
+const LastUpdatedBadge = ({ lastUpdated, isRefreshing, onRefresh }) => {
+  const [timeAgo, setTimeAgo] = useState('');
+  
+  useEffect(() => {
+    const updateTimeAgo = () => {
+      if (!lastUpdated) return;
+      const now = new Date();
+      const diff = Math.floor((now - lastUpdated) / 1000);
+      
+      if (diff < 60) setTimeAgo('Just now');
+      else if (diff < 120) setTimeAgo('1 min ago');
+      else if (diff < 3600) setTimeAgo(`${Math.floor(diff / 60)} mins ago`);
+      else setTimeAgo(lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
+    };
+    
+    updateTimeAgo();
+    const timer = setInterval(updateTimeAgo, 30000); // Update every 30 seconds
+    return () => clearInterval(timer);
+  }, [lastUpdated]);
+  
+  return (
+    <div className="flex items-center gap-3 text-xs text-primary/40">
+      <div className="flex items-center gap-1.5">
+        <span className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-accent animate-pulse' : 'bg-green-500'}`} />
+        <span>
+          {isRefreshing ? 'Refreshing...' : `Updated ${timeAgo}`}
+        </span>
+      </div>
+      <span className="text-primary/20">·</span>
+      <span>Auto-refresh in 15 mins</span>
+      <button 
+        onClick={onRefresh}
+        disabled={isRefreshing}
+        className="ml-1 p-1 hover:bg-primary/5 rounded transition-colors disabled:opacity-50"
+        title="Refresh now"
+      >
+        <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+      </button>
+    </div>
+  );
+};
 
 // Product Card Component
 const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
@@ -108,6 +152,8 @@ export default function BrowsePage() {
   const [curatedDrops, setCuratedDrops] = useState({ limited_edition: [], trending: [], new_drops: [] });
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [query, setQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -117,7 +163,16 @@ export default function BrowsePage() {
   useEffect(() => {
     fetchBrands();
     fetchCuratedDrops();
-  }, []);
+    
+    // Auto-refresh every 15 minutes
+    const refreshTimer = setInterval(() => {
+      if (viewMode === 'curated') {
+        fetchCuratedDrops(true);
+      }
+    }, AUTO_REFRESH_INTERVAL);
+    
+    return () => clearInterval(refreshTimer);
+  }, [viewMode]);
 
   const fetchBrands = async () => {
     try {
@@ -126,14 +181,26 @@ export default function BrowsePage() {
     } catch {}
   };
 
-  const fetchCuratedDrops = async () => {
-    setLoading(true);
+  const fetchCuratedDrops = async (isAutoRefresh = false) => {
+    if (isAutoRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const resp = await axios.get(`${API_URL}/drops/curated`);
       setCuratedDrops(resp.data);
+      // Use backend timestamp if available, otherwise use current time
+      const serverTime = resp.data.generated_at ? new Date(resp.data.generated_at) : new Date();
+      setLastUpdated(serverTime);
     } catch {} finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const handleManualRefresh = () => {
+    fetchCuratedDrops(true);
   };
 
   const fetchProducts = async (q, brand) => {
@@ -187,9 +254,14 @@ export default function BrowsePage() {
       <main className="pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           {/* Title */}
-          <div className="mb-12">
+          <div className="mb-8">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-3">Explore</p>
-            <h1 className="font-serif text-4xl md:text-5xl tracking-tight">All Drops</h1>
+            <h1 className="font-serif text-4xl md:text-5xl tracking-tight mb-4">All Drops</h1>
+            <LastUpdatedBadge 
+              lastUpdated={lastUpdated} 
+              isRefreshing={isRefreshing}
+              onRefresh={handleManualRefresh}
+            />
           </div>
 
           {/* Search + Filters */}

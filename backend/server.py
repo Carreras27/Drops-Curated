@@ -263,6 +263,10 @@ async def get_curated_drops():
     trending = sorted(trending, key=lambda x: x.get('createdAt', ''), reverse=True)[:12]
     new_drops = sorted(new_drops, key=lambda x: x.get('createdAt', ''), reverse=True)[:12]
     
+    # Get last scrape time
+    last_scrape = await db.brands.find_one({}, {'_id': 0, 'lastScrapedAt': 1}, sort=[('lastScrapedAt', -1)])
+    last_scrape_time = last_scrape.get('lastScrapedAt') if last_scrape else None
+    
     return {
         'limited_edition': limited_edition,
         'trending': trending,
@@ -271,7 +275,9 @@ async def get_curated_drops():
             'limited': len(limited_edition),
             'trending': len(trending),
             'new': len(new_drops)
-        }
+        },
+        'last_scraped_at': last_scrape_time,
+        'generated_at': datetime.now(timezone.utc).isoformat()
     }
 
 @api_router.get('/trending')
