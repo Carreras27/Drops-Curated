@@ -242,11 +242,28 @@ export default function BrowsePage() {
 
   const loadMore = () => {
     if (!loadingMore && hasMore) {
-      // Mark where new products will be added
-      const currentScrollPos = window.scrollY;
       fetchAllProducts(page + 1, selectedBrand?.name, query);
     }
   };
+
+  // Infinite scroll - detect when user scrolls near bottom
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loadingMore || !hasMore) return;
+      
+      const scrollTop = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      
+      // Load more when user is 500px from bottom
+      if (scrollTop + windowHeight >= docHeight - 500) {
+        loadMore();
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loadingMore, hasMore, page, selectedBrand, query]);
 
   // Ref for scrolling to new products
   const newProductsRef = useRef(null);
@@ -473,34 +490,32 @@ export default function BrowsePage() {
                       ))}
                     </div>
                     
-                    {/* Load More Button */}
+                    {/* Infinite scroll loading indicator */}
                     {hasMore && (
-                      <div className="flex justify-center mt-12 mb-8">
-                        <button
-                          onClick={loadMore}
-                          disabled={loadingMore}
-                          className="group relative border border-accent/30 bg-accent/5 px-10 py-4 text-sm font-medium hover:bg-accent/10 hover:border-accent transition-all disabled:opacity-50 flex items-center gap-3"
-                          data-testid="load-more-btn"
-                        >
-                          {loadingMore ? (
-                            <>
-                              <RefreshCw className="w-4 h-4 animate-spin text-accent" />
-                              <span>Loading more drops...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-accent">↓</span>
-                              <span>Load More Drops</span>
-                              <span className="text-xs text-primary/40 bg-primary/5 px-2 py-0.5 rounded-full">
-                                {(totalProducts - filteredProducts.length).toLocaleString()} more
-                              </span>
-                            </>
-                          )}
-                        </button>
+                      <div className="flex flex-col items-center justify-center py-12">
+                        {loadingMore ? (
+                          <div className="flex items-center gap-3 text-primary/40">
+                            <RefreshCw className="w-5 h-5 animate-spin text-accent" />
+                            <span className="text-sm">Loading more drops...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs text-primary/30">
+                            <span className="w-8 h-[1px] bg-primary/10" />
+                            <span>Scroll for more</span>
+                            <span className="w-8 h-[1px] bg-primary/10" />
+                          </div>
+                        )}
                       </div>
                     )}
                     
-                    {/* Scroll to top button when scrolled */}
+                    {/* End of results */}
+                    {!hasMore && filteredProducts.length > 0 && (
+                      <div className="flex flex-col items-center justify-center py-12 text-primary/30">
+                        <p className="text-sm">You've seen all {totalProducts.toLocaleString()} drops</p>
+                      </div>
+                    )}
+                    
+                    {/* Scroll to top button */}
                     <div className="fixed bottom-20 right-6 z-40">
                       <button
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
