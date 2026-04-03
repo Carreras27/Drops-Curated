@@ -150,34 +150,38 @@ const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showSto
 export default function BrowsePage() {
   const [products, setProducts] = useState([]);
   const [curatedDrops, setCuratedDrops] = useState({ limited_edition: [], trending: [], new_drops: [] });
+  const [allProducts, setAllProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [query, setQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState('curated'); // 'curated' or 'all'
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
     fetchBrands();
     fetchCuratedDrops();
+    fetchAllProducts(1);
     
     // Auto-refresh every 15 minutes
     const refreshTimer = setInterval(() => {
-      if (viewMode === 'curated') {
-        fetchCuratedDrops(true);
-      }
+      fetchCuratedDrops(true);
     }, AUTO_REFRESH_INTERVAL);
     
     return () => clearInterval(refreshTimer);
-  }, [viewMode]);
+  }, []);
 
   const fetchBrands = async () => {
     try {
       const resp = await axios.get(`${API_URL}/scrape/status`);
       setBrands(resp.data.brands || []);
+      setTotalProducts(resp.data.total_products || 0);
     } catch {}
   };
 
@@ -199,53 +203,83 @@ export default function BrowsePage() {
     }
   };
 
+  const fetchAllProducts = async (pageNum, brandFilter = null, searchQuery = null) => {
+    if (pageNum === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    try {
+      let url = `${API_URL}/search?limit=24&skip=${(pageNum - 1) * 24}`;
+      if (searchQuery) {
+        url += `&q=${encodeURIComponent(searchQuery)}`;
+      } else if (brandFilter) {
+        url += `&q=${encodeURIComponent(brandFilter)}`;
+      } else {
+        url += '&q=';
+      }
+      const resp = await axios.get(url);
+      const newProducts = resp.data.products || [];
+      
+      if (pageNum === 1) {
+        setAllProducts(newProducts);
+      } else {
+        setAllProducts(prev => [...prev, ...newProducts]);
+      }
+      
+      setHasMore(newProducts.length === 24);
+      setPage(pageNum);
+    } catch {} finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
   const handleManualRefresh = () => {
     fetchCuratedDrops(true);
+    fetchAllProducts(1, selectedBrand?.name, query);
+  };
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchAllProducts(page + 1, selectedBrand?.name, query);
+    }
   };
 
   const fetchProducts = async (q, brand) => {
-    setLoading(true);
-    setViewMode('all');
-    try {
-      let url = `${API_URL}/search?limit=60`;
-      if (q) url += `&q=${encodeURIComponent(q)}`;
-      else if (brand) url += `&q=${encodeURIComponent(brand)}`;
-      else url += '&q=';
-      const resp = await axios.get(url);
-      setProducts(resp.data.products || []);
-    } catch {} finally {
-      setLoading(false);
-    }
+    setPage(1);
+    fetchAllProducts(1, brand, q);
   };
 
   const handleSearch = (e) => {
     e?.preventDefault();
     setSelectedBrand(null);
+    setPage(1);
     if (query.trim()) {
-      fetchProducts(query);
+      fetchAllProducts(1, null, query);
     } else {
-      setViewMode('curated');
-      fetchCuratedDrops();
+      fetchAllProducts(1);
     }
   };
 
   const handleBrandClick = (brand) => {
     setSelectedBrand(brand);
     setQuery('');
-    fetchProducts('', brand.name);
+    setPage(1);
+    fetchAllProducts(1, brand.name, null);
   };
 
   const clearFilters = () => {
     setSelectedBrand(null);
     setSelectedCategory('All');
     setQuery('');
-    setViewMode('curated');
-    fetchCuratedDrops();
+    setPage(1);
+    fetchAllProducts(1);
   };
 
-  const filtered = selectedCategory === 'All'
-    ? products
-    : products.filter(p => p.category === selectedCategory);
+  const filteredProducts = selectedCategory === 'All'
+    ? allProducts
+    : allProducts.filter(p => p.category === selectedCategory);
 
   return (
     <div className="bg-background min-h-screen" data-testid="browse-page">
@@ -356,64 +390,102 @@ export default function BrowsePage() {
             <div className="flex justify-center py-24">
               <RefreshCw className="w-5 h-5 animate-spin text-primary/20" />
             </div>
-          ) : viewMode === 'curated' ? (
-            <>
-              {/* Limited Edition Section */}
-              <DropSection
-                title="Limited Edition"
-                icon={AlertTriangle}
-                iconColor="bg-red-500/10 text-red-500"
-                products={curatedDrops.limited_edition}
-                showStock={true}
-                showDate={true}
-                emptyMessage="No limited drops right now"
-              />
-
-              {/* Trending Section */}
-              <DropSection
-                title="Trending Now"
-                icon={Flame}
-                iconColor="bg-orange-500/10 text-orange-500"
-                products={curatedDrops.trending}
-                showDate={true}
-                emptyMessage="No trending drops"
-              />
-
-              {/* New Drops Section */}
-              <DropSection
-                title="New Drops"
-                icon={Sparkles}
-                iconColor="bg-accent/10 text-accent"
-                products={curatedDrops.new_drops}
-                showDate={true}
-                emptyMessage="No new drops this week"
-              />
-
-              {/* If no curated drops, show message */}
-              {!curatedDrops.limited_edition?.length && !curatedDrops.trending?.length && !curatedDrops.new_drops?.length && (
-                <div className="text-center py-24" data-testid="no-results">
-                  <p className="font-serif text-2xl text-primary/30 mb-2">Loading drops...</p>
-                  <p className="text-sm text-primary/20">Fresh drops coming soon</p>
-                </div>
-              )}
-            </>
           ) : (
-            /* All Products Grid */
-            filtered.length > 0 ? (
-              <>
-                <p className="text-xs text-primary/30 mb-6">{filtered.length} drops</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8" data-testid="products-grid">
-                  {filtered.map((product, idx) => (
-                    <ProductCard key={product.id} product={product} idx={idx} showDate={true} />
-                  ))}
+            <>
+              {/* Show curated sections only when no search/filter active */}
+              {!query && !selectedBrand && (
+                <>
+                  {/* Limited Edition Section */}
+                  <DropSection
+                    title="Limited Edition"
+                    icon={AlertTriangle}
+                    iconColor="bg-red-500/10 text-red-500"
+                    products={curatedDrops.limited_edition}
+                    showStock={true}
+                    showDate={true}
+                    emptyMessage="No limited drops right now"
+                  />
+
+                  {/* Trending Section */}
+                  <DropSection
+                    title="Trending Now"
+                    icon={Flame}
+                    iconColor="bg-orange-500/10 text-orange-500"
+                    products={curatedDrops.trending}
+                    showDate={true}
+                    emptyMessage="No trending drops"
+                  />
+
+                  {/* New Drops Section */}
+                  <DropSection
+                    title="New Drops"
+                    icon={Sparkles}
+                    iconColor="bg-accent/10 text-accent"
+                    products={curatedDrops.new_drops}
+                    showDate={true}
+                    emptyMessage="No new drops this week"
+                  />
+                </>
+              )}
+
+              {/* All Products Section */}
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 flex items-center justify-center bg-primary/5 text-primary">
+                      <Clock className="w-4 h-4" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h2 className="font-serif text-2xl">
+                        {query ? `Search: "${query}"` : selectedBrand ? selectedBrand.name : 'All Drops'}
+                      </h2>
+                      <p className="text-xs text-primary/40">
+                        {filteredProducts.length} of {totalProducts.toLocaleString()} products
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <div className="text-center py-24" data-testid="no-results">
-                <p className="font-serif text-2xl text-primary/30 mb-2">No drops found</p>
-                <p className="text-sm text-primary/20">Try adjusting your search or filters</p>
+
+                {filteredProducts.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8" data-testid="all-products-grid">
+                      {filteredProducts.map((product, idx) => (
+                        <ProductCard key={product.id} product={product} idx={idx} showDate={true} />
+                      ))}
+                    </div>
+                    
+                    {/* Load More Button */}
+                    {hasMore && (
+                      <div className="flex justify-center mt-12">
+                        <button
+                          onClick={loadMore}
+                          disabled={loadingMore}
+                          className="border border-primary/10 px-8 py-3 text-sm hover:border-accent transition-colors disabled:opacity-50 flex items-center gap-2"
+                          data-testid="load-more-btn"
+                        >
+                          {loadingMore ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              Load More Drops
+                              <span className="text-primary/30">({totalProducts - filteredProducts.length} remaining)</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-24" data-testid="no-results">
+                    <p className="font-serif text-2xl text-primary/30 mb-2">No drops found</p>
+                    <p className="text-sm text-primary/20">Try adjusting your search or filters</p>
+                  </div>
+                )}
               </div>
-            )
+            </>
           )}
         </div>
       </main>
