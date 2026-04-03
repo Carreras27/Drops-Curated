@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
@@ -242,9 +242,14 @@ export default function BrowsePage() {
 
   const loadMore = () => {
     if (!loadingMore && hasMore) {
+      // Mark where new products will be added
+      const currentScrollPos = window.scrollY;
       fetchAllProducts(page + 1, selectedBrand?.name, query);
     }
   };
+
+  // Ref for scrolling to new products
+  const newProductsRef = useRef(null);
 
   const fetchProducts = async (q, brand) => {
     setPage(1);
@@ -285,21 +290,10 @@ export default function BrowsePage() {
     <div className="bg-background min-h-screen" data-testid="browse-page">
       <Header />
 
-      <main className="pt-24 pb-16">
-        <div className="max-w-7xl mx-auto px-6 md:px-12">
-          {/* Title */}
-          <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-3">Explore</p>
-            <h1 className="font-serif text-4xl md:text-5xl tracking-tight mb-4">All Drops</h1>
-            <LastUpdatedBadge 
-              lastUpdated={lastUpdated} 
-              isRefreshing={isRefreshing}
-              onRefresh={handleManualRefresh}
-            />
-          </div>
-
-          {/* Search + Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
+      {/* Sticky Search Bar */}
+      <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-sm border-b border-primary/5">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-4">
+          <div className="flex flex-col md:flex-row gap-3">
             <form onSubmit={handleSearch} className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/30" strokeWidth={1.5} />
               <input
@@ -313,12 +307,32 @@ export default function BrowsePage() {
             </form>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center gap-2 border border-primary/10 px-5 py-3 text-sm hover:border-accent transition-colors"
+              className="inline-flex items-center justify-center gap-2 border border-primary/10 px-5 py-3 text-sm hover:border-accent transition-colors"
               data-testid="filter-toggle"
             >
               <SlidersHorizontal className="w-4 h-4" strokeWidth={1.5} />
               Filters
             </button>
+          </div>
+          
+          {/* Last Updated - compact in sticky bar */}
+          <div className="flex items-center justify-between mt-3">
+            <LastUpdatedBadge 
+              lastUpdated={lastUpdated} 
+              isRefreshing={isRefreshing}
+              onRefresh={handleManualRefresh}
+            />
+            <p className="text-xs text-primary/30">{totalProducts.toLocaleString()} products tracked</p>
+          </div>
+        </div>
+      </div>
+
+      <main className="pt-6 pb-16">
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          {/* Title */}
+          <div className="mb-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-3">Explore</p>
+            <h1 className="font-serif text-4xl md:text-5xl tracking-tight">All Drops</h1>
           </div>
 
           {/* Filter panel */}
@@ -450,33 +464,52 @@ export default function BrowsePage() {
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8" data-testid="all-products-grid">
                       {filteredProducts.map((product, idx) => (
-                        <ProductCard key={product.id} product={product} idx={idx} showDate={true} />
+                        <ProductCard 
+                          key={product.id} 
+                          product={product} 
+                          idx={idx} 
+                          showDate={true}
+                        />
                       ))}
                     </div>
                     
                     {/* Load More Button */}
                     {hasMore && (
-                      <div className="flex justify-center mt-12">
+                      <div className="flex justify-center mt-12 mb-8">
                         <button
                           onClick={loadMore}
                           disabled={loadingMore}
-                          className="border border-primary/10 px-8 py-3 text-sm hover:border-accent transition-colors disabled:opacity-50 flex items-center gap-2"
+                          className="group relative border border-accent/30 bg-accent/5 px-10 py-4 text-sm font-medium hover:bg-accent/10 hover:border-accent transition-all disabled:opacity-50 flex items-center gap-3"
                           data-testid="load-more-btn"
                         >
                           {loadingMore ? (
                             <>
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                              Loading...
+                              <RefreshCw className="w-4 h-4 animate-spin text-accent" />
+                              <span>Loading more drops...</span>
                             </>
                           ) : (
                             <>
-                              Load More Drops
-                              <span className="text-primary/30">({totalProducts - filteredProducts.length} remaining)</span>
+                              <span className="text-accent">↓</span>
+                              <span>Load More Drops</span>
+                              <span className="text-xs text-primary/40 bg-primary/5 px-2 py-0.5 rounded-full">
+                                {(totalProducts - filteredProducts.length).toLocaleString()} more
+                              </span>
                             </>
                           )}
                         </button>
                       </div>
                     )}
+                    
+                    {/* Scroll to top button when scrolled */}
+                    <div className="fixed bottom-20 right-6 z-40">
+                      <button
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        className="w-10 h-10 bg-primary text-background flex items-center justify-center shadow-lg hover:bg-accent transition-colors"
+                        title="Back to top"
+                      >
+                        ↑
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <div className="text-center py-24" data-testid="no-results">
