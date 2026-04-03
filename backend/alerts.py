@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 TWILIO_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
 TWILIO_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
-TWILIO_WHATSAPP_FROM = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')  # Twilio sandbox
+TWILIO_WHATSAPP_FROM = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+919700771000')  # Drops Curated WhatsApp
 
 SANDBOX_MODE = not TWILIO_SID or TWILIO_SID.startswith('AC_test')
 
