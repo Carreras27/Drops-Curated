@@ -8,6 +8,7 @@ import BrowsePage from './pages/BrowsePage';
 import ProductPage from './pages/ProductPage';
 import SubscribePage from './pages/SubscribePage';
 import PartnersPage from './pages/PartnersPage';
+import RafflesPage from './pages/RafflesPage';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/subscribe" element={<SubscribePage />} />
           <Route path="/partners" element={<PartnersPage />} />
+          <Route path="/raffles" element={<RafflesPage />} />
         </Routes>
         <Toaster position="top-center" richColors />
       </div>

@@ -781,6 +781,355 @@ async def generate_google_wallet_pass(data: WalletPassRequest):
         logging.error(f"Google Wallet error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ============ RAFFLE & ENTRY MANAGEMENT SYSTEM ============
+import secrets
+import hashlib
+import time
+from collections import defaultdict
+
+# Rate limiting for bot protection
+rate_limit_store = defaultdict(list)
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX_REQUESTS = 5  # max entries per minute per IP
+
+class RaffleStatus(str, Enum):
+    UPCOMING = "upcoming"
+    OPEN = "open"
+    CLOSED = "closed"
+    DRAWING = "drawing"
+    COMPLETED = "completed"
+
+class CreateRaffleRequest(BaseModel):
+    product_id: str
+    product_name: str
+    product_image: str
+    brand: str
+    retail_price: float
+    total_pairs: int
+    entry_start: str  # ISO datetime
+    entry_end: str    # ISO datetime
+    draw_time: str    # ISO datetime
+    sizes_available: list[str]
+    entry_requirements: list[str] = ["VIP membership required"]
+
+class RaffleEntryRequest(BaseModel):
+    raffle_id: str
+    phone: str
+    name: str
+    selected_size: str
+    shipping_address: Optional[str] = None
+    captcha_token: Optional[str] = None  # For bot protection
+
+class DrawWinnersRequest(BaseModel):
+    raffle_id: str
+    admin_key: str = ""
+
+def check_rate_limit(ip: str) -> bool:
+    """Check if IP has exceeded rate limit"""
+    current_time = time.time()
+    # Clean old entries
+    rate_limit_store[ip] = [t for t in rate_limit_store[ip] if current_time - t < RATE_LIMIT_WINDOW]
+    
+    if len(rate_limit_store[ip]) >= RATE_LIMIT_MAX_REQUESTS:
+        return False
+    
+    rate_limit_store[ip].append(current_time)
+    return True
+
+def generate_entry_id() -> str:
+    """Generate secure random entry ID"""
+    return f"ENTRY-{secrets.token_hex(8).upper()}"
+
+def generate_fingerprint(request: Request, phone: str) -> str:
+    """Generate device fingerprint for bot detection"""
+    user_agent = request.headers.get("user-agent", "")
+    accept_lang = request.headers.get("accept-language", "")
+    ip = request.client.host if request.client else "unknown"
+    
+    fingerprint_data = f"{ip}:{user_agent}:{accept_lang}:{phone}"
+    return hashlib.sha256(fingerprint_data.encode()).hexdigest()[:16]
+
+@api_router.post('/raffles/create')
+async def create_raffle(data: CreateRaffleRequest):
+    """Create a new raffle for a limited drop (Admin only)"""
+    raffle_id = f"RAFFLE-{secrets.token_hex(6).upper()}"
+    
+    raffle = {
+        'id': raffle_id,
+        'product_id': data.product_id,
+        'product_name': data.product_name,
+        'product_image': data.product_image,
+        'brand': data.brand,
+        'retail_price': data.retail_price,
+        'total_pairs': data.total_pairs,
+        'sizes_available': data.sizes_available,
+        'entry_start': data.entry_start,
+        'entry_end': data.entry_end,
+        'draw_time': data.draw_time,
+        'entry_requirements': data.entry_requirements,
+        'status': RaffleStatus.UPCOMING,
+        'total_entries': 0,
+        'winners': [],
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.raffles.insert_one(raffle)
+    
+    return {'success': True, 'raffle_id': raffle_id, 'message': 'Raffle created successfully'}
+
+@api_router.get('/raffles')
+async def get_raffles(status: Optional[str] = None):
+    """Get all raffles, optionally filtered by status"""
+    query = {}
+    if status:
+        query['status'] = status
+    
+    raffles = await db.raffles.find(query, {'_id': 0}).sort('entry_start', -1).to_list(50)
+    
+    # Update status based on current time
+    now = datetime.now(timezone.utc)
+    for raffle in raffles:
+        entry_start = datetime.fromisoformat(raffle['entry_start'].replace('Z', '+00:00'))
+        entry_end = datetime.fromisoformat(raffle['entry_end'].replace('Z', '+00:00'))
+        draw_time = datetime.fromisoformat(raffle['draw_time'].replace('Z', '+00:00'))
+        
+        if raffle['status'] == RaffleStatus.UPCOMING and now >= entry_start:
+            raffle['status'] = RaffleStatus.OPEN
+        elif raffle['status'] == RaffleStatus.OPEN and now >= entry_end:
+            raffle['status'] = RaffleStatus.CLOSED
+    
+    return {'raffles': raffles}
+
+@api_router.get('/raffles/{raffle_id}')
+async def get_raffle(raffle_id: str):
+    """Get raffle details with entry count"""
+    raffle = await db.raffles.find_one({'id': raffle_id}, {'_id': 0})
+    if not raffle:
+        raise HTTPException(status_code=404, detail='Raffle not found')
+    
+    # Get entry count by size
+    pipeline = [
+        {'$match': {'raffle_id': raffle_id}},
+        {'$group': {'_id': '$selected_size', 'count': {'$sum': 1}}}
+    ]
+    size_entries = await db.raffle_entries.aggregate(pipeline).to_list(100)
+    raffle['entries_by_size'] = {item['_id']: item['count'] for item in size_entries}
+    
+    return {'raffle': raffle}
+
+@api_router.post('/raffles/enter')
+async def enter_raffle(data: RaffleEntryRequest, request: Request):
+    """Enter a raffle with bot protection"""
+    
+    # Rate limiting check
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail='Too many requests. Please wait before trying again.')
+    
+    # Get raffle
+    raffle = await db.raffles.find_one({'id': data.raffle_id})
+    if not raffle:
+        raise HTTPException(status_code=404, detail='Raffle not found')
+    
+    # Check raffle status
+    now = datetime.now(timezone.utc)
+    entry_start = datetime.fromisoformat(raffle['entry_start'].replace('Z', '+00:00'))
+    entry_end = datetime.fromisoformat(raffle['entry_end'].replace('Z', '+00:00'))
+    
+    if now < entry_start:
+        raise HTTPException(status_code=400, detail='Raffle has not started yet')
+    if now > entry_end:
+        raise HTTPException(status_code=400, detail='Raffle entry period has ended')
+    
+    # Check if size is available
+    if data.selected_size not in raffle['sizes_available']:
+        raise HTTPException(status_code=400, detail='Selected size is not available')
+    
+    # Verify user is a VIP subscriber
+    subscriber = await db.subscribers.find_one({'phone': data.phone, 'isActive': True})
+    if not subscriber:
+        raise HTTPException(status_code=403, detail='VIP membership required to enter raffles')
+    
+    # Generate device fingerprint for bot detection
+    fingerprint = generate_fingerprint(request, data.phone)
+    
+    # Check for duplicate entry (same phone + same raffle)
+    existing_entry = await db.raffle_entries.find_one({
+        'raffle_id': data.raffle_id,
+        'phone': data.phone
+    })
+    if existing_entry:
+        raise HTTPException(status_code=400, detail='You have already entered this raffle')
+    
+    # Check for suspicious activity (same fingerprint, different phones)
+    fingerprint_entries = await db.raffle_entries.count_documents({
+        'raffle_id': data.raffle_id,
+        'fingerprint': fingerprint
+    })
+    if fingerprint_entries >= 2:
+        raise HTTPException(status_code=403, detail='Suspicious activity detected. Entry blocked.')
+    
+    # Create entry
+    entry_id = generate_entry_id()
+    entry = {
+        'id': entry_id,
+        'raffle_id': data.raffle_id,
+        'phone': data.phone,
+        'name': data.name,
+        'selected_size': data.selected_size,
+        'shipping_address': data.shipping_address,
+        'fingerprint': fingerprint,
+        'ip_address': client_ip,
+        'user_agent': request.headers.get("user-agent", ""),
+        'status': 'entered',  # entered, winner, not_selected
+        'entered_at': datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.raffle_entries.insert_one(entry)
+    
+    # Update raffle entry count
+    await db.raffles.update_one(
+        {'id': data.raffle_id},
+        {'$inc': {'total_entries': 1}}
+    )
+    
+    return {
+        'success': True,
+        'entry_id': entry_id,
+        'message': f'You have been entered into the raffle for {raffle["product_name"]}',
+        'selected_size': data.selected_size,
+        'draw_time': raffle['draw_time'],
+        'total_entries': raffle['total_entries'] + 1
+    }
+
+@api_router.get('/raffles/my-entries/{phone}')
+async def get_my_entries(phone: str):
+    """Get all raffle entries for a user"""
+    entries = await db.raffle_entries.find(
+        {'phone': phone},
+        {'_id': 0, 'fingerprint': 0, 'ip_address': 0, 'user_agent': 0}
+    ).sort('entered_at', -1).to_list(50)
+    
+    # Enrich with raffle details
+    for entry in entries:
+        raffle = await db.raffles.find_one({'id': entry['raffle_id']}, {'_id': 0})
+        if raffle:
+            entry['raffle'] = {
+                'product_name': raffle['product_name'],
+                'product_image': raffle['product_image'],
+                'brand': raffle['brand'],
+                'draw_time': raffle['draw_time'],
+                'status': raffle['status'],
+                'total_entries': raffle['total_entries']
+            }
+    
+    return {'entries': entries}
+
+@api_router.post('/raffles/draw')
+async def draw_winners(data: DrawWinnersRequest):
+    """Draw random winners for a raffle (Admin only)"""
+    
+    raffle = await db.raffles.find_one({'id': data.raffle_id})
+    if not raffle:
+        raise HTTPException(status_code=404, detail='Raffle not found')
+    
+    if raffle['status'] == RaffleStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail='Winners have already been drawn')
+    
+    # Update status to drawing
+    await db.raffles.update_one(
+        {'id': data.raffle_id},
+        {'$set': {'status': RaffleStatus.DRAWING}}
+    )
+    
+    # Get all entries grouped by size
+    entries = await db.raffle_entries.find({'raffle_id': data.raffle_id}).to_list(10000)
+    
+    if not entries:
+        raise HTTPException(status_code=400, detail='No entries to draw from')
+    
+    # Group entries by size
+    entries_by_size = defaultdict(list)
+    for entry in entries:
+        entries_by_size[entry['selected_size']].append(entry)
+    
+    # Calculate pairs per size (distribute evenly for simplicity)
+    total_pairs = raffle['total_pairs']
+    sizes = raffle['sizes_available']
+    pairs_per_size = max(1, total_pairs // len(sizes))
+    
+    winners = []
+    
+    # Secure random selection using secrets module
+    for size, size_entries in entries_by_size.items():
+        # Shuffle using secure random
+        shuffled = size_entries.copy()
+        for i in range(len(shuffled) - 1, 0, -1):
+            j = secrets.randbelow(i + 1)
+            shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+        
+        # Select winners for this size
+        size_winners = shuffled[:pairs_per_size]
+        
+        for winner in size_winners:
+            winners.append({
+                'entry_id': winner['id'],
+                'phone': winner['phone'],
+                'name': winner['name'],
+                'size': size,
+            })
+            
+            # Update entry status
+            await db.raffle_entries.update_one(
+                {'id': winner['id']},
+                {'$set': {'status': 'winner', 'won_at': datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Mark non-winners
+    winner_ids = [w['entry_id'] for w in winners]
+    await db.raffle_entries.update_many(
+        {'raffle_id': data.raffle_id, 'id': {'$nin': winner_ids}},
+        {'$set': {'status': 'not_selected'}}
+    )
+    
+    # Update raffle with winners
+    await db.raffles.update_one(
+        {'id': data.raffle_id},
+        {'$set': {
+            'status': RaffleStatus.COMPLETED,
+            'winners': winners,
+            'drawn_at': datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        'success': True,
+        'total_entries': len(entries),
+        'winners_selected': len(winners),
+        'winners': winners,
+        'message': f'Drew {len(winners)} winners from {len(entries)} entries'
+    }
+
+@api_router.get('/raffles/check-entry/{raffle_id}/{phone}')
+async def check_entry_status(raffle_id: str, phone: str):
+    """Check if user has entered and their status"""
+    entry = await db.raffle_entries.find_one(
+        {'raffle_id': raffle_id, 'phone': phone},
+        {'_id': 0, 'fingerprint': 0, 'ip_address': 0, 'user_agent': 0}
+    )
+    
+    if not entry:
+        return {'entered': False}
+    
+    return {
+        'entered': True,
+        'entry_id': entry['id'],
+        'status': entry['status'],
+        'selected_size': entry['selected_size'],
+        'entered_at': entry['entered_at'],
+        'is_winner': entry['status'] == 'winner'
+    }
+
 # ============ SCHEDULER STATUS ============
 from scheduler import get_scheduler_status, scrape_all_brands as run_full_scrape
 

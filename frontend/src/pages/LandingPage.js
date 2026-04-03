@@ -122,6 +122,7 @@ const StarBurst = ({ className }) => (
 
 const NAV_LINKS = [
   { label: 'Drops', to: '/browse' },
+  { label: 'Raffles', to: '/raffles' },
   { label: 'Partners', to: '/partners' },
   { label: 'Subscribe', to: '/subscribe' },
 ];
