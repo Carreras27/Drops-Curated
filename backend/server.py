@@ -348,7 +348,7 @@ class OTPVerify(BaseModel):
 class CreateOrderRequest(BaseModel):
     phone: str
     name: str
-    email: str
+    email: EmailStr
     address: str
     plan: str = "monthly"
 

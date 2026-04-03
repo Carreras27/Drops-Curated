@@ -68,7 +68,11 @@
 - [x] Digital membership card (UI)
 - [x] Apple/Google Wallet API endpoints (requires certificates to activate)
 - [x] Brand partnership page
-- [x] All tests: 100% pass (7 iterations)
+- [x] Real-Time Raffle & Entry Management with EQL-like bot-blocking
+- [x] Infinite scroll Browse page with Limited Edition & Trending sections
+- [x] Live animated timestamp/activity tracker on Landing page
+- [x] **Mandatory registration fields** (Full Name, Email, WhatsApp, Home Address)
+- [x] All tests: 100% pass (8 iterations)
 
 ## Upcoming Tasks
 - [ ] **P0**: Twilio production keys (real WhatsApp delivery)
