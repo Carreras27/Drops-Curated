@@ -184,6 +184,96 @@ async def get_product(product_id: str):
     
     return {'product': product, 'prices': prices}
 
+@api_router.get('/drops/curated')
+async def get_curated_drops():
+    """Get products organized by sections: Limited Edition, Trending, New Drops"""
+    import re
+    
+    # Limited Edition keywords to detect
+    limited_keywords = [
+        r'limited\s*(edition)?',
+        r'only\s*\d+\s*(pairs?|pieces?|units?|left)',
+        r'exclusive',
+        r'rare',
+        r'\d+\s*(pairs?|pieces?)\s*(only|left|remaining|available)',
+        r'sold\s*out\s*soon',
+        r'last\s*(few|chance)',
+        r'dropping\s*\d+',
+        r'limited\s*stock',
+        r'limited\s*release',
+        r'special\s*edition',
+        r'numbered\s*edition',
+        r'collab(oration)?',
+    ]
+    limited_pattern = re.compile('|'.join(limited_keywords), re.IGNORECASE)
+    
+    # Function to extract stock number from text
+    def extract_stock_number(text):
+        if not text:
+            return None
+        matches = re.findall(r'(\d+)\s*(pairs?|pieces?|units?|left|only|remaining|available|dropping)', text, re.IGNORECASE)
+        if matches:
+            num = int(matches[0][0])
+            if num <= 500:  # Only consider reasonable limited quantities
+                return num
+        return None
+    
+    # Get all active products
+    all_products = await db.products.find({'isActive': True}, {'_id': 0}).to_list(500)
+    
+    limited_edition = []
+    trending = []
+    new_drops = []
+    
+    for product in all_products:
+        # Enrich with price data
+        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(10)
+        if prices:
+            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+            product['highestPrice'] = max(p['currentPrice'] for p in prices)
+        else:
+            product['lowestPrice'] = 0
+            product['highestPrice'] = 0
+        
+        # Check for limited edition
+        search_text = f"{product.get('name', '')} {product.get('description', '')} {' '.join(product.get('tags', []))}"
+        if limited_pattern.search(search_text):
+            stock_num = extract_stock_number(search_text)
+            product['stockLimit'] = stock_num
+            product['isLimited'] = True
+            limited_edition.append(product)
+        
+        # Check trending
+        if product.get('isTrending'):
+            trending.append(product)
+        
+        # New drops (last 7 days)
+        created = product.get('createdAt', '')
+        if created:
+            try:
+                from datetime import datetime, timezone, timedelta
+                created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) - created_date < timedelta(days=7):
+                    new_drops.append(product)
+            except:
+                pass
+    
+    # Sort sections
+    limited_edition = sorted(limited_edition, key=lambda x: x.get('stockLimit') or 999)[:12]
+    trending = sorted(trending, key=lambda x: x.get('createdAt', ''), reverse=True)[:12]
+    new_drops = sorted(new_drops, key=lambda x: x.get('createdAt', ''), reverse=True)[:12]
+    
+    return {
+        'limited_edition': limited_edition,
+        'trending': trending,
+        'new_drops': new_drops,
+        'counts': {
+            'limited': len(limited_edition),
+            'trending': len(trending),
+            'new': len(new_drops)
+        }
+    }
+
 @api_router.get('/trending')
 async def get_trending_products(limit: int = Query(20, ge=1, le=50)):
     products = await db.products.find(

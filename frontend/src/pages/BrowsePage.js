@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 
@@ -8,18 +8,115 @@ const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES'];
 
+// Product Card Component
+const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      if (diff < 7) return `${diff} days ago`;
+      return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    } catch {
+      return '';
+    }
+  };
+
+  return (
+    <Link
+      to={`/product/${product.id}`}
+      className="group animate-fade-up"
+      style={{ animationDelay: `${Math.min(idx * 0.04, 0.5)}s` }}
+      data-testid={`product-card-${product.id}`}
+    >
+      <div className="aspect-square overflow-hidden mb-3 bg-surface relative">
+        <img
+          src={product.imageUrl}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          loading="lazy"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+        {/* Limited Edition Badge */}
+        {showStock && product.isLimited && (
+          <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            {product.stockLimit ? `Only ${product.stockLimit} in India` : 'Limited'}
+          </div>
+        )}
+        {/* Date Badge */}
+        {showDate && product.createdAt && (
+          <div className="absolute bottom-2 right-2 bg-primary/80 text-background px-2 py-1 text-[9px] font-medium">
+            {formatDate(product.createdAt)}
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-accent mb-1">{product.brand}</p>
+        <h3 className="text-sm font-medium leading-snug line-clamp-2 mb-2 group-hover:text-accent transition-colors duration-200">{product.name}</h3>
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-medium">
+            {product.lowestPrice > 0 ? `₹${product.lowestPrice?.toLocaleString('en-IN')}` : '—'}
+          </span>
+          {product.highestPrice > 0 && product.highestPrice !== product.lowestPrice && (
+            <span className="text-xs text-primary/30 line-through">₹{product.highestPrice?.toLocaleString('en-IN')}</span>
+          )}
+        </div>
+        {product.store && (
+          <p className="text-[10px] text-primary/30 mt-1">{product.store.replace(/_/g, ' ')}</p>
+        )}
+      </div>
+    </Link>
+  );
+};
+
+// Section Component
+const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showStock, emptyMessage }) => {
+  if (!products || products.length === 0) return null;
+  
+  return (
+    <div className="mb-16">
+      <div className="flex items-center gap-3 mb-6">
+        <div className={`w-8 h-8 flex items-center justify-center ${iconColor}`}>
+          <Icon className="w-4 h-4" strokeWidth={2} />
+        </div>
+        <div>
+          <h2 className="font-serif text-2xl">{title}</h2>
+          <p className="text-xs text-primary/40">{products.length} drops</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
+        {products.map((product, idx) => (
+          <ProductCard 
+            key={product.id} 
+            product={product} 
+            idx={idx} 
+            showDate={showDate}
+            showStock={showStock}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function BrowsePage() {
   const [products, setProducts] = useState([]);
+  const [curatedDrops, setCuratedDrops] = useState({ limited_edition: [], trending: [], new_drops: [] });
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState('curated'); // 'curated' or 'all'
 
   useEffect(() => {
     fetchBrands();
-    fetchProducts('');
+    fetchCuratedDrops();
   }, []);
 
   const fetchBrands = async () => {
@@ -29,8 +126,19 @@ export default function BrowsePage() {
     } catch {}
   };
 
+  const fetchCuratedDrops = async () => {
+    setLoading(true);
+    try {
+      const resp = await axios.get(`${API_URL}/drops/curated`);
+      setCuratedDrops(resp.data);
+    } catch {} finally {
+      setLoading(false);
+    }
+  };
+
   const fetchProducts = async (q, brand) => {
     setLoading(true);
+    setViewMode('all');
     try {
       let url = `${API_URL}/search?limit=60`;
       if (q) url += `&q=${encodeURIComponent(q)}`;
@@ -46,7 +154,12 @@ export default function BrowsePage() {
   const handleSearch = (e) => {
     e?.preventDefault();
     setSelectedBrand(null);
-    fetchProducts(query);
+    if (query.trim()) {
+      fetchProducts(query);
+    } else {
+      setViewMode('curated');
+      fetchCuratedDrops();
+    }
   };
 
   const handleBrandClick = (brand) => {
@@ -59,7 +172,8 @@ export default function BrowsePage() {
     setSelectedBrand(null);
     setSelectedCategory('All');
     setQuery('');
-    fetchProducts('');
+    setViewMode('curated');
+    fetchCuratedDrops();
   };
 
   const filtered = selectedCategory === 'All'
@@ -165,56 +279,69 @@ export default function BrowsePage() {
             </div>
           )}
 
-          {/* Product Grid */}
+          {/* Content */}
           {loading ? (
             <div className="flex justify-center py-24">
               <RefreshCw className="w-5 h-5 animate-spin text-primary/20" />
             </div>
-          ) : filtered.length > 0 ? (
+          ) : viewMode === 'curated' ? (
             <>
-              <p className="text-xs text-primary/30 mb-6">{filtered.length} drops</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8" data-testid="products-grid">
-                {filtered.map((product, idx) => (
-                  <Link
-                    key={product.id}
-                    to={`/product/${product.id}`}
-                    className="group animate-fade-up"
-                    style={{ animationDelay: `${Math.min(idx * 0.04, 0.5)}s` }}
-                    data-testid={`product-card-${product.id}`}
-                  >
-                    <div className="aspect-square overflow-hidden mb-3 bg-surface">
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                        loading="lazy"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-accent mb-1">{product.brand}</p>
-                      <h3 className="text-sm font-medium leading-snug line-clamp-2 mb-2 group-hover:text-accent transition-colors duration-200">{product.name}</h3>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium">
-                          {product.lowestPrice > 0 ? `₹${product.lowestPrice?.toLocaleString('en-IN')}` : '—'}
-                        </span>
-                        {product.highestPrice > 0 && product.highestPrice !== product.lowestPrice && (
-                          <span className="text-xs text-primary/30 line-through">₹{product.highestPrice?.toLocaleString('en-IN')}</span>
-                        )}
-                      </div>
-                      {product.store && (
-                        <p className="text-[10px] text-primary/30 mt-1">{product.store.replace(/_/g, ' ')}</p>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
+              {/* Limited Edition Section */}
+              <DropSection
+                title="Limited Edition"
+                icon={AlertTriangle}
+                iconColor="bg-red-500/10 text-red-500"
+                products={curatedDrops.limited_edition}
+                showStock={true}
+                showDate={true}
+                emptyMessage="No limited drops right now"
+              />
+
+              {/* Trending Section */}
+              <DropSection
+                title="Trending Now"
+                icon={Flame}
+                iconColor="bg-orange-500/10 text-orange-500"
+                products={curatedDrops.trending}
+                showDate={true}
+                emptyMessage="No trending drops"
+              />
+
+              {/* New Drops Section */}
+              <DropSection
+                title="New Drops"
+                icon={Sparkles}
+                iconColor="bg-accent/10 text-accent"
+                products={curatedDrops.new_drops}
+                showDate={true}
+                emptyMessage="No new drops this week"
+              />
+
+              {/* If no curated drops, show message */}
+              {!curatedDrops.limited_edition?.length && !curatedDrops.trending?.length && !curatedDrops.new_drops?.length && (
+                <div className="text-center py-24" data-testid="no-results">
+                  <p className="font-serif text-2xl text-primary/30 mb-2">Loading drops...</p>
+                  <p className="text-sm text-primary/20">Fresh drops coming soon</p>
+                </div>
+              )}
             </>
           ) : (
-            <div className="text-center py-24" data-testid="no-results">
-              <p className="font-serif text-2xl text-primary/30 mb-2">No drops found</p>
-              <p className="text-sm text-primary/20">Try adjusting your search or filters</p>
-            </div>
+            /* All Products Grid */
+            filtered.length > 0 ? (
+              <>
+                <p className="text-xs text-primary/30 mb-6">{filtered.length} drops</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8" data-testid="products-grid">
+                  {filtered.map((product, idx) => (
+                    <ProductCard key={product.id} product={product} idx={idx} showDate={true} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-24" data-testid="no-results">
+                <p className="font-serif text-2xl text-primary/30 mb-2">No drops found</p>
+                <p className="text-sm text-primary/20">Try adjusting your search or filters</p>
+              </div>
+            )
           )}
         </div>
       </main>
