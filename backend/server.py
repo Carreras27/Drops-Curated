@@ -359,10 +359,14 @@ async def get_watchlist(current_user: dict = Depends(get_current_user)):
 # ============ BRANDS ============
 @api_router.get('/brands')
 async def get_brands():
+    import random as rnd
     brands = await db.brands.find(
         {'isActive': True},
         {'_id': 0}
-    ).sort('popularityScore', -1).to_list(100)
+    ).to_list(100)
+    
+    # Shuffle brands so all get equal visibility
+    rnd.shuffle(brands)
     
     return {'brands': brands}
 
@@ -1351,7 +1355,12 @@ async def scrape_all_brands():
 @api_router.get("/scrape/status")
 async def scrape_status():
     """Get scraping status for all brands"""
+    import random as rnd
     brands = await db.brands.find({}, {"_id": 0}).to_list(100)
+    
+    # Shuffle brands so all stores get equal visibility
+    rnd.shuffle(brands)
+    
     total_products = await db.products.count_documents({"isActive": True})
     total_prices = await db.prices.count_documents({})
 
