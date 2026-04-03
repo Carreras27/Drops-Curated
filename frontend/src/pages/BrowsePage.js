@@ -211,13 +211,24 @@ export default function BrowsePage() {
     }
     try {
       let url = `${API_URL}/search?limit=24&skip=${(pageNum - 1) * 24}`;
+      
+      // Add search query
       if (searchQuery) {
         url += `&q=${encodeURIComponent(searchQuery)}`;
-      } else if (brandFilter) {
-        url += `&q=${encodeURIComponent(brandFilter)}`;
-      } else {
-        url += '&q=';
       }
+      
+      // Add brand filter (for product brand like Nike, not store)
+      if (brandFilter) {
+        url += `&q=${encodeURIComponent(brandFilter)}`;
+      }
+      
+      // Use shuffle sort when no specific search to keep content fresh
+      if (!searchQuery && !brandFilter) {
+        url += '&sort=shuffle';
+      } else {
+        url += '&sort=date'; // Sort by drop date when searching
+      }
+      
       const resp = await axios.get(url);
       const newProducts = resp.data.products || [];
       
@@ -317,7 +328,7 @@ export default function BrowsePage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search sneakers, brands, styles..."
+                placeholder="Search Nike, Jordan, Yeezy, hoodies, sneakers..."
                 className="w-full pl-11 pr-4 py-3 bg-surface border border-primary/10 text-sm placeholder:text-primary/30 focus:outline-none focus:border-accent transition-colors"
                 data-testid="search-input"
               />

@@ -136,10 +136,17 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def search_products(
     q: str = Query(''),
     category: Optional[str] = None,
+    brand: Optional[str] = None,
+    sort: str = Query('date', description='Sort by: date, price_low, price_high, shuffle'),
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100)
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0)
 ):
+    import random as rnd
+    
     query = {}
+    
+    # Search query - searches name, description, brand, tags
     if q.strip():
         query['$or'] = [
             {'name': {'$regex': q, '$options': 'i'}},
@@ -147,13 +154,33 @@ async def search_products(
             {'brand': {'$regex': q, '$options': 'i'}},
             {'tags': {'$regex': q, '$options': 'i'}},
         ]
+    
+    # Brand filter - exact match on brand field
+    if brand:
+        query['brand'] = {'$regex': f'^{brand}$', '$options': 'i'}
 
     if category:
         query['category'] = category
     
-    skip = (page - 1) * limit
-    products = await db.products.find(query, {'_id': 0}).skip(skip).limit(limit).to_list(limit)
+    # Calculate skip value
+    skip_val = skip if skip > 0 else (page - 1) * limit
+    
+    # Get total count first
     total = await db.products.count_documents(query)
+    
+    # Determine sort order
+    if sort == 'shuffle':
+        # For shuffle, get more products and randomize
+        products = await db.products.find(query, {'_id': 0}).limit(min(limit * 3, 200)).to_list(min(limit * 3, 200))
+        rnd.shuffle(products)
+        products = products[:limit]
+    elif sort == 'price_low':
+        products = await db.products.find(query, {'_id': 0}).sort('price', 1).skip(skip_val).limit(limit).to_list(limit)
+    elif sort == 'price_high':
+        products = await db.products.find(query, {'_id': 0}).sort('price', -1).skip(skip_val).limit(limit).to_list(limit)
+    else:
+        # Default: sort by createdAt (newest first) with random seed for variety
+        products = await db.products.find(query, {'_id': 0}).sort('createdAt', -1).skip(skip_val).limit(limit).to_list(limit)
     
     # Enrich products with price data
     for product in products:
@@ -163,9 +190,9 @@ async def search_products(
             product['highestPrice'] = max(p['currentPrice'] for p in prices)
             product['priceCount'] = len(prices)
         else:
-            product['lowestPrice'] = 0
-            product['highestPrice'] = 0
-            product['priceCount'] = 0
+            product['lowestPrice'] = product.get('price', 0)
+            product['highestPrice'] = product.get('price', 0)
+            product['priceCount'] = 1
     
     return {
         'products': products,
@@ -258,10 +285,23 @@ async def get_curated_drops():
             except:
                 pass
     
-    # Sort sections
-    limited_edition = sorted(limited_edition, key=lambda x: x.get('stockLimit') or 999)[:12]
-    trending = sorted(trending, key=lambda x: x.get('createdAt', ''), reverse=True)[:12]
-    new_drops = sorted(new_drops, key=lambda x: x.get('createdAt', ''), reverse=True)[:12]
+    # Sort sections with shuffle for variety
+    import random as rnd
+    
+    # Limited edition - sort by stock limit but shuffle items with same/similar stock
+    limited_edition = sorted(limited_edition, key=lambda x: x.get('stockLimit') or 999)[:20]
+    rnd.shuffle(limited_edition)
+    limited_edition = limited_edition[:12]
+    
+    # Trending - shuffle for variety
+    trending = sorted(trending, key=lambda x: x.get('createdAt', ''), reverse=True)[:20]
+    rnd.shuffle(trending)
+    trending = trending[:12]
+    
+    # New drops - sort by date first, then shuffle top items
+    new_drops = sorted(new_drops, key=lambda x: x.get('createdAt', ''), reverse=True)[:20]
+    rnd.shuffle(new_drops)
+    new_drops = new_drops[:12]
     
     # Get last scrape time
     last_scrape = await db.brands.find_one({}, {'_id': 0, 'lastScrapedAt': 1}, sort=[('lastScrapedAt', -1)])
