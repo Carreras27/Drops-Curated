@@ -320,6 +320,145 @@ async def get_curated_drops():
         'generated_at': datetime.now(timezone.utc).isoformat()
     }
 
+# ============ CELEBRITY STYLE ============
+# Celebrity data with their known style preferences (brands, keywords)
+CELEBRITY_DATA = [
+    {
+        'id': 'travis_scott',
+        'name': 'Travis Scott',
+        'image': 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
+        'style_keywords': ['jordan', 'nike', 'dunk', 'air jordan', 'travis'],
+        'brands': ['Nike Air Jordan', 'AIR JORDAN', 'Nike Dunk', 'NIKE'],
+        'category': 'Hip-Hop Icon'
+    },
+    {
+        'id': 'ranveer_singh',
+        'name': 'Ranveer Singh',
+        'image': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
+        'style_keywords': ['gucci', 'balenciaga', 'oversized', 'bold', 'colorful'],
+        'brands': ['Urban Monkey®', 'House of Koala', 'Huemn'],
+        'category': 'Bollywood Style King'
+    },
+    {
+        'id': 'virgil_abloh',
+        'name': 'Virgil Abloh',
+        'image': 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400',
+        'style_keywords': ['off-white', 'nike', 'jordan', 'dunk', 'air force'],
+        'brands': ['Nike Air Jordan', 'AIR JORDAN', 'Nike Dunk', 'NIKE'],
+        'category': 'Design Legend'
+    },
+    {
+        'id': 'asap_rocky',
+        'name': 'A$AP Rocky',
+        'image': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400',
+        'style_keywords': ['vans', 'adidas', 'new balance', 'retro', 'vintage'],
+        'brands': ['VANS', 'ADIDAS', 'NEW BALANCE'],
+        'category': 'Fashion Forward'
+    },
+    {
+        'id': 'billie_eilish',
+        'name': 'Billie Eilish',
+        'image': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+        'style_keywords': ['oversized', 'nike', 'jordan', 'baggy', 'streetwear'],
+        'brands': ['Nike Air Jordan', 'AIR JORDAN', 'NIKE', 'Urban Monkey®'],
+        'category': 'Gen Z Icon'
+    },
+    {
+        'id': 'kanye_west',
+        'name': 'Kanye West',
+        'image': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
+        'style_keywords': ['yeezy', 'adidas', 'foam', 'boost', 'minimal'],
+        'brands': ['ADIDAS', 'NEW BALANCE'],
+        'category': 'Yeezy Pioneer'
+    },
+    {
+        'id': 'pharrell_williams',
+        'name': 'Pharrell Williams',
+        'image': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
+        'style_keywords': ['adidas', 'human race', 'nmd', 'colorful', 'bold'],
+        'brands': ['ADIDAS', 'NEW BALANCE', 'HOKA'],
+        'category': 'Music & Fashion'
+    },
+    {
+        'id': 'rihanna',
+        'name': 'Rihanna',
+        'image': 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400',
+        'style_keywords': ['puma', 'jordan', 'nike', 'fenty', 'bold'],
+        'brands': ['Nike Air Jordan', 'NIKE', 'AIR JORDAN'],
+        'category': 'Fashion Mogul'
+    }
+]
+
+async def match_celebrity_products(db, celebrity: dict, limit: int = 6) -> list:
+    """Find products that match a celebrity's style"""
+    import random as rnd
+    
+    # Build query for celebrity's preferred brands and keywords
+    brand_queries = [{'brand': {'$regex': brand, '$options': 'i'}} for brand in celebrity['brands']]
+    keyword_queries = []
+    for keyword in celebrity['style_keywords']:
+        keyword_queries.extend([
+            {'name': {'$regex': keyword, '$options': 'i'}},
+            {'tags': {'$regex': keyword, '$options': 'i'}}
+        ])
+    
+    # Combine queries
+    all_queries = brand_queries + keyword_queries
+    if not all_queries:
+        return []
+    
+    query = {'$or': all_queries}
+    
+    # Get matching products
+    products = await db.products.find(query, {'_id': 0}).limit(50).to_list(50)
+    
+    # Shuffle and limit
+    rnd.shuffle(products)
+    selected = products[:limit]
+    
+    # Enrich with price data
+    for product in selected:
+        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(10)
+        if prices:
+            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+            product['highestPrice'] = max(p['currentPrice'] for p in prices)
+        else:
+            product['lowestPrice'] = product.get('price', 0)
+            product['highestPrice'] = product.get('price', 0)
+    
+    return selected
+
+@api_router.get('/celebrity/styles')
+async def get_celebrity_styles():
+    """Get celebrity style picks - products matching celebrity preferences"""
+    import random as rnd
+    
+    celebrity_picks = []
+    
+    # Shuffle celebrities for variety
+    shuffled_celebs = CELEBRITY_DATA.copy()
+    rnd.shuffle(shuffled_celebs)
+    
+    for celeb in shuffled_celebs[:6]:  # Show 6 celebrities max
+        products = await match_celebrity_products(db, celeb, limit=4)
+        if products:  # Only include if products found
+            celebrity_picks.append({
+                'celebrity': {
+                    'id': celeb['id'],
+                    'name': celeb['name'],
+                    'image': celeb['image'],
+                    'category': celeb['category']
+                },
+                'products': products,
+                'product_count': len(products)
+            })
+    
+    return {
+        'celebrity_picks': celebrity_picks,
+        'total_celebrities': len(celebrity_picks),
+        'generated_at': datetime.now(timezone.utc).isoformat()
+    }
+
 @api_router.get('/trending')
 async def get_trending_products(limit: int = Query(20, ge=1, le=50)):
     products = await db.products.find(

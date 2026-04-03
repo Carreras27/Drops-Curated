@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 
@@ -147,9 +147,99 @@ const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showSto
   );
 };
 
+// Celebrity Style Card Component
+const CelebrityCard = ({ celebrity, products, idx }) => {
+  return (
+    <div 
+      className="group animate-fade-up bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] border border-primary/10 hover:border-accent/30 transition-all duration-300"
+      style={{ animationDelay: `${idx * 0.1}s` }}
+      data-testid={`celebrity-card-${celebrity.id}`}
+    >
+      {/* Celebrity Header */}
+      <div className="flex items-center gap-4 p-4 border-b border-primary/5">
+        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-accent/20 flex-shrink-0">
+          <img 
+            src={celebrity.image} 
+            alt={celebrity.name}
+            className="w-full h-full object-cover"
+            onError={(e) => { 
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(celebrity.name)}&background=c9a961&color=001f3f&size=100`;
+            }}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <Star className="w-3.5 h-3.5 text-accent fill-accent" />
+            <span className="text-[10px] uppercase tracking-widest text-accent font-medium">Celebrity Pick</span>
+          </div>
+          <h3 className="font-serif text-lg truncate">{celebrity.name}</h3>
+          <p className="text-[10px] text-primary/40 uppercase tracking-wider">{celebrity.category}</p>
+        </div>
+      </div>
+      
+      {/* Products Grid */}
+      <div className="grid grid-cols-2 gap-2 p-3">
+        {products.slice(0, 4).map((product) => (
+          <Link
+            key={product.id}
+            to={`/product/${product.id}`}
+            className="group/item"
+            data-testid={`celeb-product-${product.id}`}
+          >
+            <div className="aspect-square overflow-hidden bg-white mb-2">
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-300"
+                loading="lazy"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
+            <p className="text-[10px] text-primary/60 line-clamp-1">{product.brand}</p>
+            <p className="text-xs font-medium line-clamp-1 group-hover/item:text-accent transition-colors">{product.name}</p>
+            <p className="text-xs font-medium text-accent">
+              ₹{product.lowestPrice?.toLocaleString('en-IN') || '—'}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Celebrity Style Section
+const CelebrityStyleSection = ({ celebrityPicks }) => {
+  if (!celebrityPicks || celebrityPicks.length === 0) return null;
+  
+  return (
+    <div className="mb-16" data-testid="celebrity-section">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-8 h-8 flex items-center justify-center bg-purple-500/10 text-purple-500">
+          <Star className="w-4 h-4" strokeWidth={2} />
+        </div>
+        <div>
+          <h2 className="font-serif text-2xl">Celebrity Style</h2>
+          <p className="text-xs text-primary/40">Shop looks worn by icons</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {celebrityPicks.map((pick, idx) => (
+          <CelebrityCard
+            key={pick.celebrity.id}
+            celebrity={pick.celebrity}
+            products={pick.products}
+            idx={idx}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function BrowsePage() {
   const [products, setProducts] = useState([]);
   const [curatedDrops, setCuratedDrops] = useState({ limited_edition: [], trending: [], new_drops: [] });
+  const [celebrityPicks, setCelebrityPicks] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -167,15 +257,24 @@ export default function BrowsePage() {
   useEffect(() => {
     fetchBrands();
     fetchCuratedDrops();
+    fetchCelebrityStyles();
     fetchAllProducts(1);
     
     // Auto-refresh every 15 minutes
     const refreshTimer = setInterval(() => {
       fetchCuratedDrops(true);
+      fetchCelebrityStyles();
     }, AUTO_REFRESH_INTERVAL);
     
     return () => clearInterval(refreshTimer);
   }, []);
+
+  const fetchCelebrityStyles = async () => {
+    try {
+      const resp = await axios.get(`${API_URL}/celebrity/styles`);
+      setCelebrityPicks(resp.data.celebrity_picks || []);
+    } catch {}
+  };
 
   const fetchBrands = async () => {
     try {
@@ -447,6 +546,9 @@ export default function BrowsePage() {
                     showDate={true}
                     emptyMessage="No limited drops right now"
                   />
+
+                  {/* Celebrity Style Section */}
+                  <CelebrityStyleSection celebrityPicks={celebrityPicks} />
 
                   {/* Trending Section */}
                   <DropSection

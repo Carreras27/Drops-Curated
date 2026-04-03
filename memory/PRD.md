@@ -74,6 +74,7 @@
 - [x] **Mandatory registration fields** (Full Name, Email, WhatsApp, Home Address)
 - [x] **Auto-shuffle products** - Fresh content on each page load
 - [x] **Brand name search** - Search "Nike" to see Nike products from ALL stores, sorted by drop date
+- [x] **Celebrity Style section** - Automatic matching of products to celebrity style preferences (Travis Scott, Kanye West, Ranveer Singh, etc.)
 - [x] All tests: 100% pass (8 iterations)
 
 ## Upcoming Tasks
