@@ -276,13 +276,54 @@ export default function LandingPage() {
                   className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-700 ease-out"
                 />
               </div>
-              <div className="absolute -bottom-5 -left-5 bg-surface border border-primary/[0.06] p-5 shadow-soft">
+              <div className="absolute -bottom-5 -left-5 bg-surface border border-primary/[0.06] p-5 shadow-soft overflow-hidden">
+                {/* Animated scanning line */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-accent/50 to-transparent animate-scan" />
+                </div>
+                
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 bg-green-400 rounded-full" />
+                  {/* Animated pulse ring */}
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  </span>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live Tracking</p>
                 </div>
-                <p className="font-serif text-lg">{stats.products}+ Products</p>
-                <p className="text-[10px] text-primary/40 mt-0.5">{stats.brands} brands monitored</p>
+                
+                {/* Animated counter effect */}
+                <p className="font-serif text-lg flex items-baseline gap-1">
+                  <span className="tabular-nums">{stats.products?.toLocaleString() || '9,355'}</span>
+                  <span className="text-accent animate-pulse">+</span>
+                  <span className="text-sm font-normal text-primary/60">Products</span>
+                </p>
+                
+                {/* Activity ticker */}
+                <div className="flex items-center gap-2 mt-2 text-[9px] text-primary/40">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1 h-1 bg-accent rounded-full animate-pulse" />
+                    Scanning
+                  </span>
+                  <span className="text-primary/20">|</span>
+                  <span>{stats.brands} brands</span>
+                  <span className="text-primary/20">|</span>
+                  <span className="text-green-500">Live</span>
+                </div>
+                
+                {/* Mini activity bars */}
+                <div className="flex items-end gap-[2px] mt-3 h-3">
+                  {[...Array(8)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className="w-1 bg-accent/40 rounded-sm animate-pulse"
+                      style={{ 
+                        height: `${Math.random() * 100}%`,
+                        animationDelay: `${i * 0.15}s`,
+                        animationDuration: '0.8s'
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>

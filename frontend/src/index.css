@@ -56,3 +56,23 @@ img {
   animation: fadeUp 0.5s ease-out forwards;
   opacity: 0;
 }
+
+/* Scanning line animation */
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-scan {
+  animation: scan 2s ease-in-out infinite;
+}
+
+/* Activity bars animation */
+@keyframes activityPulse {
+  0%, 100% { height: 20%; }
+  50% { height: 100%; }
+}
+
+.animate-activity {
+  animation: activityPulse 0.8s ease-in-out infinite;
+}
