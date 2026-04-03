@@ -348,6 +348,8 @@ class OTPVerify(BaseModel):
 class CreateOrderRequest(BaseModel):
     phone: str
     name: str
+    email: str
+    address: str
     plan: str = "monthly"
 
 class VerifyPaymentRequest(BaseModel):
@@ -439,6 +441,8 @@ async def create_payment_order(data: CreateOrderRequest):
         'orderId': order_data['id'],
         'phone': phone,
         'name': data.name,
+        'email': data.email,
+        'address': data.address,
         'amount': amount,
         'status': 'created',
         'plan': data.plan,
@@ -496,6 +500,8 @@ async def verify_payment(data: VerifyPaymentRequest):
         {'phone': phone},
         {'$set': {
             'name': order.get('name', ''),
+            'email': order.get('email', ''),
+            'address': order.get('address', ''),
             'isActive': True,
             'isPaid': True,
             'membershipId': membership_id,
@@ -523,6 +529,8 @@ async def get_membership(phone: str):
     return {
         'membership_id': sub.get('membershipId', ''),
         'name': sub.get('name', ''),
+        'email': sub.get('email', ''),
+        'address': sub.get('address', ''),
         'phone': sub.get('phone', ''),
         'plan': sub.get('plan', 'monthly'),
         'expires_at': sub.get('expiresAt', ''),

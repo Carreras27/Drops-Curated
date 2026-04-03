@@ -143,6 +143,8 @@ export default function SubscribePage() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [sandboxOtp, setSandboxOtp] = useState('');
   const [membership, setMembership] = useState(null);
@@ -192,10 +194,12 @@ export default function SubscribePage() {
   };
 
   const createOrder = async () => {
-    if (!name.trim()) { toast.error('Please enter your name'); return; }
+    if (!name.trim()) { toast.error('Please enter your full name'); return; }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error('Please enter a valid email address'); return; }
+    if (!address.trim() || address.trim().length < 10) { toast.error('Please enter your complete home address'); return; }
     setLoading(true);
     try {
-      const resp = await axios.post(`${API_URL}/payment/create-order`, { phone, name, plan: 'monthly' });
+      const resp = await axios.post(`${API_URL}/payment/create-order`, { phone, name, email, address, plan: 'monthly' });
       setOrderId(resp.data.order_id);
       if (resp.data.sandbox) {
         setStep('payment');
@@ -385,12 +389,32 @@ export default function SubscribePage() {
                     <CreditCard className="w-6 h-6 text-accent" strokeWidth={1.5} />
                   </div>
                   <h2 className="font-serif text-2xl md:text-3xl mb-2">Your Details</h2>
-                  <p className="text-sm text-primary/40 mb-8">Name for your membership card.</p>
+                  <p className="text-sm text-primary/40 mb-8">We need your details for membership and delivery.</p>
                   <div className="space-y-4 max-w-md">
                     <div>
-                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">Full Name</label>
-                      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
-                        className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors" data-testid="name-input" />
+                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">Full Name <span className="text-red-500">*</span></label>
+                      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name"
+                        className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors" data-testid="name-input" required />
+                    </div>
+                    <div>
+                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">Email Address <span className="text-red-500">*</span></label>
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com"
+                        className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors" data-testid="email-input" required />
+                    </div>
+                    <div>
+                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">WhatsApp Number</label>
+                      <div className="flex">
+                        <span className="flex items-center px-4 bg-primary/[0.03] border border-primary/10 border-r-0 text-sm text-primary/50 font-medium">+91</span>
+                        <input type="tel" value={phone} disabled
+                          className="flex-1 px-4 py-3.5 bg-primary/[0.02] border border-primary/10 text-sm text-primary/60 cursor-not-allowed" data-testid="whatsapp-display" />
+                      </div>
+                      <p className="text-[10px] text-primary/30 mt-1">Verified in previous step</p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">Home Address <span className="text-red-500">*</span></label>
+                      <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address including city, state, and PIN code"
+                        rows={3}
+                        className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors resize-none" data-testid="address-input" required />
                     </div>
                     <div className="bg-primary/[0.03] border border-primary/10 p-5">
                       <div className="flex items-center justify-between mb-3">
@@ -405,7 +429,7 @@ export default function SubscribePage() {
                         ))}
                       </ul>
                     </div>
-                    <button onClick={createOrder} disabled={loading || !name.trim()}
+                    <button onClick={createOrder} disabled={loading || !name.trim() || !email.trim() || !address.trim()}
                       className="w-full bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="proceed-payment-btn">
                       {loading ? 'Processing...' : 'Pay ₹399 via UPI'}
                       <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
