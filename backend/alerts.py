@@ -1,25 +1,16 @@
 """
 Real-time alert system for Drops Curated.
-Detects price drops and new products, sends WhatsApp alerts via Twilio.
+Detects price drops and new products, sends WhatsApp alerts via Gupshup.
 """
 import os
 import logging
 from datetime import datetime, timezone
-from twilio.rest import Client as TwilioClient
+from gupshup import send_price_drop_alert, send_new_drop_alert, gupshup_client
 
 logger = logging.getLogger(__name__)
 
-TWILIO_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
-TWILIO_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
-TWILIO_WHATSAPP_FROM = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+919700771000')  # Drops Curated WhatsApp
-
-SANDBOX_MODE = not TWILIO_SID or TWILIO_SID.startswith('AC_test')
-
-
-def get_twilio_client():
-    if SANDBOX_MODE:
-        return None
-    return TwilioClient(TWILIO_SID, TWILIO_TOKEN)
+GUPSHUP_API_KEY = os.environ.get('GUPSHUP_API_KEY', '')
+SANDBOX_MODE = not GUPSHUP_API_KEY
 
 
 async def detect_changes(db, scraped_products: list[dict], store_key: str) -> dict:
@@ -140,20 +131,21 @@ async def send_alerts(db, changes: dict, store_key: str):
     return {"sent": sent_count}
 
 
-async def _send_whatsapp(phone: str, message: str) -> bool:
-    """Send a WhatsApp message via Twilio."""
+async def _send_whatsapp(phone: str, message: str, alert_type: str = "general", alert_data: dict = None) -> bool:
+    """Send a WhatsApp message via Gupshup."""
     if SANDBOX_MODE:
         logger.info(f"[Sandbox] WhatsApp to +91{phone}: {message[:80]}...")
         return True
 
     try:
-        client = get_twilio_client()
-        client.messages.create(
-            from_=TWILIO_WHATSAPP_FROM,
-            body=message,
-            to=f"whatsapp:+91{phone}",
-        )
-        return True
+        # Use session message for general alerts
+        success, result = gupshup_client.send_session_message(phone, message)
+        if success:
+            logger.info(f"[Gupshup] Sent to {phone}. Message ID: {result}")
+            return True
+        else:
+            logger.warning(f"[Gupshup] Failed to send to {phone}: {result}")
+            return False
     except Exception as e:
-        logger.error(f"[Twilio] Failed to send to {phone}: {e}")
+        logger.error(f"[Gupshup] Failed to send to {phone}: {e}")
         return False

@@ -326,7 +326,7 @@ CELEBRITY_DATA = [
     {
         'id': 'travis_scott',
         'name': 'Travis Scott',
-        'image': 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
+        'image': 'https://static.prod-images.emergentagent.com/jobs/921b3e03-5859-468d-bad4-ffdaf98d9621/images/a29d41d9ff81e1f2d4f07469db2f62afb16331f34142846baa62f306fdcf8f7a.png',
         'style_keywords': ['jordan', 'nike', 'dunk', 'air jordan', 'travis'],
         'brands': ['Nike Air Jordan', 'AIR JORDAN', 'Nike Dunk', 'NIKE'],
         'category': 'Hip-Hop Icon'
@@ -334,23 +334,23 @@ CELEBRITY_DATA = [
     {
         'id': 'ranveer_singh',
         'name': 'Ranveer Singh',
-        'image': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-        'style_keywords': ['gucci', 'balenciaga', 'oversized', 'bold', 'colorful'],
-        'brands': ['Urban Monkey®', 'House of Koala', 'Huemn'],
+        'image': 'https://static.prod-images.emergentagent.com/jobs/921b3e03-5859-468d-bad4-ffdaf98d9621/images/329253afcfdfbc27373e820e4d2d0527991dbcd73df453ee3c5ff36929928da3.png',
+        'style_keywords': ['gucci', 'balenciaga', 'oversized', 'bold', 'colorful', 'huemn'],
+        'brands': ['Urban Monkey®', 'House of Koala', 'HUEMN', 'Huemn'],
         'category': 'Bollywood Style King'
     },
     {
-        'id': 'virgil_abloh',
-        'name': 'Virgil Abloh',
-        'image': 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400',
-        'style_keywords': ['off-white', 'nike', 'jordan', 'dunk', 'air force'],
-        'brands': ['Nike Air Jordan', 'AIR JORDAN', 'Nike Dunk', 'NIKE'],
-        'category': 'Design Legend'
+        'id': 'kanye_west',
+        'name': 'Kanye West',
+        'image': 'https://static.prod-images.emergentagent.com/jobs/921b3e03-5859-468d-bad4-ffdaf98d9621/images/c773912009908ed5a2411d876b8535b02aaef22d6437ea1aa2b34652b64974db.png',
+        'style_keywords': ['yeezy', 'adidas', 'foam', 'boost', 'minimal'],
+        'brands': ['ADIDAS', 'Adidas Yeezy', 'NEW BALANCE'],
+        'category': 'Yeezy Pioneer'
     },
     {
         'id': 'asap_rocky',
         'name': 'A$AP Rocky',
-        'image': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400',
+        'image': 'https://static.prod-images.emergentagent.com/jobs/921b3e03-5859-468d-bad4-ffdaf98d9621/images/594ce23741ea35525fead63f03b410404c6097eba6cd37c9b8adaad17b6b619d.png',
         'style_keywords': ['vans', 'adidas', 'new balance', 'retro', 'vintage'],
         'brands': ['VANS', 'ADIDAS', 'NEW BALANCE'],
         'category': 'Fashion Forward'
@@ -358,31 +358,31 @@ CELEBRITY_DATA = [
     {
         'id': 'billie_eilish',
         'name': 'Billie Eilish',
-        'image': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+        'image': 'https://static.prod-images.emergentagent.com/jobs/921b3e03-5859-468d-bad4-ffdaf98d9621/images/16746c29104da6b37a09138a355586f9a8d1ef69252ba343952e2940f5a5e743.png',
         'style_keywords': ['oversized', 'nike', 'jordan', 'baggy', 'streetwear'],
         'brands': ['Nike Air Jordan', 'AIR JORDAN', 'NIKE', 'Urban Monkey®'],
         'category': 'Gen Z Icon'
     },
     {
-        'id': 'kanye_west',
-        'name': 'Kanye West',
-        'image': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
-        'style_keywords': ['yeezy', 'adidas', 'foam', 'boost', 'minimal'],
-        'brands': ['ADIDAS', 'NEW BALANCE'],
-        'category': 'Yeezy Pioneer'
-    },
-    {
         'id': 'pharrell_williams',
         'name': 'Pharrell Williams',
-        'image': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
+        'image': 'https://static.prod-images.emergentagent.com/jobs/921b3e03-5859-468d-bad4-ffdaf98d9621/images/27cdb86b980977d815ceed47019ca8669f295195638d12b29b337073a6a141cf.png',
         'style_keywords': ['adidas', 'human race', 'nmd', 'colorful', 'bold'],
         'brands': ['ADIDAS', 'NEW BALANCE', 'HOKA'],
         'category': 'Music & Fashion'
     },
     {
+        'id': 'virgil_abloh',
+        'name': 'Virgil Abloh',
+        'image': 'https://ui-avatars.com/api/?name=Virgil+Abloh&background=001f3f&color=c9a961&size=400&bold=true',
+        'style_keywords': ['off-white', 'nike', 'jordan', 'dunk', 'air force'],
+        'brands': ['Nike Air Jordan', 'AIR JORDAN', 'Nike Dunk', 'NIKE'],
+        'category': 'Design Legend'
+    },
+    {
         'id': 'rihanna',
         'name': 'Rihanna',
-        'image': 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400',
+        'image': 'https://ui-avatars.com/api/?name=Rihanna&background=001f3f&color=c9a961&size=400&bold=true',
         'style_keywords': ['puma', 'jordan', 'nike', 'fenty', 'bold'],
         'brands': ['Nike Air Jordan', 'NIKE', 'AIR JORDAN'],
         'category': 'Fashion Mogul'
@@ -542,8 +542,10 @@ class VerifyPaymentRequest(BaseModel):
     signature: str = ""
 
 @api_router.post('/otp/send')
-async def send_otp(data: OTPRequest):
-    """Send OTP via WhatsApp (sandbox: returns OTP for testing)"""
+async def send_otp_endpoint(data: OTPRequest):
+    """Send OTP via WhatsApp using Gupshup"""
+    from gupshup import send_otp as gupshup_send_otp
+    
     phone = data.phone.strip()
     if len(phone) != 10 or phone[0] not in '6789':
         raise HTTPException(status_code=400, detail='Invalid Indian mobile number')
@@ -555,13 +557,19 @@ async def send_otp(data: OTPRequest):
         'verified': False,
     }
 
-    # In sandbox mode, return OTP directly for testing
-    # In production, send via WhatsApp Business API
-    logger.info(f"OTP for {phone}: {otp}")
+    # Send OTP via Gupshup WhatsApp
+    success, result = gupshup_send_otp(phone, otp)
+    
+    if success:
+        logger.info(f"OTP sent to {phone} via Gupshup. Message ID: {result}")
+    else:
+        logger.warning(f"Failed to send OTP via Gupshup: {result}. OTP: {otp}")
 
+    # In sandbox mode or if Gupshup fails, return OTP for testing
     return {
         'message': 'OTP sent to WhatsApp',
-        'sandbox_otp': otp if SANDBOX_MODE else None,
+        'sandbox_otp': otp if (SANDBOX_MODE or not success) else None,
+        'sent_via': 'gupshup' if success else 'sandbox',
     }
 
 @api_router.post('/otp/verify')
