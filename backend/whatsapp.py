@@ -171,6 +171,67 @@ class WhatsAppClient:
         except Exception as e:
             logger.error(f"Error sending text message: {str(e)}")
             return False, str(e)
+    
+    def send_image_message(
+        self,
+        destination: str,
+        image_url: str,
+        caption: str = ""
+    ) -> Tuple[bool, str]:
+        """
+        Send an image message with optional caption
+        
+        Args:
+            destination: Recipient phone number
+            image_url: Public URL of the image
+            caption: Optional caption text
+            
+        Returns:
+            Tuple of (success, message_id or error)
+        """
+        if not IS_CONFIGURED:
+            logger.warning("WhatsApp API not configured")
+            return False, "WhatsApp not configured"
+        
+        destination = self._normalize_phone(destination)
+        url = f"{self.api_url}/{self.phone_number_id}/messages"
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": destination,
+            "type": "image",
+            "image": {
+                "link": image_url,
+                "caption": caption
+            }
+        }
+        
+        try:
+            logger.info(f"Sending image message to {destination}")
+            
+            response = requests.post(
+                url,
+                headers=self.headers,
+                json=payload,
+                timeout=30
+            )
+            
+            result = response.json()
+            
+            if response.status_code in [200, 201]:
+                message_id = result.get("messages", [{}])[0].get("id", "")
+                logger.info(f"Image message sent. ID: {message_id}")
+                return True, message_id
+            else:
+                error = result.get("error", {})
+                error_msg = error.get("message", str(result))
+                logger.error(f"WhatsApp API error: {error_msg}")
+                return False, error_msg
+                
+        except Exception as e:
+            logger.error(f"Error sending image message: {str(e)}")
+            return False, str(e)
 
 
 # Global client instance
@@ -224,31 +285,59 @@ def send_price_drop_alert(
     phone: str,
     product_name: str,
     new_price: str,
-    old_price: str
+    old_price: str,
+    image_url: str = None,
+    product_url: str = None
 ) -> Tuple[bool, str]:
-    """Send price drop alert via WhatsApp"""
+    """Send price drop alert via WhatsApp with product image"""
     if not IS_CONFIGURED:
         return False, "WhatsApp not configured"
     
-    message = f"🔥 Price Drop Alert!\n\n{product_name}\n\nWas: ₹{old_price}\nNow: ₹{new_price}\n\nShop now on Drops Curated!"
-    
-    return whatsapp_client.send_text_message(phone, message)
+    caption = f"""🔥 *Price Drop Alert!*
+
+*{product_name}*
+
+~₹{old_price}~ → *₹{new_price}*
+
+💰 You save: ₹{int(float(old_price.replace(',','')) - float(new_price.replace(',',''))):,}
+
+🛒 Shop now on Drops Curated!"""
+
+    # Send with image if available
+    if image_url:
+        return whatsapp_client.send_image_message(phone, image_url, caption)
+    else:
+        return whatsapp_client.send_text_message(phone, caption)
 
 
 def send_new_drop_alert(
     phone: str,
     product_name: str,
     price: str,
-    brand: str = ""
+    brand: str = "",
+    image_url: str = None,
+    product_url: str = None
 ) -> Tuple[bool, str]:
-    """Send new product drop alert via WhatsApp"""
+    """Send new product drop alert via WhatsApp with product image"""
     if not IS_CONFIGURED:
         return False, "WhatsApp not configured"
     
-    brand_text = f" by {brand}" if brand else ""
-    message = f"🆕 New Drop!\n\n{product_name}{brand_text}\n\nPrice: ₹{price}\n\nShop now on Drops Curated!"
-    
-    return whatsapp_client.send_text_message(phone, message)
+    brand_text = f" by *{brand}*" if brand else ""
+    caption = f"""🆕 *New Drop Alert!*
+
+*{product_name}*{brand_text}
+
+💵 Price: *₹{price}*
+
+⚡ Limited stock available!
+
+🛒 Shop now on Drops Curated!"""
+
+    # Send with image if available
+    if image_url:
+        return whatsapp_client.send_image_message(phone, image_url, caption)
+    else:
+        return whatsapp_client.send_text_message(phone, caption)
 
 
 def send_bulk_alerts(

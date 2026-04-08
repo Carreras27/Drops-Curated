@@ -51,6 +51,8 @@ async def detect_changes(db, scraped_products: list[dict], store_key: str) -> di
 
 async def send_alerts(db, changes: dict, store_key: str):
     """Send WhatsApp alerts to subscribers who want notifications for this brand."""
+    from whatsapp import send_price_drop_alert, send_new_drop_alert
+    
     new_products = changes.get("new_products", [])
     price_drops = changes.get("price_drops", [])
 
@@ -70,54 +72,61 @@ async def send_alerts(db, changes: dict, store_key: str):
         prefs = sub.get("preferences", {})
         pref_brands = prefs.get("brands", [])  # Empty = all brands
         pref_types = prefs.get("alert_types", ["price_drop", "new_release"])
+        pref_categories = prefs.get("categories", [])  # sneakers, garments
+        pref_sizes = prefs.get("sizes", [])
 
         # Check if this subscriber cares about this brand
         if pref_brands and store_key not in pref_brands:
             continue
 
-        messages = []
+        alerts_sent = 0
 
-        # Price drop alerts
+        # Price drop alerts with product images
         if "price_drop" in pref_types and price_drops:
-            for drop in price_drops[:5]:  # Max 5 drops per alert
-                msg = (
-                    f"Price Drop Alert!\n\n"
-                    f"{drop['name']}\n"
-                    f"Was: Rs.{drop['old_price']:,.0f}\n"
-                    f"Now: Rs.{drop['new_price']:,.0f} (-{drop['drop_percent']}%)\n\n"
-                    f"Buy: {drop.get('product_url', '')}"
+            for drop in price_drops[:3]:  # Max 3 price drops per subscriber
+                # Check category preference
+                if pref_categories and drop.get('category') not in pref_categories:
+                    continue
+                    
+                success, _ = send_price_drop_alert(
+                    phone=phone,
+                    product_name=drop['name'],
+                    new_price=f"{drop['new_price']:,.0f}",
+                    old_price=f"{drop['old_price']:,.0f}",
+                    image_url=drop.get('imageUrl'),
+                    product_url=drop.get('product_url')
                 )
-                messages.append(msg)
+                if success:
+                    sent_count += 1
+                    alerts_sent += 1
+                
+                if alerts_sent >= 3:
+                    break
 
-        # New product alerts
-        if "new_release" in pref_types and new_products:
-            # Batch new products into one message
-            if len(new_products) <= 3:
-                for prod in new_products:
-                    msg = (
-                        f"New Drop!\n\n"
-                        f"{prod['name']}\n"
-                        f"Rs.{prod['price']:,.0f}\n"
-                        f"From: {prod['store'].replace('_', ' ').title()}\n\n"
-                        f"Shop: {prod.get('product_url', '')}"
-                    )
-                    messages.append(msg)
-            else:
-                msg = (
-                    f"New Collection Alert!\n\n"
-                    f"{len(new_products)} new products just dropped on "
-                    f"{new_products[0]['store'].replace('_', ' ').title()}!\n\n"
-                    f"Browse: https://dropscurated.com/browse"
+        # New product alerts with product images
+        if "new_release" in pref_types and new_products and alerts_sent < 3:
+            for prod in new_products[:3]:
+                # Check category preference
+                if pref_categories and prod.get('category') not in pref_categories:
+                    continue
+                    
+                success, _ = send_new_drop_alert(
+                    phone=phone,
+                    product_name=prod['name'],
+                    price=f"{prod['price']:,.0f}",
+                    brand=prod.get('brand', ''),
+                    image_url=prod.get('imageUrl'),
+                    product_url=prod.get('product_url')
                 )
-                messages.append(msg)
+                if success:
+                    sent_count += 1
+                    alerts_sent += 1
+                
+                if alerts_sent >= 3:
+                    break
 
-        # Send messages
-        for msg in messages[:3]:  # Max 3 messages per subscriber per cycle
-            success = await _send_whatsapp(phone, msg)
-            if success:
-                sent_count += 1
-
-            # Log alert
+        # Log alert activity
+        if alerts_sent > 0:
             await db.alert_log.insert_one({
                 "phone": phone,
                 "store": store_key,
