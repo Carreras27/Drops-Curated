@@ -9,6 +9,7 @@ import ProductPage from './pages/ProductPage';
 import SubscribePage from './pages/SubscribePage';
 import PartnersPage from './pages/PartnersPage';
 import RafflesPage from './pages/RafflesPage';
+import BrandsPage, { BrandPage } from './pages/BrandsPage';
 
 function App() {
   return (
@@ -17,6 +18,8 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/browse" element={<BrowsePage />} />
+          <Route path="/brands" element={<BrandsPage />} />
+          <Route path="/brands/:brandKey" element={<BrandPage />} />
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/subscribe" element={<SubscribePage />} />
           <Route path="/partners" element={<PartnersPage />} />

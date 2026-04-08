@@ -167,59 +167,94 @@ export const Footer = () => {
     fetchBrands();
   }, []);
   
-  // Get first 5 brands to display, sorted by product count
-  const topBrands = [...brands]
-    .sort((a, b) => (b.productCount || 0) - (a.productCount || 0))
-    .slice(0, 5);
-  const remainingCount = Math.max(0, brands.length - 5);
+  // Double the brands for seamless infinite scroll
+  const scrollingBrands = [...brands, ...brands];
   
   return (
-    <footer className="border-t border-primary/[0.06] py-16 md:py-20 bg-background">
-      <div className="max-w-7xl mx-auto px-6 md:px-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-12">
-          <div className="col-span-2 md:col-span-1">
-            <p className="font-serif text-xl mb-3">Drops <span className="text-accent">Curated</span></p>
-            <p className="text-xs text-primary/40 leading-relaxed max-w-[220px]">
-              India's premium streetwear discovery. Never miss a drop.
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Explore</p>
-            <div className="flex flex-col gap-2.5">
-              <Link to="/browse" className="text-xs text-primary/50 hover:text-primary transition-colors">All Drops</Link>
-              <Link to="/raffles" className="text-xs text-primary/50 hover:text-primary transition-colors">Raffles</Link>
-              <Link to="/subscribe" className="text-xs text-primary/50 hover:text-primary transition-colors">Membership</Link>
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Brands</p>
-            <div className="flex flex-col gap-2.5">
-              {topBrands.map((brand) => (
-                <Link 
-                  key={brand.key} 
-                  to={`/browse?brand=${brand.storeKey || brand.key?.toUpperCase()}`}
-                  className="text-xs text-primary/40 hover:text-accent transition-colors"
+    <footer className="border-t border-primary/[0.06] bg-background">
+      {/* Auto-scrolling Brands Marquee */}
+      {brands.length > 0 && (
+        <div className="py-8 border-b border-primary/[0.06] overflow-hidden">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-center text-accent mb-6">Our Partner Brands</p>
+          <div className="relative">
+            {/* Gradient overlays for fade effect */}
+            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background to-transparent z-10" />
+            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-10" />
+            
+            {/* Scrolling container */}
+            <div className="flex animate-marquee hover:pause-animation">
+              {scrollingBrands.map((brand, idx) => (
+                <Link
+                  key={`${brand.key}-${idx}`}
+                  to={`/brands/${brand.storeKey || brand.key?.toUpperCase()}`}
+                  className="flex-shrink-0 mx-4 md:mx-6 group"
                 >
-                  {brand.name}
+                  <div className="flex flex-col items-center transition-all duration-300 transform group-hover:scale-110">
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-primary/5 rounded-full flex items-center justify-center group-hover:bg-accent/20 transition-colors mb-2">
+                      <span className="text-lg md:text-xl font-bold text-primary/40 group-hover:text-accent transition-colors">
+                        {brand.name?.charAt(0) || '?'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] md:text-xs text-primary/40 group-hover:text-accent transition-colors whitespace-nowrap">
+                      {brand.name}
+                    </span>
+                  </div>
                 </Link>
               ))}
-              {remainingCount > 0 && (
-                <Link to="/browse" className="text-xs text-accent hover:text-primary transition-colors">
-                  + {remainingCount} more
-                </Link>
-              )}
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Company</p>
-            <div className="flex flex-col gap-2.5">
-              <Link to="/partners" className="text-xs text-primary/50 hover:text-primary transition-colors">Partner With Us</Link>
             </div>
           </div>
         </div>
-        <div className="mt-14 pt-6 border-t border-primary/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-[10px] text-primary/25">Drops Curated. All rights reserved.</p>
-          <p className="text-[10px] text-primary/25">Made in India</p>
+      )}
+      
+      {/* Main Footer Content */}
+      <div className="py-16 md:py-20">
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-12">
+            <div className="col-span-2 md:col-span-1">
+              <p className="font-serif text-xl mb-3">Drops <span className="text-accent">Curated</span></p>
+              <p className="text-xs text-primary/40 leading-relaxed max-w-[220px]">
+                India's premium streetwear discovery. Never miss a drop.
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Explore</p>
+              <div className="flex flex-col gap-2.5">
+                <Link to="/browse" className="text-xs text-primary/50 hover:text-primary transition-colors">All Drops</Link>
+                <Link to="/brands" className="text-xs text-primary/50 hover:text-primary transition-colors">All Brands</Link>
+                <Link to="/raffles" className="text-xs text-primary/50 hover:text-primary transition-colors">Raffles</Link>
+                <Link to="/subscribe" className="text-xs text-primary/50 hover:text-primary transition-colors">Membership</Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Top Brands</p>
+              <div className="flex flex-col gap-2.5">
+                {brands.slice(0, 5).map((brand) => (
+                  <Link 
+                    key={brand.key} 
+                    to={`/brands/${brand.storeKey || brand.key?.toUpperCase()}`}
+                    className="text-xs text-primary/40 hover:text-accent transition-colors"
+                  >
+                    {brand.name}
+                  </Link>
+                ))}
+                {brands.length > 5 && (
+                  <Link to="/brands" className="text-xs text-accent hover:text-primary transition-colors">
+                    + {brands.length - 5} more
+                  </Link>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Company</p>
+              <div className="flex flex-col gap-2.5">
+                <Link to="/partners" className="text-xs text-primary/50 hover:text-primary transition-colors">Partner With Us</Link>
+              </div>
+            </div>
+          </div>
+          <div className="mt-14 pt-6 border-t border-primary/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-[10px] text-primary/25">Drops Curated. All rights reserved.</p>
+            <p className="text-[10px] text-primary/25">Made in India</p>
+          </div>
         </div>
       </div>
     </footer>
