@@ -175,7 +175,7 @@ export const Footer = () => {
       {/* Auto-scrolling Brands Marquee */}
       {brands.length > 0 && (
         <div className="py-8 border-b border-primary/[0.06] overflow-hidden">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-center text-accent mb-6">Our Partner Brands</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-center text-accent mb-6">Brands Listed</p>
           <div className="relative">
             {/* Gradient overlays for fade effect */}
             <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background to-transparent z-10" />
