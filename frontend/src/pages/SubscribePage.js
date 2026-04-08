@@ -1003,21 +1003,61 @@ export default function SubscribePage() {
                           </button>
                         </div>
                         {selectedSizes.length === 0 && (
-                          <p className="text-[10px] text-accent/60 mb-2">No selection = alerts for ALL sizes</p>
+                          <p className="text-[10px] text-accent/60 mb-3">No selection = alerts for ALL sizes</p>
                         )}
-                        <div className="grid grid-cols-5 gap-2">
-                          {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'UK6', 'UK7', 'UK8', 'UK9', 'UK10', 'UK11', 'UK12', 'Free Size'].map(size => (
+                        
+                        {/* Garments Sizes */}
+                        <div className="mb-4">
+                          <p className="text-[10px] text-primary/40 uppercase tracking-wider mb-2 font-medium">Garments</p>
+                          <div className="grid grid-cols-6 gap-2">
+                            {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(size => (
+                              <button
+                                key={size}
+                                onClick={() => toggleSize(size)}
+                                className={`flex items-center justify-center p-2 border text-xs transition-all ${
+                                  selectedSizes.includes(size) ? 'border-accent bg-accent/[0.03] text-primary font-medium' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                                }`}
+                                data-testid={`pref-size-${size}`}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Shoes Sizes */}
+                        <div className="mb-4">
+                          <p className="text-[10px] text-primary/40 uppercase tracking-wider mb-2 font-medium">Shoes</p>
+                          <div className="grid grid-cols-5 gap-2">
+                            {['UK6', 'UK7', 'UK8', 'UK9', 'UK10', 'UK11', 'UK12'].map(size => (
+                              <button
+                                key={size}
+                                onClick={() => toggleSize(size)}
+                                className={`flex items-center justify-center p-2 border text-xs transition-all ${
+                                  selectedSizes.includes(size) ? 'border-accent bg-accent/[0.03] text-primary font-medium' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                                }`}
+                                data-testid={`pref-size-${size}`}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Accessories */}
+                        <div>
+                          <p className="text-[10px] text-primary/40 uppercase tracking-wider mb-2 font-medium">Accessories</p>
+                          <div className="grid grid-cols-3 gap-2">
                             <button
-                              key={size}
-                              onClick={() => toggleSize(size)}
+                              onClick={() => toggleSize('Free Size')}
                               className={`flex items-center justify-center p-2 border text-xs transition-all ${
-                                selectedSizes.includes(size) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                                selectedSizes.includes('Free Size') ? 'border-accent bg-accent/[0.03] text-primary font-medium' : 'border-primary/10 text-primary/50 hover:border-primary/20'
                               }`}
-                              data-testid={`pref-size-${size}`}
+                              data-testid="pref-size-Free Size"
                             >
-                              {size}
+                              Free Size
                             </button>
-                          ))}
+                          </div>
                         </div>
                       </div>
                     </div>
