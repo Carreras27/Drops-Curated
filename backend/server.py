@@ -825,6 +825,215 @@ async def get_preferences(phone: str):
     prefs = {**default_prefs, **sub.get('preferences', {})}
     return {'phone': phone, 'preferences': prefs}
 
+
+class SimulatePreferencesRequest(BaseModel):
+    """Request model for preference simulation"""
+    brands: list[str] = []
+    brand_limit: int = 10
+    alert_types: list[str] = ["price_drop", "new_release"]
+    categories: list[str] = []
+    sizes: list[str] = []
+    price_range: Optional[PriceRange] = None
+    keywords: list[str] = []
+    drop_threshold: int = 10
+
+
+@api_router.post('/preferences/simulate')
+async def simulate_preferences(data: SimulatePreferencesRequest):
+    """
+    Test My Preferences - Simulate what alerts user would receive
+    based on their current preference funnel settings.
+    Returns sample products matching the criteria.
+    """
+    import random as rnd
+    
+    # Build query based on preferences
+    query = {'isActive': True}
+    
+    # Brand filter
+    if data.brands:
+        query['store'] = {'$in': data.brands}
+    
+    # Category filter (map frontend categories to DB categories)
+    category_map = {
+        'garments': 'CLOTHES',
+        'sneakers': 'SHOES',
+        'accessories': 'ACCESSORIES',
+    }
+    if data.categories:
+        db_categories = [category_map.get(c, c.upper()) for c in data.categories]
+        query['category'] = {'$in': db_categories}
+    
+    # Price range filter
+    if data.price_range:
+        price_query = {}
+        if data.price_range.min is not None:
+            price_query['$gte'] = data.price_range.min
+        if data.price_range.max is not None:
+            price_query['$lte'] = data.price_range.max
+        if price_query:
+            query['price'] = price_query
+    
+    # Keyword filter
+    if data.keywords:
+        keyword_patterns = [{'name': {'$regex': kw, '$options': 'i'}} for kw in data.keywords]
+        keyword_patterns.extend([{'tags': {'$regex': kw, '$options': 'i'}} for kw in data.keywords])
+        query['$or'] = keyword_patterns
+    
+    # Get matching products
+    all_products = await db.products.find(query, {'_id': 0}).limit(500).to_list(500)
+    
+    # Filter by sizes if specified
+    if data.sizes:
+        size_filtered = []
+        for product in all_products:
+            product_sizes = product.get('attributes', {}).get('sizes', [])
+            if not product_sizes:  # No size info = include it
+                size_filtered.append(product)
+            elif any(s.upper() in [ps.upper() for ps in product_sizes] for s in data.sizes):
+                size_filtered.append(product)
+        all_products = size_filtered
+    
+    # Simulate different alert types
+    new_drops_sample = []
+    price_drops_sample = []
+    # restocks_sample would require historical out-of-stock data
+    
+    # Enrich with price data and categorize
+    for product in all_products[:100]:  # Process max 100
+        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(10)
+        if prices:
+            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+            product['originalPrice'] = prices[0].get('originalPrice', product['lowestPrice'])
+            
+            # Check for price drop
+            if product['originalPrice'] > product['lowestPrice']:
+                drop_pct = ((product['originalPrice'] - product['lowestPrice']) / product['originalPrice']) * 100
+                if drop_pct >= data.drop_threshold:
+                    product['dropPercent'] = round(drop_pct, 1)
+                    price_drops_sample.append(product)
+        else:
+            product['lowestPrice'] = product.get('price', 0)
+            product['originalPrice'] = product.get('price', 0)
+        
+        # New drops (products created in last 7 days)
+        created = product.get('createdAt', '')
+        if created:
+            try:
+                created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) - created_date < timedelta(days=7):
+                    new_drops_sample.append(product)
+            except Exception:
+                pass
+    
+    # Shuffle and limit samples
+    rnd.shuffle(new_drops_sample)
+    rnd.shuffle(price_drops_sample)
+    
+    # Build simulation results
+    results = {
+        'total_matching_products': len(all_products),
+        'new_drops': {
+            'count': len(new_drops_sample),
+            'sample': new_drops_sample[:3] if 'new_release' in data.alert_types else [],
+            'enabled': 'new_release' in data.alert_types,
+        },
+        'price_drops': {
+            'count': len(price_drops_sample),
+            'sample': price_drops_sample[:3] if 'price_drop' in data.alert_types else [],
+            'enabled': 'price_drop' in data.alert_types,
+            'threshold': data.drop_threshold,
+        },
+        'restocks': {
+            'count': 0,  # Can't simulate restocks without historical data
+            'sample': [],
+            'enabled': 'restock' in data.alert_types,
+            'note': 'Restock alerts trigger when sold-out items return to stock',
+        },
+        'filters_applied': {
+            'brands': len(data.brands) if data.brands else 'All brands',
+            'categories': data.categories if data.categories else 'All categories',
+            'sizes': data.sizes if data.sizes else 'All sizes',
+            'price_range': f"₹{data.price_range.min or 0} - ₹{data.price_range.max or '∞'}" if data.price_range and (data.price_range.min or data.price_range.max) else 'No limit',
+            'keywords': data.keywords if data.keywords else 'None',
+        },
+        'estimated_daily_alerts': _estimate_daily_alerts(
+            len(all_products),
+            len(data.brands) if data.brands else 23,
+            data.alert_types,
+            data.categories,
+            data.sizes,
+        ),
+        'sample_daily_digest': _generate_sample_digest(
+            new_drops_sample[:3] if 'new_release' in data.alert_types else [],
+            price_drops_sample[:3] if 'price_drop' in data.alert_types else [],
+        ),
+    }
+    
+    return results
+
+
+def _estimate_daily_alerts(total_products: int, brand_count: int, alert_types: list, categories: list, sizes: list) -> dict:
+    """Estimate how many alerts user might receive per day"""
+    # Base estimate: ~2-5% of products have activity per day
+    base_activity_rate = 0.03
+    
+    # Adjust by filters
+    category_factor = 0.33 if categories else 1.0  # Each category ~1/3 of products
+    size_factor = 0.15 if sizes else 1.0  # Each size ~15% of products
+    brand_factor = brand_count / 23  # Proportion of brands followed
+    
+    estimated_activity = total_products * base_activity_rate * category_factor * size_factor * brand_factor
+    
+    # Split by alert types
+    new_drops_estimate = estimated_activity * 0.6 if 'new_release' in alert_types else 0
+    price_drops_estimate = estimated_activity * 0.3 if 'price_drop' in alert_types else 0
+    restocks_estimate = estimated_activity * 0.1 if 'restock' in alert_types else 0
+    
+    total = round(new_drops_estimate + price_drops_estimate + restocks_estimate, 1)
+    
+    return {
+        'total': max(1, total),
+        'breakdown': {
+            'new_drops': round(new_drops_estimate, 1),
+            'price_drops': round(price_drops_estimate, 1),
+            'restocks': round(restocks_estimate, 1),
+        },
+        'frequency_impact': 'Low' if total < 3 else 'Medium' if total < 10 else 'High',
+    }
+
+
+def _generate_sample_digest(new_drops: list, price_drops: list) -> str:
+    """Generate a sample daily digest message"""
+    message = "🌙 *Your Daily Drops Digest*\n\n"
+    message += "_Sample Preview_\n\n"
+    
+    if new_drops:
+        message += f"🆕 *{len(new_drops)} New Arrivals*\n"
+        for prod in new_drops[:2]:
+            name = prod.get('name', 'Product')[:35]
+            price = prod.get('lowestPrice', 0)
+            message += f"  • {name}... - ₹{price:,.0f}\n"
+        message += "\n"
+    
+    if price_drops:
+        message += f"💰 *{len(price_drops)} Price Drops*\n"
+        for prod in price_drops[:2]:
+            name = prod.get('name', 'Product')[:35]
+            new_price = prod.get('lowestPrice', 0)
+            drop_pct = prod.get('dropPercent', 0)
+            message += f"  • {name}... - ₹{new_price:,.0f} ({drop_pct}% off)\n"
+        message += "\n"
+    
+    if not new_drops and not price_drops:
+        message += "_No matching products found with current filters._\n"
+        message += "Try adjusting your preferences for more results.\n"
+    
+    message += "\n👉 Browse all drops on Drops Curated!"
+    
+    return message
+
+
 # ============ WALLET PASS GENERATION ============
 import json
 import hashlib

@@ -1,9 +1,188 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet } from 'lucide-react';
+import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet, FlaskConical, Loader2, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
+
+// Test Preferences Modal Component
+const TestPreferencesModal = ({ isOpen, onClose, simulationData, isLoading }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-background border border-primary/10 max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-background border-b border-primary/10 p-6 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-accent uppercase tracking-widest mb-1">Preview</p>
+            <h3 className="font-serif text-xl">Test My Preferences</h3>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 border border-primary/10 flex items-center justify-center hover:border-accent transition-colors" data-testid="close-test-modal">
+            <X className="w-4 h-4" strokeWidth={1.5} />
+          </button>
+        </div>
+        
+        {isLoading ? (
+          <div className="p-12 flex flex-col items-center justify-center">
+            <Loader2 className="w-8 h-8 text-accent animate-spin mb-4" />
+            <p className="text-sm text-primary/50">Simulating your preferences...</p>
+          </div>
+        ) : simulationData ? (
+          <div className="p-6 space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-primary/[0.02] border border-primary/10 p-4 text-center">
+                <p className="text-2xl font-serif text-primary">{simulationData.total_matching_products}</p>
+                <p className="text-[10px] text-primary/40 uppercase tracking-wider mt-1">Products Match</p>
+              </div>
+              <div className="bg-accent/5 border border-accent/20 p-4 text-center">
+                <p className="text-2xl font-serif text-accent">{simulationData.estimated_daily_alerts?.total || 0}</p>
+                <p className="text-[10px] text-primary/40 uppercase tracking-wider mt-1">Est. Daily Alerts</p>
+              </div>
+              <div className={`p-4 text-center border ${
+                simulationData.estimated_daily_alerts?.frequency_impact === 'Low' 
+                  ? 'bg-green-500/5 border-green-500/20' 
+                  : simulationData.estimated_daily_alerts?.frequency_impact === 'High'
+                    ? 'bg-orange-500/5 border-orange-500/20'
+                    : 'bg-blue-500/5 border-blue-500/20'
+              }`}>
+                <p className={`text-2xl font-serif ${
+                  simulationData.estimated_daily_alerts?.frequency_impact === 'Low' 
+                    ? 'text-green-600' 
+                    : simulationData.estimated_daily_alerts?.frequency_impact === 'High'
+                      ? 'text-orange-600'
+                      : 'text-blue-600'
+                }`}>{simulationData.estimated_daily_alerts?.frequency_impact}</p>
+                <p className="text-[10px] text-primary/40 uppercase tracking-wider mt-1">Alert Volume</p>
+              </div>
+            </div>
+
+            {/* Filters Applied */}
+            <div className="bg-primary/[0.02] border border-primary/10 p-4">
+              <p className="text-xs font-medium mb-3">Filters Applied</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><span className="text-primary/40">Brands:</span> <span className="text-primary">{simulationData.filters_applied?.brands}</span></div>
+                <div><span className="text-primary/40">Categories:</span> <span className="text-primary">{Array.isArray(simulationData.filters_applied?.categories) ? simulationData.filters_applied.categories.join(', ') || 'All' : simulationData.filters_applied?.categories}</span></div>
+                <div><span className="text-primary/40">Sizes:</span> <span className="text-primary">{Array.isArray(simulationData.filters_applied?.sizes) ? simulationData.filters_applied.sizes.join(', ') || 'All' : simulationData.filters_applied?.sizes}</span></div>
+                <div><span className="text-primary/40">Budget:</span> <span className="text-primary">{simulationData.filters_applied?.price_range}</span></div>
+              </div>
+            </div>
+
+            {/* Alert Type Samples */}
+            <div className="space-y-4">
+              {/* New Drops */}
+              {simulationData.new_drops?.enabled && (
+                <div className="border border-primary/10 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm font-medium">New Drops</span>
+                    <span className="text-xs text-primary/40 ml-auto">{simulationData.new_drops.count} found</span>
+                  </div>
+                  {simulationData.new_drops.sample?.length > 0 ? (
+                    <div className="space-y-2">
+                      {simulationData.new_drops.sample.map((prod, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2 bg-primary/[0.02]">
+                          {prod.imageUrl && (
+                            <img src={prod.imageUrl} alt="" className="w-12 h-12 object-cover" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{prod.name}</p>
+                            <p className="text-[10px] text-primary/40">{prod.brand}</p>
+                          </div>
+                          <p className="text-xs font-medium">₹{prod.lowestPrice?.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-primary/40 italic">No new drops in last 7 days matching your filters</p>
+                  )}
+                </div>
+              )}
+
+              {/* Price Drops */}
+              {simulationData.price_drops?.enabled && (
+                <div className="border border-primary/10 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingDown className="w-4 h-4 text-green-500" />
+                    <span className="text-sm font-medium">Price Drops ({simulationData.price_drops.threshold}%+ off)</span>
+                    <span className="text-xs text-primary/40 ml-auto">{simulationData.price_drops.count} found</span>
+                  </div>
+                  {simulationData.price_drops.sample?.length > 0 ? (
+                    <div className="space-y-2">
+                      {simulationData.price_drops.sample.map((prod, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2 bg-green-500/5">
+                          {prod.imageUrl && (
+                            <img src={prod.imageUrl} alt="" className="w-12 h-12 object-cover" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{prod.name}</p>
+                            <p className="text-[10px] text-primary/40">{prod.brand}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-medium text-green-600">₹{prod.lowestPrice?.toLocaleString()}</p>
+                            <p className="text-[10px] text-primary/40 line-through">₹{prod.originalPrice?.toLocaleString()}</p>
+                          </div>
+                          <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5">{prod.dropPercent}% OFF</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-primary/40 italic">No price drops meeting your {simulationData.price_drops.threshold}% threshold</p>
+                  )}
+                </div>
+              )}
+
+              {/* Restocks */}
+              {simulationData.restocks?.enabled && (
+                <div className="border border-primary/10 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package className="w-4 h-4 text-purple-500" />
+                    <span className="text-sm font-medium">Restock Alerts</span>
+                  </div>
+                  <p className="text-xs text-primary/40 italic">{simulationData.restocks.note}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Sample Daily Digest */}
+            <div className="border border-accent/20 bg-accent/5 p-4">
+              <p className="text-xs font-medium mb-3 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-accent" />
+                Sample Daily Digest (8 PM)
+              </p>
+              <div className="bg-white border border-primary/10 p-3 text-xs font-mono whitespace-pre-wrap text-primary/70 max-h-48 overflow-y-auto">
+                {simulationData.sample_daily_digest}
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="bg-blue-500/5 border border-blue-500/20 p-4">
+              <p className="text-xs font-medium text-blue-700 mb-2">Tips to Optimize</p>
+              <ul className="text-[10px] text-blue-600/70 space-y-1">
+                {simulationData.total_matching_products > 500 && (
+                  <li>• Consider selecting fewer brands or adding size filters to reduce alerts</li>
+                )}
+                {simulationData.estimated_daily_alerts?.total > 10 && (
+                  <li>• Daily Digest mode recommended for {simulationData.estimated_daily_alerts.total}+ daily alerts</li>
+                )}
+                {simulationData.price_drops?.count === 0 && simulationData.price_drops?.enabled && (
+                  <li>• Try lowering your price drop threshold to catch more deals</li>
+                )}
+                {simulationData.total_matching_products < 50 && (
+                  <li>• Your filters are very specific - you'll only get highly relevant alerts!</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <div className="p-12 text-center">
+            <p className="text-sm text-primary/50">No simulation data available</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // Size Guide Modal Component
 const SizeGuideModal = ({ isOpen, onClose }) => {
@@ -191,6 +370,37 @@ export default function SubscribePage() {
 
   const removeKeyword = (kw) => {
     setKeywords(keywords.filter(k => k !== kw));
+  };
+
+  // Test My Preferences
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [simulationData, setSimulationData] = useState(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+
+  const testMyPreferences = async () => {
+    setShowTestModal(true);
+    setSimulationLoading(true);
+    try {
+      const resp = await axios.post(`${API_URL}/preferences/simulate`, {
+        brands: selectedBrands,
+        brand_limit: brandLimit,
+        alert_types: alertTypes,
+        categories: selectedCategories,
+        sizes: selectedSizes,
+        price_range: {
+          min: priceRange.min ? parseInt(priceRange.min) : null,
+          max: priceRange.max ? parseInt(priceRange.max) : null,
+        },
+        keywords: keywords,
+        drop_threshold: dropThreshold,
+      });
+      setSimulationData(resp.data);
+    } catch (err) {
+      toast.error('Failed to simulate preferences');
+      setShowTestModal(false);
+    } finally {
+      setSimulationLoading(false);
+    }
   };
 
   const sendOtp = async () => {
@@ -924,6 +1134,17 @@ export default function SubscribePage() {
                       </div>
                     </div>
 
+                    {/* Test My Preferences Button */}
+                    <button 
+                      onClick={testMyPreferences}
+                      disabled={alertTypes.length === 0}
+                      className="w-full border-2 border-accent text-accent py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:bg-accent/5 transition-all duration-300 mb-4 disabled:opacity-40"
+                      data-testid="test-preferences-btn"
+                    >
+                      <FlaskConical className="w-4 h-4" strokeWidth={1.5} />
+                      Test My Preferences
+                    </button>
+
                     <button onClick={savePreferences} disabled={loading || alertTypes.length === 0}
                       className="w-full bg-primary text-background py-4 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="save-preferences-btn">
                       {loading ? 'Saving...' : 'Save Preferences & Start Receiving Alerts'}
@@ -1038,6 +1259,14 @@ export default function SubscribePage() {
       
       {/* Size Guide Modal */}
       <SizeGuideModal isOpen={showSizeGuide} onClose={() => setShowSizeGuide(false)} />
+      
+      {/* Test Preferences Modal */}
+      <TestPreferencesModal 
+        isOpen={showTestModal} 
+        onClose={() => setShowTestModal(false)} 
+        simulationData={simulationData}
+        isLoading={simulationLoading}
+      />
     </div>
   );
 }
