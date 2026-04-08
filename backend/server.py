@@ -768,6 +768,8 @@ class UpdatePreferences(BaseModel):
     drop_threshold: int = 10  # Default 10%
     # Notification frequency
     alert_frequency: str = "daily"  # instant or daily (daily = digest at 8 PM)
+    # Gender preference
+    gender: str = "all"  # all, men, women, unisex
 
 @api_router.post('/preferences')
 async def update_preferences(data: UpdatePreferences):
@@ -781,6 +783,7 @@ async def update_preferences(data: UpdatePreferences):
         # Trigger types
         'alert_types': data.alert_types,
         # Specificity
+        'gender': data.gender,
         'categories': data.categories,
         'sizes': data.sizes,
         # Budget range
@@ -820,6 +823,7 @@ async def get_preferences(phone: str):
         'brands': [],
         'brand_limit': 10,
         'alert_types': ['price_drop', 'new_release'],
+        'gender': 'all',
         'categories': [],
         'sizes': [],
         'price_range': {'min': None, 'max': None},
@@ -836,6 +840,7 @@ class SimulatePreferencesRequest(BaseModel):
     brands: list[str] = []
     brand_limit: int = 10
     alert_types: list[str] = ["price_drop", "new_release"]
+    gender: str = "all"  # all, men, women, unisex
     categories: list[str] = []
     sizes: list[str] = []
     price_range: Optional[PriceRange] = None
@@ -858,6 +863,22 @@ async def simulate_preferences(data: SimulatePreferencesRequest):
     # Brand filter
     if data.brands:
         query['store'] = {'$in': data.brands}
+    
+    # Gender filter
+    if data.gender and data.gender != 'all':
+        # Map gender to common product tags/attributes
+        gender_keywords = {
+            'men': ['men', 'male', "men's", 'mens', 'man'],
+            'women': ['women', 'female', "women's", 'womens', 'woman', 'ladies'],
+            'unisex': ['unisex', 'gender neutral', 'all gender'],
+        }
+        keywords = gender_keywords.get(data.gender, [])
+        if keywords:
+            query['$or'] = [
+                {'tags': {'$regex': '|'.join(keywords), '$options': 'i'}},
+                {'name': {'$regex': '|'.join(keywords), '$options': 'i'}},
+                {'attributes.gender': {'$regex': '|'.join(keywords), '$options': 'i'}},
+            ]
     
     # Category filter (map frontend categories to DB categories)
     category_map = {
@@ -957,6 +978,7 @@ async def simulate_preferences(data: SimulatePreferencesRequest):
         },
         'filters_applied': {
             'brands': len(data.brands) if data.brands else 'All brands',
+            'gender': data.gender.capitalize() if data.gender != 'all' else 'All collections',
             'categories': data.categories if data.categories else 'All categories',
             'sizes': data.sizes if data.sizes else 'All sizes',
             'price_range': f"₹{data.price_range.min or 0} - ₹{data.price_range.max or '∞'}" if data.price_range and (data.price_range.min or data.price_range.max) else 'No limit',
@@ -966,6 +988,7 @@ async def simulate_preferences(data: SimulatePreferencesRequest):
             len(all_products),
             len(data.brands) if data.brands else 23,
             data.alert_types,
+            data.gender,
             data.categories,
             data.sizes,
         ),
@@ -978,17 +1001,18 @@ async def simulate_preferences(data: SimulatePreferencesRequest):
     return results
 
 
-def _estimate_daily_alerts(total_products: int, brand_count: int, alert_types: list, categories: list, sizes: list) -> dict:
+def _estimate_daily_alerts(total_products: int, brand_count: int, alert_types: list, gender: str, categories: list, sizes: list) -> dict:
     """Estimate how many alerts user might receive per day"""
     # Base estimate: ~2-5% of products have activity per day
     base_activity_rate = 0.03
     
     # Adjust by filters
+    gender_factor = 0.4 if gender != 'all' else 1.0  # Gender filter reduces by ~60%
     category_factor = 0.33 if categories else 1.0  # Each category ~1/3 of products
     size_factor = 0.15 if sizes else 1.0  # Each size ~15% of products
     brand_factor = brand_count / 23  # Proportion of brands followed
     
-    estimated_activity = total_products * base_activity_rate * category_factor * size_factor * brand_factor
+    estimated_activity = total_products * base_activity_rate * gender_factor * category_factor * size_factor * brand_factor
     
     # Split by alert types
     new_drops_estimate = estimated_activity * 0.6 if 'new_release' in alert_types else 0

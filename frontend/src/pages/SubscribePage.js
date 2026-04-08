@@ -360,6 +360,7 @@ export default function SubscribePage() {
   const [dropThreshold, setDropThreshold] = useState(10); // Minimum % drop to alert (default 10%)
   const [alertFrequency, setAlertFrequency] = useState('daily'); // instant, daily - daily recommended
   const [brandLimit, setBrandLimit] = useState(10); // 5, 10, or 0 (unlimited)
+  const [selectedGender, setSelectedGender] = useState('all'); // men, women, unisex, all
 
   const addKeyword = () => {
     const kw = keywordInput.trim().toLowerCase();
@@ -386,6 +387,7 @@ export default function SubscribePage() {
         brands: selectedBrands,
         brand_limit: brandLimit,
         alert_types: alertTypes,
+        gender: selectedGender,
         categories: selectedCategories,
         sizes: selectedSizes,
         price_range: {
@@ -526,6 +528,7 @@ export default function SubscribePage() {
         // Trigger types (what alerts to receive)
         alert_types: alertTypes,
         // Specificity filters
+        gender: selectedGender,
         categories: selectedCategories,
         sizes: selectedSizes,
         // Budget range filter
@@ -920,8 +923,38 @@ export default function SubscribePage() {
                         <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">C</span>
                         <p className="text-sm font-medium">Specificity (Best Cost Saver)</p>
                       </div>
-                      <p className="text-xs text-primary/40 mb-4">Only get alerts for your size and category.</p>
+                      <p className="text-xs text-primary/40 mb-4">Only get alerts for your gender, size and category.</p>
                       
+                      {/* Gender Filter */}
+                      <div className="mb-6">
+                        <p className="text-xs text-primary/60 mb-3">Gender Collection</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { key: 'all', label: 'All', desc: 'Everything' },
+                            { key: 'men', label: 'Men', desc: "Men's collection" },
+                            { key: 'women', label: 'Women', desc: "Women's collection" },
+                            { key: 'unisex', label: 'Unisex', desc: 'Gender neutral' },
+                          ].map(gender => (
+                            <button
+                              key={gender.key}
+                              onClick={() => setSelectedGender(gender.key)}
+                              className={`flex flex-col items-center p-3 border text-center transition-all ${
+                                selectedGender === gender.key ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                              }`}
+                              data-testid={`pref-gender-${gender.key}`}
+                            >
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center mb-1 ${
+                                selectedGender === gender.key ? 'bg-accent border-accent' : 'border-primary/20'
+                              }`}>
+                                {selectedGender === gender.key && <div className="w-2 h-2 bg-primary rounded-full" />}
+                              </div>
+                              <span className="text-xs font-medium">{gender.label}</span>
+                              <span className="text-[9px] text-primary/30 mt-0.5 hidden sm:block">{gender.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Categories */}
                       <div className="mb-6">
                         <p className="text-xs text-primary/60 mb-3">Category Filter</p>
@@ -1124,6 +1157,7 @@ export default function SubscribePage() {
                           <div className="text-xs text-green-600/70 mt-2 space-y-1">
                             <p>• Brands: {selectedBrands.length > 0 ? `${selectedBrands.length} selected` : 'All brands'} {brandLimit > 0 ? `(max ${brandLimit})` : ''}</p>
                             <p>• Triggers: {alertTypes.length > 0 ? alertTypes.map(t => t.replace('_', ' ')).join(', ') : 'None'}</p>
+                            <p>• Gender: {selectedGender === 'all' ? 'All collections' : selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)}</p>
                             <p>• Categories: {selectedCategories.length > 0 ? selectedCategories.join(', ') : 'All'}</p>
                             <p>• Sizes: {selectedSizes.length > 0 ? selectedSizes.join(', ') : 'All'}</p>
                             <p>• Frequency: {alertFrequency === 'daily' ? 'Daily Digest (8 PM)' : 'Instant'}</p>
@@ -1132,6 +1166,7 @@ export default function SubscribePage() {
                           <p className="text-xs text-green-600 font-medium mt-3">
                             Estimated alert reduction: ~{Math.min(95, 
                               (selectedBrands.length > 0 ? 25 : 0) + 
+                              (selectedGender !== 'all' ? 15 : 0) +
                               (selectedCategories.length > 0 ? 20 : 0) + 
                               (selectedSizes.length > 0 ? 20 : 0) +
                               (keywords.length > 0 ? 15 : 0) +
@@ -1203,6 +1238,7 @@ export default function SubscribePage() {
                       <div className="text-xs text-primary/60 space-y-1">
                         <p>• Alerts: {alertTypes.map(t => t === 'price_drop' ? 'Price Drops' : t === 'new_release' ? 'New Releases' : 'Restocks').join(', ') || 'None'}</p>
                         <p>• Brands: {selectedBrands.length === 0 ? 'All 23 brands' : `${selectedBrands.length} brand${selectedBrands.length > 1 ? 's' : ''} selected`}</p>
+                        <p>• Gender: {selectedGender === 'all' ? 'All collections' : selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)}</p>
                         <p>• Categories: {selectedCategories.length === 0 ? 'All categories' : selectedCategories.join(', ')}</p>
                         <p>• Sizes: {selectedSizes.length === 0 ? 'All sizes' : selectedSizes.join(', ')}</p>
                         <p>• Frequency: {alertFrequency === 'daily' ? 'Daily Digest at 8 PM' : 'Instant alerts'}</p>

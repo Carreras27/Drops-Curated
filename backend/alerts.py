@@ -61,6 +61,28 @@ def _matches_category(product_category: str, pref_categories: list) -> bool:
     return normalized in [c.lower() for c in pref_categories]
 
 
+def _matches_gender(product: dict, pref_gender: str) -> bool:
+    """Check if product matches user's gender preference."""
+    if not pref_gender or pref_gender == 'all':
+        return True  # No gender filter = all products
+    
+    # Keywords for each gender
+    gender_keywords = {
+        'men': ['men', 'male', "men's", 'mens', 'man', 'boys', 'boy'],
+        'women': ['women', 'female', "women's", 'womens', 'woman', 'ladies', 'lady', 'girls', 'girl'],
+        'unisex': ['unisex', 'gender neutral', 'all gender'],
+    }
+    
+    keywords = gender_keywords.get(pref_gender, [])
+    if not keywords:
+        return True
+    
+    # Check product name, tags, and attributes for gender indicators
+    search_text = f"{product.get('name', '')} {' '.join(product.get('tags', []))} {product.get('attributes', {}).get('gender', '')}".lower()
+    
+    return any(kw in search_text for kw in keywords)
+
+
 def _matches_sizes(product_sizes: list, pref_sizes: list) -> bool:
     """Check if product has any of the user's preferred sizes."""
     if not pref_sizes:
@@ -171,6 +193,7 @@ async def send_alerts(db, changes: dict, store_key: str):
         pref_types = prefs.get("alert_types", ["price_drop", "new_release"])
         
         # === C. Specificity Filters ===
+        pref_gender = prefs.get("gender", "all")
         pref_categories = prefs.get("categories", [])
         pref_sizes = prefs.get("sizes", [])
         
@@ -185,6 +208,10 @@ async def send_alerts(db, changes: dict, store_key: str):
         # Price drop alerts
         if "price_drop" in pref_types:
             for drop in price_drops:
+                # Check gender
+                if not _matches_gender(drop, pref_gender):
+                    continue
+                
                 # Check category
                 if not _matches_category(drop.get('category', ''), pref_categories):
                     continue
@@ -213,6 +240,10 @@ async def send_alerts(db, changes: dict, store_key: str):
         # New product alerts
         if "new_release" in pref_types:
             for prod in new_products:
+                # Check gender
+                if not _matches_gender(prod, pref_gender):
+                    continue
+                
                 # Check category
                 if not _matches_category(prod.get('category', ''), pref_categories):
                     continue
@@ -237,6 +268,10 @@ async def send_alerts(db, changes: dict, store_key: str):
         # Restock alerts
         if "restock" in pref_types:
             for restock in restocks:
+                # Check gender
+                if not _matches_gender(restock, pref_gender):
+                    continue
+                
                 # Check category
                 if not _matches_category(restock.get('category', ''), pref_categories):
                     continue
