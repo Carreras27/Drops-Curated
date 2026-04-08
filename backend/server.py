@@ -538,6 +538,7 @@ class CreateOrderRequest(BaseModel):
     name: str
     email: EmailStr
     address: str
+    dob: str  # Date of Birth for birthday offers
     plan: str = "monthly"
 
 class VerifyPaymentRequest(BaseModel):
@@ -639,6 +640,7 @@ async def create_payment_order(data: CreateOrderRequest):
         'name': data.name,
         'email': data.email,
         'address': data.address,
+        'dob': data.dob,
         'amount': amount,
         'status': 'created',
         'plan': data.plan,
@@ -700,6 +702,7 @@ async def verify_payment(data: VerifyPaymentRequest):
             'name': order.get('name', ''),
             'email': order.get('email', ''),
             'address': order.get('address', ''),
+            'dob': order.get('dob', ''),
             'isActive': True,
             'isPaid': True,
             'membershipId': membership_id,
@@ -715,6 +718,7 @@ async def verify_payment(data: VerifyPaymentRequest):
         'success': True,
         'membership_id': membership_id,
         'expires_at': expires.isoformat(),
+        'name': order.get('name', ''),
         'message': 'Welcome to Drops Curated!',
     }
 
@@ -729,6 +733,7 @@ async def get_membership(phone: str):
         'name': sub.get('name', ''),
         'email': sub.get('email', ''),
         'address': sub.get('address', ''),
+        'dob': sub.get('dob', ''),
         'phone': sub.get('phone', ''),
         'plan': sub.get('plan', 'monthly'),
         'expires_at': sub.get('expiresAt', ''),

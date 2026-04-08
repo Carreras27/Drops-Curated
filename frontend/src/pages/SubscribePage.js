@@ -340,6 +340,7 @@ export default function SubscribePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+  const [dob, setDob] = useState(''); // Date of Birth for offers
   const [loading, setLoading] = useState(false);
   const [sandboxOtp, setSandboxOtp] = useState('');
   const [membership, setMembership] = useState(null);
@@ -443,9 +444,10 @@ export default function SubscribePage() {
     if (!name.trim()) { toast.error('Please enter your full name'); return; }
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error('Please enter a valid email address'); return; }
     if (!address.trim() || address.trim().length < 10) { toast.error('Please enter your complete home address'); return; }
+    if (!dob) { toast.error('Please enter your date of birth'); return; }
     setLoading(true);
     try {
-      const resp = await axios.post(`${API_URL}/payment/create-order`, { phone, name, email, address, plan: 'monthly' });
+      const resp = await axios.post(`${API_URL}/payment/create-order`, { phone, name, email, address, dob, plan: 'monthly' });
       setOrderId(resp.data.order_id);
       if (resp.data.sandbox) {
         setStep('payment');
@@ -688,6 +690,13 @@ export default function SubscribePage() {
                         rows={3}
                         className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors resize-none" data-testid="address-input" required />
                     </div>
+                    <div>
+                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">Date of Birth <span className="text-red-500">*</span></label>
+                      <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors" data-testid="dob-input" required />
+                      <p className="text-[10px] text-accent/60 mt-1">For exclusive birthday offers & discounts</p>
+                    </div>
                     <div className="bg-primary/[0.03] border border-primary/10 p-5">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-medium">Monthly Membership</span>
@@ -701,7 +710,7 @@ export default function SubscribePage() {
                         ))}
                       </ul>
                     </div>
-                    <button onClick={createOrder} disabled={loading || !name.trim() || !email.trim() || !address.trim()}
+                    <button onClick={createOrder} disabled={loading || !name.trim() || !email.trim() || !address.trim() || !dob}
                       className="w-full bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="proceed-payment-btn">
                       {loading ? 'Processing...' : 'Pay ₹399 via UPI'}
                       <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
@@ -1162,11 +1171,18 @@ export default function SubscribePage() {
               {step === 'success' && membership && (
                 <div className="animate-fade-up" data-testid="step-success">
                   <div className="max-w-md">
+                    {/* Personalized Header */}
+                    <div className="mb-8">
+                      <p className="text-xs text-accent uppercase tracking-widest mb-2">{name.split(' ')[0]}'s Drops Curated</p>
+                      <h2 className="font-serif text-3xl md:text-4xl mb-3">Welcome, {name.split(' ')[0]}!</h2>
+                      <p className="text-sm text-primary/50">You're now part of India's most exclusive streetwear community.</p>
+                    </div>
+
                     {/* Membership Card */}
                     <div className="bg-primary text-background p-8 mb-8 relative overflow-hidden" data-testid="membership-card">
                       <div className="absolute top-0 right-0 w-48 h-48 bg-accent/10 rounded-full -translate-x-1/3 -translate-y-1/2" />
                       <div className="relative">
-                        <p className="text-xs uppercase tracking-[0.3em] text-accent mb-6">Drops Curated</p>
+                        <p className="text-xs uppercase tracking-[0.3em] text-accent mb-6">VIP Member</p>
                         <p className="font-serif text-2xl mb-1">{name}</p>
                         <p className="text-xs text-background/50 mb-8">+91 {phone}</p>
                         <div className="flex items-center justify-between">
@@ -1182,13 +1198,15 @@ export default function SubscribePage() {
                       </div>
                     </div>
 
-                    <h2 className="font-serif text-3xl mb-3">Welcome to the Club</h2>
-                    <p className="text-sm text-primary/50 mb-2">Your alerts are configured and ready.</p>
-                    <div className="text-xs text-primary/40 mb-6 space-y-1">
-                      <p>Alerts: {alertTypes.includes('price_drop') && alertTypes.includes('new_release') ? 'Price drops + New releases' : alertTypes.includes('price_drop') ? 'Price drops only' : 'New releases only'}</p>
-                      <p>Brands: {selectedBrands.length === 0 ? 'All 14 brands' : `${selectedBrands.length} brand${selectedBrands.length > 1 ? 's' : ''} selected`}</p>
-                      <p>Categories: {selectedCategories.length === 0 ? 'All categories' : selectedCategories.join(', ')}</p>
-                      <p>Sizes: {selectedSizes.length === 0 ? 'All sizes' : selectedSizes.join(', ')}</p>
+                    <div className="bg-accent/10 border border-accent/20 p-4 mb-6">
+                      <p className="text-sm font-medium text-primary mb-2">Your Alert Preferences</p>
+                      <div className="text-xs text-primary/60 space-y-1">
+                        <p>• Alerts: {alertTypes.map(t => t === 'price_drop' ? 'Price Drops' : t === 'new_release' ? 'New Releases' : 'Restocks').join(', ') || 'None'}</p>
+                        <p>• Brands: {selectedBrands.length === 0 ? 'All 23 brands' : `${selectedBrands.length} brand${selectedBrands.length > 1 ? 's' : ''} selected`}</p>
+                        <p>• Categories: {selectedCategories.length === 0 ? 'All categories' : selectedCategories.join(', ')}</p>
+                        <p>• Sizes: {selectedSizes.length === 0 ? 'All sizes' : selectedSizes.join(', ')}</p>
+                        <p>• Frequency: {alertFrequency === 'daily' ? 'Daily Digest at 8 PM' : 'Instant alerts'}</p>
+                      </div>
                     </div>
 
                     <div className="space-y-3 mb-8">
