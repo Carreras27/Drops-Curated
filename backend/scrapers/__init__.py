@@ -25,6 +25,7 @@ SHOPIFY_BRANDS = [
     {"key": "leave_the_rest", "name": "Leave The Rest", "store_key": "LEAVE_THE_REST", "url": "https://leavetherest.com"},
     {"key": "deadbear", "name": "Deadbear", "store_key": "DEADBEAR", "url": "https://deadbear.in"},
     {"key": "natty_garb", "name": "Natty Garb", "store_key": "NATTY_GARB", "url": "https://www.nattygarb.com"},
+    {"key": "bomaachi", "name": "Bomaachi", "store_key": "BOMAACHI", "url": "https://bomaachi.com"},
 ]
 
 # Build SCRAPERS dict
