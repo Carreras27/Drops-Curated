@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
@@ -295,6 +295,7 @@ const AllBrandsSection = ({ brands, onBrandClick }) => {
 };
 
 export default function BrowsePage() {
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [curatedDrops, setCuratedDrops] = useState({ limited_edition: [], trending: [], new_drops: [] });
   const [celebrityPicks, setCelebrityPicks] = useState([]);
@@ -312,11 +313,32 @@ export default function BrowsePage() {
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
 
+  // Check for brand filter in URL params
+  useEffect(() => {
+    const brandParam = searchParams.get('brand');
+    if (brandParam && brands.length > 0) {
+      const matchedBrand = brands.find(b => 
+        b.storeKey === brandParam || 
+        b.key?.toUpperCase() === brandParam ||
+        b.store_key === brandParam
+      );
+      if (matchedBrand) {
+        setSelectedBrand(matchedBrand);
+        fetchAllProducts(1, brandParam, null);
+      }
+    }
+  }, [searchParams, brands]);
+
   useEffect(() => {
     fetchBrands();
     fetchCuratedDrops();
     fetchCelebrityStyles();
-    fetchAllProducts(1);
+    
+    // Only fetch all products if no brand param in URL
+    const brandParam = searchParams.get('brand');
+    if (!brandParam) {
+      fetchAllProducts(1);
+    }
     
     // Auto-refresh every 15 minutes
     const refreshTimer = setInterval(() => {

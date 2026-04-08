@@ -195,15 +195,13 @@ export const Footer = () => {
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Brands</p>
             <div className="flex flex-col gap-2.5">
               {topBrands.map((brand) => (
-                <a 
+                <Link 
                   key={brand.key} 
-                  href={brand.websiteUrl || brand.url || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  to={`/browse?brand=${brand.storeKey || brand.key?.toUpperCase()}`}
                   className="text-xs text-primary/40 hover:text-accent transition-colors"
                 >
                   {brand.name}
-                </a>
+                </Link>
               ))}
               {remainingCount > 0 && (
                 <Link to="/browse" className="text-xs text-accent hover:text-primary transition-colors">
