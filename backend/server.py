@@ -137,6 +137,7 @@ async def search_products(
     q: str = Query(''),
     category: Optional[str] = None,
     brand: Optional[str] = None,
+    store: Optional[str] = None,
     sort: str = Query('date', description='Sort by: date, price_low, price_high, shuffle'),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -146,13 +147,17 @@ async def search_products(
     
     query = {}
     
-    # Search query - searches name, description, brand, tags
-    if q.strip():
+    # Store filter - filter by store/brand key (e.g., CREPDOG_CREW)
+    if store:
+        query['store'] = {'$regex': f'^{store}$', '$options': 'i'}
+    # Search query - searches name, description, brand, tags, store
+    elif q.strip():
         query['$or'] = [
             {'name': {'$regex': q, '$options': 'i'}},
             {'description': {'$regex': q, '$options': 'i'}},
             {'brand': {'$regex': q, '$options': 'i'}},
             {'tags': {'$regex': q, '$options': 'i'}},
+            {'store': {'$regex': q, '$options': 'i'}},
         ]
     
     # Brand filter - exact match on brand field

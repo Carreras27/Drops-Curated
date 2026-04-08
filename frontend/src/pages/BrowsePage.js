@@ -253,14 +253,12 @@ const AllBrandsSection = ({ brands, onBrandClick }) => {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {brands.map((brand, idx) => (
-          <a
+          <div
             key={brand.key || idx}
-            href={brand.websiteUrl || brand.url || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] border border-primary/10 hover:border-accent/40 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+            className="group relative bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] border border-primary/10 hover:border-accent/40 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
             style={{ animationDelay: `${idx * 0.05}s` }}
             data-testid={`brand-card-${brand.key}`}
+            onClick={() => onBrandClick(brand)}
           >
             <div className="text-center">
               <div className="w-12 h-12 mx-auto mb-3 bg-primary/5 rounded-full flex items-center justify-center group-hover:bg-accent/10 transition-colors">
@@ -274,15 +272,23 @@ const AllBrandsSection = ({ brands, onBrandClick }) => {
               <p className="text-[10px] text-primary/40 mt-1">
                 {brand.productCount || 0} drops
               </p>
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ExternalLink className="w-3 h-3 text-accent" />
-              </div>
+              {/* External link to official store */}
+              <a
+                href={brand.websiteUrl || brand.url || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 mt-2 text-[10px] text-accent/60 hover:text-accent transition-colors"
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+                <span>Visit Store</span>
+              </a>
             </div>
-          </a>
+          </div>
         ))}
       </div>
       <div className="mt-4 text-center">
-        <p className="text-xs text-primary/30">Click any brand to visit their official store</p>
+        <p className="text-xs text-primary/30">Click a brand to see their drops • "Visit Store" opens official website</p>
       </div>
     </div>
   );
@@ -354,7 +360,7 @@ export default function BrowsePage() {
     }
   };
 
-  const fetchAllProducts = async (pageNum, brandFilter = null, searchQuery = null) => {
+  const fetchAllProducts = async (pageNum, storeFilter = null, searchQuery = null) => {
     if (pageNum === 1) {
       setLoading(true);
     } else {
@@ -368,13 +374,13 @@ export default function BrowsePage() {
         url += `&q=${encodeURIComponent(searchQuery)}`;
       }
       
-      // Add brand filter (for product brand like Nike, not store)
-      if (brandFilter) {
-        url += `&q=${encodeURIComponent(brandFilter)}`;
+      // Add store filter (for filtering by brand/store like CREPDOG_CREW)
+      if (storeFilter) {
+        url += `&store=${encodeURIComponent(storeFilter)}`;
       }
       
       // Use shuffle sort when no specific search to keep content fresh
-      if (!searchQuery && !brandFilter) {
+      if (!searchQuery && !storeFilter) {
         url += '&sort=shuffle';
       } else {
         url += '&sort=date'; // Sort by drop date when searching
@@ -399,12 +405,14 @@ export default function BrowsePage() {
 
   const handleManualRefresh = () => {
     fetchCuratedDrops(true);
-    fetchAllProducts(1, selectedBrand?.name, query);
+    const storeKey = selectedBrand?.storeKey || selectedBrand?.store_key || selectedBrand?.key?.toUpperCase();
+    fetchAllProducts(1, storeKey, query);
   };
 
   const loadMore = () => {
     if (!loadingMore && hasMore) {
-      fetchAllProducts(page + 1, selectedBrand?.name, query);
+      const storeKey = selectedBrand?.storeKey || selectedBrand?.store_key || selectedBrand?.key?.toUpperCase();
+      fetchAllProducts(page + 1, storeKey, query);
     }
   };
 
@@ -430,9 +438,9 @@ export default function BrowsePage() {
   // Ref for scrolling to new products
   const newProductsRef = useRef(null);
 
-  const fetchProducts = async (q, brand) => {
+  const fetchProducts = async (q, storeKey) => {
     setPage(1);
-    fetchAllProducts(1, brand, q);
+    fetchAllProducts(1, storeKey, q);
   };
 
   const handleSearch = (e) => {
@@ -450,7 +458,17 @@ export default function BrowsePage() {
     setSelectedBrand(brand);
     setQuery('');
     setPage(1);
-    fetchAllProducts(1, brand.name, null);
+    // Use storeKey for accurate filtering
+    const storeKey = brand.storeKey || brand.store_key || brand.key?.toUpperCase();
+    fetchAllProducts(1, storeKey, null);
+    
+    // Scroll to the All Drops section
+    setTimeout(() => {
+      const allDropsSection = document.querySelector('[data-testid="all-products-grid"]');
+      if (allDropsSection) {
+        allDropsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   const clearFilters = () => {
@@ -623,7 +641,7 @@ export default function BrowsePage() {
                   />
 
                   {/* All Brands Section */}
-                  <AllBrandsSection brands={brands} onBrandClick={setSelectedBrand} />
+                  <AllBrandsSection brands={brands} onBrandClick={handleBrandClick} />
                 </>
               )}
 
