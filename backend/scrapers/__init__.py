@@ -19,7 +19,6 @@ SHOPIFY_BRANDS = [
     {"key": "farak", "name": "Farak", "store_key": "FARAK", "url": "https://farak.co"},
     {"key": "superkicks", "name": "Superkicks", "store_key": "SUPERKICKS", "url": "https://www.superkicks.in"},
     {"key": "mainstreet", "name": "Mainstreet Marketplace", "store_key": "MAINSTREET", "url": "https://marketplace.mainstreet.co.in"},
-    {"key": "limited_edt", "name": "Limited Edt", "store_key": "LIMITED_EDT", "url": "https://www.limitededt.com"},
 ]
 
 # Build SCRAPERS dict
