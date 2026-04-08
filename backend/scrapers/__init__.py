@@ -19,6 +19,12 @@ SHOPIFY_BRANDS = [
     {"key": "farak", "name": "Farak", "store_key": "FARAK", "url": "https://farak.co"},
     {"key": "superkicks", "name": "Superkicks", "store_key": "SUPERKICKS", "url": "https://www.superkicks.in"},
     {"key": "mainstreet", "name": "Mainstreet Marketplace", "store_key": "MAINSTREET", "url": "https://marketplace.mainstreet.co.in"},
+    {"key": "evemen", "name": "Evemen", "store_key": "EVEMEN", "url": "https://evemen.co"},
+    {"key": "void_worldwide", "name": "Void Worldwide", "store_key": "VOID_WORLDWIDE", "url": "https://voidworldwide.co"},
+    {"key": "toffle", "name": "Toffle", "store_key": "TOFFLE", "url": "https://toffle.in"},
+    {"key": "leave_the_rest", "name": "Leave The Rest", "store_key": "LEAVE_THE_REST", "url": "https://leavetherest.com"},
+    {"key": "deadbear", "name": "Deadbear", "store_key": "DEADBEAR", "url": "https://deadbear.in"},
+    {"key": "natty_garb", "name": "Natty Garb", "store_key": "NATTY_GARB", "url": "https://www.nattygarb.com"},
 ]
 
 # Build SCRAPERS dict
