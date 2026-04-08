@@ -94,6 +94,11 @@
 - [x] Category and Size specificity filters
 - [x] Notification frequency (Instant vs Daily Digest at 8 PM)
 - [x] Budget range and keyword filters
+- [x] **"Test My Preferences" Simulation** (NEW)
+  - Shows matching products count
+  - Estimated daily alerts with breakdown
+  - Sample daily digest preview
+  - Contextual optimization tips
 - [x] Size Guide modal with garments/sneakers sizing tables
 - [x] WhatsApp OTP registration (SANDBOX)
 - [x] Razorpay UPI payment (SANDBOX)
@@ -106,7 +111,7 @@
 - [x] Dynamic "Brands Listed" footer with auto-scroll marquee
 - [x] Dedicated `/brands` page
 - [x] Excel generator for brand analytics
-- [x] All tests: 100% pass (9 iterations)
+- [x] All tests: 100% pass (10 iterations)
 
 ## Upcoming Tasks
 - [ ] **P0**: Meta WhatsApp template approval (real message delivery)
@@ -142,6 +147,8 @@
   - `drop_threshold`: number (5-30%)
   - `alert_frequency`: "instant" | "daily"
 - `GET /api/preferences/{phone}` - Get user preferences
+- `POST /api/preferences/simulate` - **Test My Preferences** simulation
+  - Returns: total_matching_products, estimated_daily_alerts, sample_daily_digest, filters_applied, new_drops/price_drops/restocks sections with sample products
 
 ### Alerts
 - `GET /api/alerts/recent` - Get recent alert logs
