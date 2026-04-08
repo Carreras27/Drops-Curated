@@ -543,8 +543,8 @@ class VerifyPaymentRequest(BaseModel):
 
 @api_router.post('/otp/send')
 async def send_otp_endpoint(data: OTPRequest):
-    """Send OTP via WhatsApp using Gupshup"""
-    from gupshup import send_otp as gupshup_send_otp
+    """Send OTP via WhatsApp using Meta Cloud API"""
+    from whatsapp import send_otp as whatsapp_send_otp, IS_CONFIGURED
     
     phone = data.phone.strip()
     if len(phone) != 10 or phone[0] not in '6789':
@@ -557,19 +557,19 @@ async def send_otp_endpoint(data: OTPRequest):
         'verified': False,
     }
 
-    # Send OTP via Gupshup WhatsApp
-    success, result = gupshup_send_otp(phone, otp)
+    # Send OTP via Meta WhatsApp Cloud API
+    success, result = whatsapp_send_otp(phone, otp)
     
     if success:
-        logger.info(f"OTP sent to {phone} via Gupshup. Message ID: {result}")
+        logger.info(f"OTP sent to {phone} via WhatsApp. Message ID: {result}")
     else:
-        logger.warning(f"Failed to send OTP via Gupshup: {result}. OTP: {otp}")
+        logger.warning(f"WhatsApp send failed: {result}. OTP for {phone}: {otp}")
 
-    # In sandbox mode or if Gupshup fails, return OTP for testing
+    # Return OTP in sandbox mode or if WhatsApp fails (for testing)
     return {
         'message': 'OTP sent to WhatsApp',
         'sandbox_otp': otp if (SANDBOX_MODE or not success) else None,
-        'sent_via': 'gupshup' if success else 'sandbox',
+        'sent_via': 'whatsapp' if success else 'sandbox',
     }
 
 @api_router.post('/otp/verify')

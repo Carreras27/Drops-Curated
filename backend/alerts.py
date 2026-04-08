@@ -1,16 +1,15 @@
 """
 Real-time alert system for Drops Curated.
-Detects price drops and new products, sends WhatsApp alerts via Gupshup.
+Detects price drops and new products, sends WhatsApp alerts via Meta Cloud API.
 """
 import os
 import logging
 from datetime import datetime, timezone
-from gupshup import send_price_drop_alert, send_new_drop_alert, gupshup_client
+from whatsapp import send_price_drop_alert, send_new_drop_alert, whatsapp_client, IS_CONFIGURED
 
 logger = logging.getLogger(__name__)
 
-GUPSHUP_API_KEY = os.environ.get('GUPSHUP_API_KEY', '')
-SANDBOX_MODE = not GUPSHUP_API_KEY
+SANDBOX_MODE = not IS_CONFIGURED
 
 
 async def detect_changes(db, scraped_products: list[dict], store_key: str) -> dict:
@@ -132,20 +131,19 @@ async def send_alerts(db, changes: dict, store_key: str):
 
 
 async def _send_whatsapp(phone: str, message: str, alert_type: str = "general", alert_data: dict = None) -> bool:
-    """Send a WhatsApp message via Gupshup."""
+    """Send a WhatsApp message via Meta Cloud API."""
     if SANDBOX_MODE:
         logger.info(f"[Sandbox] WhatsApp to +91{phone}: {message[:80]}...")
         return True
 
     try:
-        # Use session message for general alerts
-        success, result = gupshup_client.send_session_message(phone, message)
+        success, result = whatsapp_client.send_text_message(phone, message)
         if success:
-            logger.info(f"[Gupshup] Sent to {phone}. Message ID: {result}")
+            logger.info(f"[WhatsApp] Sent to {phone}. Message ID: {result}")
             return True
         else:
-            logger.warning(f"[Gupshup] Failed to send to {phone}: {result}")
+            logger.warning(f"[WhatsApp] Failed to send to {phone}: {result}")
             return False
     except Exception as e:
-        logger.error(f"[Gupshup] Failed to send to {phone}: {e}")
+        logger.error(f"[WhatsApp] Failed to send to {phone}: {e}")
         return False
