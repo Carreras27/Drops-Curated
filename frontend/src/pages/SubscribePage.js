@@ -156,6 +156,25 @@ export default function SubscribePage() {
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [walletLoading, setWalletLoading] = useState({ apple: false, google: false });
+  
+  // Advanced Preference Funnel Filters
+  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [keywords, setKeywords] = useState([]);
+  const [keywordInput, setKeywordInput] = useState('');
+  const [dropThreshold, setDropThreshold] = useState(5); // Minimum % drop to alert
+  const [alertFrequency, setAlertFrequency] = useState('instant'); // instant, daily, weekly
+
+  const addKeyword = () => {
+    const kw = keywordInput.trim().toLowerCase();
+    if (kw && !keywords.includes(kw) && keywords.length < 10) {
+      setKeywords([...keywords, kw]);
+      setKeywordInput('');
+    }
+  };
+
+  const removeKeyword = (kw) => {
+    setKeywords(keywords.filter(k => k !== kw));
+  };
 
   const sendOtp = async () => {
     if (phone.length !== 10 || !'6789'.includes(phone[0])) {
@@ -265,6 +284,14 @@ export default function SubscribePage() {
         alert_types: alertTypes,
         categories: selectedCategories,
         sizes: selectedSizes,
+        // Advanced Preference Funnel
+        price_range: {
+          min: priceRange.min ? parseInt(priceRange.min) : null,
+          max: priceRange.max ? parseInt(priceRange.max) : null,
+        },
+        keywords: keywords,
+        drop_threshold: dropThreshold,
+        alert_frequency: alertFrequency,
       });
       toast.success('Preferences saved!');
       setStep('success');
@@ -599,6 +626,152 @@ export default function SubscribePage() {
                             {brand.name}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Price Range Filter */}
+                    <div>
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Budget Range (₹)</p>
+                      <p className="text-[10px] text-accent/60 mb-3">Only get alerts for products in your budget</p>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-primary/30 mb-1 block">Min Price</label>
+                          <input
+                            type="number"
+                            value={priceRange.min}
+                            onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
+                            placeholder="₹0"
+                            className="w-full px-3 py-2.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors"
+                            data-testid="price-min"
+                          />
+                        </div>
+                        <div className="flex items-end pb-2.5 text-primary/30">—</div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-primary/30 mb-1 block">Max Price</label>
+                          <input
+                            type="number"
+                            value={priceRange.max}
+                            onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
+                            placeholder="No limit"
+                            className="w-full px-3 py-2.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors"
+                            data-testid="price-max"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Drop Threshold */}
+                    <div>
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Price Drop Threshold</p>
+                      <p className="text-[10px] text-accent/60 mb-3">Alert me only when price drops by at least:</p>
+                      <div className="flex gap-2">
+                        {[5, 10, 15, 20, 30].map(threshold => (
+                          <button
+                            key={threshold}
+                            onClick={() => setDropThreshold(threshold)}
+                            className={`flex-1 py-2.5 border text-xs transition-all ${
+                              dropThreshold === threshold 
+                                ? 'border-accent bg-accent/[0.03] text-primary font-medium' 
+                                : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                            }`}
+                            data-testid={`threshold-${threshold}`}
+                          >
+                            {threshold}%+
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Keywords Filter */}
+                    <div>
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Product Keywords</p>
+                      <p className="text-[10px] text-accent/60 mb-3">Get alerts only for products matching these keywords (e.g., Jordan, Yeezy, Dunk)</p>
+                      <div className="flex gap-2 mb-3">
+                        <input
+                          type="text"
+                          value={keywordInput}
+                          onChange={(e) => setKeywordInput(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addKeyword()}
+                          placeholder="Add keyword..."
+                          className="flex-1 px-3 py-2.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors"
+                          data-testid="keyword-input"
+                        />
+                        <button
+                          onClick={addKeyword}
+                          className="px-4 bg-primary/10 text-primary text-sm hover:bg-primary/20 transition-colors"
+                          data-testid="add-keyword-btn"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {keywords.map(kw => (
+                            <span
+                              key={kw}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-xs"
+                            >
+                              {kw}
+                              <button onClick={() => removeKeyword(kw)} className="hover:text-red-500">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {keywords.length === 0 && (
+                        <p className="text-[10px] text-primary/30">No keywords = alerts for ALL products</p>
+                      )}
+                    </div>
+
+                    {/* Alert Frequency */}
+                    <div>
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Alert Frequency</p>
+                      <p className="text-[10px] text-accent/60 mb-3">How often should we send you alerts?</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { key: 'instant', label: 'Instant', desc: 'Real-time alerts' },
+                          { key: 'daily', label: 'Daily Digest', desc: 'Once per day' },
+                          { key: 'weekly', label: 'Weekly', desc: 'Weekly summary' },
+                        ].map(freq => (
+                          <button
+                            key={freq.key}
+                            onClick={() => setAlertFrequency(freq.key)}
+                            className={`flex flex-col items-center p-3 border text-center transition-all ${
+                              alertFrequency === freq.key 
+                                ? 'border-accent bg-accent/[0.03]' 
+                                : 'border-primary/10 hover:border-primary/20'
+                            }`}
+                            data-testid={`freq-${freq.key}`}
+                          >
+                            <p className={`text-xs font-medium ${alertFrequency === freq.key ? 'text-primary' : 'text-primary/50'}`}>
+                              {freq.label}
+                            </p>
+                            <p className="text-[9px] text-primary/30 mt-0.5">{freq.desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Cost Savings Indicator */}
+                    <div className="bg-green-500/5 border border-green-500/20 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Check className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-700">Smart Filtering Active</p>
+                          <p className="text-xs text-green-600/70 mt-0.5">
+                            Your filters will reduce irrelevant alerts by ~
+                            {Math.min(95, 
+                              (selectedBrands.length > 0 ? 30 : 0) + 
+                              (selectedCategories.length > 0 ? 20 : 0) + 
+                              (selectedSizes.length > 0 ? 15 : 0) +
+                              (keywords.length > 0 ? 20 : 0) +
+                              (priceRange.min || priceRange.max ? 10 : 0)
+                            )}%
+                          </p>
+                        </div>
                       </div>
                     </div>
 
