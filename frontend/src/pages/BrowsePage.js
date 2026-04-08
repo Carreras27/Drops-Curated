@@ -236,6 +236,58 @@ const CelebrityStyleSection = ({ celebrityPicks }) => {
   );
 };
 
+// All Brands Section
+const AllBrandsSection = ({ brands, onBrandClick }) => {
+  if (!brands || brands.length === 0) return null;
+  
+  return (
+    <div className="mb-16" data-testid="all-brands-section">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-8 h-8 flex items-center justify-center bg-accent/10 text-accent">
+          <ExternalLink className="w-4 h-4" strokeWidth={2} />
+        </div>
+        <div>
+          <h2 className="font-serif text-2xl">Shop By Brand</h2>
+          <p className="text-xs text-primary/40">{brands.length} premium Indian streetwear brands</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {brands.map((brand, idx) => (
+          <a
+            key={brand.key || idx}
+            href={brand.websiteUrl || brand.url || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] border border-primary/10 hover:border-accent/40 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+            style={{ animationDelay: `${idx * 0.05}s` }}
+            data-testid={`brand-card-${brand.key}`}
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-3 bg-primary/5 rounded-full flex items-center justify-center group-hover:bg-accent/10 transition-colors">
+                <span className="text-lg font-bold text-primary/60 group-hover:text-accent transition-colors">
+                  {(brand.name || brand.key || '?').charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <h3 className="text-sm font-medium truncate group-hover:text-accent transition-colors">
+                {brand.name || brand.key}
+              </h3>
+              <p className="text-[10px] text-primary/40 mt-1">
+                {brand.productCount || 0} drops
+              </p>
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <ExternalLink className="w-3 h-3 text-accent" />
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+      <div className="mt-4 text-center">
+        <p className="text-xs text-primary/30">Click any brand to visit their official store</p>
+      </div>
+    </div>
+  );
+};
+
 export default function BrowsePage() {
   const [products, setProducts] = useState([]);
   const [curatedDrops, setCuratedDrops] = useState({ limited_edition: [], trending: [], new_drops: [] });
@@ -569,6 +621,9 @@ export default function BrowsePage() {
                     showDate={true}
                     emptyMessage="No new drops this week"
                   />
+
+                  {/* All Brands Section */}
+                  <AllBrandsSection brands={brands} onBrandClick={setSelectedBrand} />
                 </>
               )}
 
