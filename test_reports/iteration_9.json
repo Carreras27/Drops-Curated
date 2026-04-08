@@ -1,0 +1,87 @@
+{
+  "summary": "Tested Preference Funnel feature - all 4 sections (A, B, C, D) working correctly. Backend API accepts all new fields (brand_limit, price_range, keywords, drop_threshold, alert_frequency, restock). GET /api/preferences returns all fields with defaults. Scheduler status shows both auto_scrape and daily_digest jobs. 21/21 backend tests passed, UI flow complete.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_preference_funnel.py",
+    "/app/test_reports/pytest/pytest_results_preference_funnel.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_preference_funnel.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "100% (all UI elements working)"
+  },
+  "test_credentials": "Phone: Any 10-digit Indian number starting with 6-9 (e.g., 9876543210). Sandbox OTP auto-returned.",
+  "seed_data_creation": "None - used dynamic test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Preference Funnel feature fully implemented and tested. All 4 sections work: A) Brand Selection with Top 5/10/Unlimited limits, B) Trigger-Based Filtering with New Drops/Price Drops/Restock, C) Category and Size filters, D) Notification Frequency with Instant/Daily Digest (8 PM). Scheduler has both auto_scrape (15 min) and daily_digest (8 PM IST) jobs.",
+  "features_tested": {
+    "section_a_brand_selection": {
+      "brand_limit_top_5": "PASS - Button found and clickable",
+      "brand_limit_top_10": "PASS - Button found and clickable",
+      "brand_limit_unlimited": "PASS - Button found and clickable",
+      "brand_selection_grid": "PASS - All brands selectable with volume indicators",
+      "brand_limit_enforcement": "PASS - Frontend enforces max selection"
+    },
+    "section_b_trigger_filtering": {
+      "new_drops_option": "PASS - Trigger option found",
+      "price_drops_option": "PASS - Trigger option found",
+      "restock_alerts_option": "PASS - Trigger option found and clickable",
+      "price_drop_threshold_selector": "PASS - Shows 5%/10%/15%/20%/30% options when Price Drops selected"
+    },
+    "section_c_specificity": {
+      "category_garments": "PASS - Filter found and selectable",
+      "category_sneakers": "PASS - Filter found and selectable",
+      "category_accessories": "PASS - Filter found",
+      "size_filters": "PASS - All sizes (XS-XXL, UK6-UK12, Free Size) selectable"
+    },
+    "section_d_notification_frequency": {
+      "instant_option": "PASS - Option found and clickable",
+      "daily_digest_option": "PASS - Option found and clickable",
+      "recommended_badge": "PASS - RECOMMENDED badge on Daily Digest",
+      "8pm_time_display": "PASS - Shows '8:00 PM' time"
+    },
+    "optional_fields": {
+      "price_range_min_max": "PASS - Both inputs found and fillable",
+      "keywords_input": "PASS - Input and Add button working"
+    },
+    "backend_api": {
+      "post_preferences_brand_limit": "PASS - Accepts 5, 10, 0 values",
+      "post_preferences_restock": "PASS - Accepts 'restock' in alert_types",
+      "post_preferences_price_range": "PASS - Accepts min/max values",
+      "post_preferences_keywords": "PASS - Accepts keyword array",
+      "post_preferences_drop_threshold": "PASS - Accepts threshold percentage",
+      "post_preferences_alert_frequency": "PASS - Accepts 'instant' and 'daily'",
+      "get_preferences_all_fields": "PASS - Returns all preference funnel fields",
+      "get_preferences_defaults": "PASS - Returns defaults for new subscribers"
+    },
+    "scheduler_status": {
+      "auto_scrape_job": "PASS - Shows next_scrape time, 15 min interval",
+      "daily_digest_job": "PASS - Shows next_digest time, 8 PM IST"
+    },
+    "complete_flow": {
+      "otp_verification": "PASS",
+      "details_step": "PASS",
+      "payment_sandbox": "PASS",
+      "preferences_step": "PASS - All 4 sections rendered",
+      "save_preferences": "PASS",
+      "success_step": "PASS - Preferences saved confirmation"
+    }
+  },
+  "mocked_apis": {
+    "whatsapp_meta_cloud_api": "SANDBOX mode - messages logged to console",
+    "razorpay_payment": "SANDBOX mode - auto-approved"
+  }
+}

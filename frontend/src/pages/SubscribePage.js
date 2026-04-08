@@ -116,24 +116,40 @@ const SizeGuideModal = ({ isOpen, onClose }) => {
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
+// High-frequency vs Low-frequency brands (based on avg daily drops)
 const ALL_BRANDS = [
-  { key: 'CREPDOG_CREW', name: 'Crep Dog Crew' },
-  { key: 'ALMOST_GODS', name: 'Almost Gods' },
-  { key: 'CODE_BROWN', name: 'Code Brown' },
-  { key: 'JAYWALKING', name: 'Jaywalking' },
-  { key: 'HUEMN', name: 'Huemn' },
-  { key: 'NOUGHTONE', name: 'Noughtone' },
-  { key: 'BLUORNG', name: 'Bluorng' },
-  { key: 'CAPSUL', name: 'Capsul' },
-  { key: 'URBAN_MONKEY', name: 'Urban Monkey' },
-  { key: 'HOUSE_OF_KOALA', name: 'House of Koala' },
-  { key: 'FARAK', name: 'Farak' },
-  { key: 'HIYEST', name: 'Hiyest' },
-  { key: 'VEG_NON_VEG', name: 'Veg Non Veg' },
-  { key: 'CULTURE_CIRCLE', name: 'Culture Circle' },
-  { key: 'SUPERKICKS', name: 'Superkicks' },
-  { key: 'MAINSTREET', name: 'Mainstreet Marketplace' },
-  { key: 'LIMITED_EDT', name: 'Limited Edt' },
+  // High-frequency brands (5+ drops/day) - marked with volume indicator
+  { key: 'CREPDOG_CREW', name: 'Crep Dog Crew', volume: 'high' },
+  { key: 'CAPSUL', name: 'Capsul', volume: 'high' },
+  { key: 'URBAN_MONKEY', name: 'Urban Monkey', volume: 'high' },
+  { key: 'HUEMN', name: 'Huemn', volume: 'high' },
+  { key: 'SUPERKICKS', name: 'Superkicks', volume: 'high' },
+  { key: 'MAINSTREET', name: 'Mainstreet Marketplace', volume: 'high' },
+  { key: 'BLUORNG', name: 'Bluorng', volume: 'medium' },
+  { key: 'HOUSE_OF_KOALA', name: 'House of Koala', volume: 'medium' },
+  { key: 'FARAK', name: 'Farak', volume: 'medium' },
+  { key: 'EVEMEN', name: 'Evemen', volume: 'medium' },
+  { key: 'VOID_WORLDWIDE', name: 'Void Worldwide', volume: 'medium' },
+  // Low-frequency brands (more exclusive, fewer drops)
+  { key: 'ALMOST_GODS', name: 'Almost Gods', volume: 'low' },
+  { key: 'JAYWALKING', name: 'Jaywalking', volume: 'low' },
+  { key: 'CODE_BROWN', name: 'Code Brown', volume: 'low' },
+  { key: 'NOUGHTONE', name: 'Noughtone', volume: 'low' },
+  { key: 'HIYEST', name: 'Hiyest', volume: 'low' },
+  { key: 'VEG_NON_VEG', name: 'Veg Non Veg', volume: 'low' },
+  { key: 'CULTURE_CIRCLE', name: 'Culture Circle', volume: 'low' },
+  { key: 'TOFFLE', name: 'Toffle', volume: 'low' },
+  { key: 'LEAVE_THE_REST', name: 'Leave The Rest', volume: 'low' },
+  { key: 'DEADBEAR', name: 'Deadbear', volume: 'low' },
+  { key: 'NATTY_GARB', name: 'Natty Garb', volume: 'low' },
+  { key: 'BOMAACHI', name: 'Bomaachi', volume: 'low' },
+];
+
+// Brand selection limits
+const BRAND_LIMITS = [
+  { value: 5, label: 'Top 5', desc: 'Your favorite brands only' },
+  { value: 10, label: 'Top 10', desc: 'Balanced coverage' },
+  { value: 0, label: 'Unlimited', desc: 'All brands (more alerts)' },
 ];
 
 const STEPS = ['verify', 'details', 'payment', 'preferences', 'success'];
@@ -161,8 +177,9 @@ export default function SubscribePage() {
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [keywords, setKeywords] = useState([]);
   const [keywordInput, setKeywordInput] = useState('');
-  const [dropThreshold, setDropThreshold] = useState(5); // Minimum % drop to alert
-  const [alertFrequency, setAlertFrequency] = useState('instant'); // instant, daily, weekly
+  const [dropThreshold, setDropThreshold] = useState(10); // Minimum % drop to alert (default 10%)
+  const [alertFrequency, setAlertFrequency] = useState('daily'); // instant, daily - daily recommended
+  const [brandLimit, setBrandLimit] = useState(10); // 5, 10, or 0 (unlimited)
 
   const addKeyword = () => {
     const kw = keywordInput.trim().toLowerCase();
@@ -257,7 +274,18 @@ export default function SubscribePage() {
   };
 
   const toggleBrand = (key) => {
-    setSelectedBrands(prev => prev.includes(key) ? prev.filter(b => b !== key) : [...prev, key]);
+    setSelectedBrands(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(b => b !== key);
+      } else {
+        // Enforce brand limit if set
+        if (brandLimit > 0 && prev.length >= brandLimit) {
+          toast.error(`You can select up to ${brandLimit} brands. Upgrade or remove one to add another.`);
+          return prev;
+        }
+        return [...prev, key];
+      }
+    });
   };
 
   const toggleAlertType = (type) => {
@@ -280,20 +308,27 @@ export default function SubscribePage() {
     try {
       await axios.post(`${API_URL}/preferences`, {
         phone,
+        // Brand selection
         brands: selectedBrands,
+        brand_limit: brandLimit,
+        // Trigger types (what alerts to receive)
         alert_types: alertTypes,
+        // Specificity filters
         categories: selectedCategories,
         sizes: selectedSizes,
-        // Advanced Preference Funnel
+        // Budget range filter
         price_range: {
           min: priceRange.min ? parseInt(priceRange.min) : null,
           max: priceRange.max ? parseInt(priceRange.max) : null,
         },
+        // Keyword matching
         keywords: keywords,
+        // Price drop threshold (only alert if discount >= threshold)
         drop_threshold: dropThreshold,
+        // Notification frequency
         alert_frequency: alertFrequency,
       });
-      toast.success('Preferences saved!');
+      toast.success('Preferences saved! Your alerts are now customized.');
       setStep('success');
     } catch {
       toast.error('Failed to save preferences');
@@ -497,17 +532,120 @@ export default function SubscribePage() {
                   <div className="w-14 h-14 border border-accent/30 flex items-center justify-center mb-6">
                     <Settings className="w-6 h-6 text-accent" strokeWidth={1.5} />
                   </div>
-                  <h2 className="font-serif text-2xl md:text-3xl mb-2">Customize Your Alerts</h2>
-                  <p className="text-sm text-primary/40 mb-8">Choose which brands and alert types you care about.</p>
+                  <h2 className="font-serif text-2xl md:text-3xl mb-2">Preference Funnel</h2>
+                  <p className="text-sm text-primary/40 mb-8">Fine-tune your alerts to only get what you care about. This saves costs and noise.</p>
 
-                  <div className="space-y-8 max-w-lg">
-                    {/* Alert types */}
-                    <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Notification Type</p>
+                  <div className="space-y-10 max-w-lg">
+                    
+                    {/* Section A: Brand Selection */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">A</span>
+                        <p className="text-sm font-medium">Brand Selection (Your "Follow" List)</p>
+                      </div>
+                      
+                      {/* Brand Limit Selector */}
+                      <div className="mb-4">
+                        <p className="text-xs text-primary/40 mb-3">How many brands do you want alerts from?</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {BRAND_LIMITS.map(limit => (
+                            <button
+                              key={limit.value}
+                              onClick={() => {
+                                setBrandLimit(limit.value);
+                                // If reducing limit and too many selected, trim selection
+                                if (limit.value > 0 && selectedBrands.length > limit.value) {
+                                  setSelectedBrands(prev => prev.slice(0, limit.value));
+                                  toast.info(`Selection trimmed to ${limit.value} brands`);
+                                }
+                              }}
+                              className={`flex flex-col items-center p-3 border text-center transition-all ${
+                                brandLimit === limit.value 
+                                  ? 'border-accent bg-accent/[0.03]' 
+                                  : 'border-primary/10 hover:border-primary/20'
+                              }`}
+                              data-testid={`brand-limit-${limit.value}`}
+                            >
+                              <p className={`text-sm font-medium ${brandLimit === limit.value ? 'text-primary' : 'text-primary/50'}`}>
+                                {limit.label}
+                              </p>
+                              <p className="text-[9px] text-primary/30 mt-0.5">{limit.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Brand Selection Grid */}
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-primary/40">
+                          {selectedBrands.length > 0 
+                            ? `${selectedBrands.length}${brandLimit > 0 ? `/${brandLimit}` : ''} brands selected`
+                            : 'Select your favorite brands'
+                          }
+                        </p>
+                        {brandLimit === 0 && (
+                          <button
+                            onClick={() => setSelectedBrands(selectedBrands.length === ALL_BRANDS.length ? [] : ALL_BRANDS.map(b => b.key))}
+                            className="text-[10px] text-accent hover:text-primary transition-colors"
+                            data-testid="toggle-all-brands"
+                          >
+                            {selectedBrands.length === ALL_BRANDS.length ? 'Deselect all' : 'Select all'}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Show hint for low-volume brands */}
+                      <div className="bg-green-500/5 border border-green-500/20 p-3 mb-4 text-xs">
+                        <span className="text-green-600 font-medium">Pro Tip:</span>
+                        <span className="text-green-700/70 ml-1">Low-volume brands (marked in green) drop less frequently = fewer alerts but more exclusive items.</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        {ALL_BRANDS.map(brand => (
+                          <button
+                            key={brand.key}
+                            onClick={() => toggleBrand(brand.key)}
+                            className={`flex items-center gap-2 p-3 border text-left text-xs transition-all ${
+                              selectedBrands.includes(brand.key) 
+                                ? 'border-accent bg-accent/[0.03] text-primary' 
+                                : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                            }`}
+                            data-testid={`pref-brand-${brand.key}`}
+                            disabled={brandLimit > 0 && !selectedBrands.includes(brand.key) && selectedBrands.length >= brandLimit}
+                          >
+                            <div className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                              selectedBrands.includes(brand.key) ? 'bg-accent border-accent' : 'border-primary/20'
+                            }`}>
+                              {selectedBrands.includes(brand.key) && <Check className="w-2.5 h-2.5 text-primary" strokeWidth={2} />}
+                            </div>
+                            <span className="flex-1">{brand.name}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                              brand.volume === 'low' 
+                                ? 'bg-green-500/10 text-green-600' 
+                                : brand.volume === 'high' 
+                                  ? 'bg-orange-500/10 text-orange-600'
+                                  : 'bg-primary/5 text-primary/40'
+                            }`}>
+                              {brand.volume === 'low' ? 'Exclusive' : brand.volume === 'high' ? 'High Vol' : 'Med'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Section B: Trigger-Based Filtering */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">B</span>
+                        <p className="text-sm font-medium">Trigger-Based Filtering</p>
+                      </div>
+                      <p className="text-xs text-primary/40 mb-4">Instead of "all updates," pick specific triggers:</p>
+                      
                       <div className="space-y-3">
                         {[
-                          { key: 'price_drop', label: 'Price Drops', desc: 'When prices fall on tracked products' },
-                          { key: 'new_release', label: 'New Releases', desc: 'When brands drop new collections' },
+                          { key: 'new_release', label: 'New Drops Only', desc: 'When a brand launches a new collection', icon: '🆕' },
+                          { key: 'price_drop', label: 'Price Drops Only', desc: 'Only alert if a product price decreases (highly valuable for buyers)', icon: '💰' },
+                          { key: 'restock', label: 'Restock Alerts', desc: 'When "Sold Out" items come back in stock', icon: '📦' },
                         ].map(type => (
                           <button
                             key={type.key}
@@ -517,9 +655,12 @@ export default function SubscribePage() {
                             }`}
                             data-testid={`alert-type-${type.key}`}
                           >
-                            <div>
-                              <p className="text-sm font-medium">{type.label}</p>
-                              <p className="text-xs text-primary/40 mt-0.5">{type.desc}</p>
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg">{type.icon}</span>
+                              <div>
+                                <p className="text-sm font-medium">{type.label}</p>
+                                <p className="text-xs text-primary/40 mt-0.5">{type.desc}</p>
+                              </div>
                             </div>
                             <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
                               alertTypes.includes(type.key) ? 'bg-accent border-accent' : 'border-primary/20'
@@ -529,109 +670,160 @@ export default function SubscribePage() {
                           </button>
                         ))}
                       </div>
+                      
+                      {/* Price Drop Threshold - Only show if price_drop is selected */}
+                      {alertTypes.includes('price_drop') && (
+                        <div className="mt-4 p-4 bg-primary/[0.02] border border-primary/10">
+                          <p className="text-xs text-primary/60 mb-3">Alert me only when price drops by at least:</p>
+                          <div className="flex gap-2">
+                            {[5, 10, 15, 20, 30].map(threshold => (
+                              <button
+                                key={threshold}
+                                onClick={() => setDropThreshold(threshold)}
+                                className={`flex-1 py-2 border text-xs transition-all ${
+                                  dropThreshold === threshold 
+                                    ? 'border-accent bg-accent/[0.03] text-primary font-medium' 
+                                    : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                                }`}
+                                data-testid={`threshold-${threshold}`}
+                              >
+                                {threshold}%+
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Categories */}
-                    <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Product Categories</p>
-                      {selectedCategories.length === 0 && (
-                        <p className="text-[10px] text-accent/60 mb-3">No categories selected = alerts for ALL categories</p>
-                      )}
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { key: 'garments', label: 'Garments' },
-                          { key: 'sneakers', label: 'Sneakers' },
-                          { key: 'accessories', label: 'Accessories' },
-                        ].map(cat => (
+                    {/* Section C: Specificity (Size & Category) */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">C</span>
+                        <p className="text-sm font-medium">Specificity (Best Cost Saver)</p>
+                      </div>
+                      <p className="text-xs text-primary/40 mb-4">Only get alerts for your size and category.</p>
+                      
+                      {/* Categories */}
+                      <div className="mb-6">
+                        <p className="text-xs text-primary/60 mb-3">Category Filter</p>
+                        {selectedCategories.length === 0 && (
+                          <p className="text-[10px] text-accent/60 mb-2">No selection = alerts for ALL categories</p>
+                        )}
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { key: 'garments', label: 'Garments', desc: 'T-shirts, Hoodies, Jackets' },
+                            { key: 'sneakers', label: 'Sneakers', desc: 'Shoes, Slides' },
+                            { key: 'accessories', label: 'Accessories', desc: 'Caps, Bags, etc.' },
+                          ].map(cat => (
+                            <button
+                              key={cat.key}
+                              onClick={() => toggleCategory(cat.key)}
+                              className={`flex flex-col items-center p-3 border text-center transition-all ${
+                                selectedCategories.includes(cat.key) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                              }`}
+                              data-testid={`pref-category-${cat.key}`}
+                            >
+                              <div className={`w-4 h-4 rounded-sm border flex items-center justify-center mb-1 ${
+                                selectedCategories.includes(cat.key) ? 'bg-accent border-accent' : 'border-primary/20'
+                              }`}>
+                                {selectedCategories.includes(cat.key) && <Check className="w-2.5 h-2.5 text-primary" strokeWidth={2} />}
+                              </div>
+                              <span className="text-xs font-medium">{cat.label}</span>
+                              <span className="text-[9px] text-primary/30 mt-0.5">{cat.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Sizes - "My Size" Filter */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-xs text-primary/60">The "My Size" Filter</p>
+                            <p className="text-[10px] text-primary/30 mt-0.5">Only send alert if product drops in YOUR size</p>
+                          </div>
                           <button
-                            key={cat.key}
-                            onClick={() => toggleCategory(cat.key)}
-                            className={`flex items-center justify-center gap-2 p-3 border text-xs transition-all ${
-                              selectedCategories.includes(cat.key) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
-                            }`}
-                            data-testid={`pref-category-${cat.key}`}
+                            onClick={() => setShowSizeGuide(true)}
+                            className="text-[10px] text-accent hover:text-primary transition-colors flex items-center gap-1"
+                            data-testid="open-size-guide"
                           >
-                            <div className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
-                              selectedCategories.includes(cat.key) ? 'bg-accent border-accent' : 'border-primary/20'
-                            }`}>
-                              {selectedCategories.includes(cat.key) && <Check className="w-2.5 h-2.5 text-primary" strokeWidth={2} />}
-                            </div>
-                            {cat.label}
+                            <Ruler className="w-3 h-3" /> Size Guide
                           </button>
-                        ))}
+                        </div>
+                        {selectedSizes.length === 0 && (
+                          <p className="text-[10px] text-accent/60 mb-2">No selection = alerts for ALL sizes</p>
+                        )}
+                        <div className="grid grid-cols-5 gap-2">
+                          {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'UK6', 'UK7', 'UK8', 'UK9', 'UK10', 'UK11', 'UK12', 'Free Size'].map(size => (
+                            <button
+                              key={size}
+                              onClick={() => toggleSize(size)}
+                              className={`flex items-center justify-center p-2 border text-xs transition-all ${
+                                selectedSizes.includes(size) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
+                              }`}
+                              data-testid={`pref-size-${size}`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Sizes */}
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs text-primary/40 uppercase tracking-widest">Preferred Sizes</p>
+                    {/* Section D: Notification Frequency (Noise Control) */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">D</span>
+                        <p className="text-sm font-medium">Notification Frequency (Noise Control)</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
                         <button
-                          onClick={() => setShowSizeGuide(true)}
-                          className="text-[10px] text-accent hover:text-primary transition-colors flex items-center gap-1"
-                          data-testid="open-size-guide"
+                          onClick={() => setAlertFrequency('instant')}
+                          className={`flex flex-col p-4 border transition-all text-left ${
+                            alertFrequency === 'instant' 
+                              ? 'border-accent bg-accent/[0.03]' 
+                              : 'border-primary/10 hover:border-primary/20'
+                          }`}
+                          data-testid="freq-instant"
                         >
-                          <Ruler className="w-3 h-3" /> Size Guide
+                          <div className="flex items-center gap-2 mb-2">
+                            <Zap className="w-4 h-4 text-orange-500" />
+                            <span className={`text-sm font-medium ${alertFrequency === 'instant' ? 'text-primary' : 'text-primary/50'}`}>
+                              Instant
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-primary/40">Real-time alerts within 10 seconds</p>
+                          <p className="text-[9px] text-orange-500/70 mt-1">Best for limited "hype" items</p>
+                        </button>
+                        
+                        <button
+                          onClick={() => setAlertFrequency('daily')}
+                          className={`flex flex-col p-4 border transition-all text-left relative ${
+                            alertFrequency === 'daily' 
+                              ? 'border-accent bg-accent/[0.03]' 
+                              : 'border-primary/10 hover:border-primary/20'
+                          }`}
+                          data-testid="freq-daily"
+                        >
+                          <span className="absolute -top-2 -right-2 bg-green-500 text-white text-[8px] px-2 py-0.5 font-medium">
+                            RECOMMENDED
+                          </span>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-green-500" />
+                            <span className={`text-sm font-medium ${alertFrequency === 'daily' ? 'text-primary' : 'text-primary/50'}`}>
+                              Daily Digest
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-primary/40">Single message at 8:00 PM</p>
+                          <p className="text-[9px] text-green-600/70 mt-1">"Today: 15 new arrivals, 4 price drops"</p>
                         </button>
                       </div>
-                      {selectedSizes.length === 0 && (
-                        <p className="text-[10px] text-accent/60 mb-3">No sizes selected = alerts for ALL sizes</p>
-                      )}
-                      <div className="grid grid-cols-5 gap-2">
-                        {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'UK6', 'UK7', 'UK8', 'UK9', 'UK10', 'UK11', 'UK12', 'Free Size'].map(size => (
-                          <button
-                            key={size}
-                            onClick={() => toggleSize(size)}
-                            className={`flex items-center justify-center p-2 border text-xs transition-all ${
-                              selectedSizes.includes(size) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
-                            }`}
-                            data-testid={`pref-size-${size}`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
                     </div>
 
-                    {/* Brands */}
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs text-primary/40 uppercase tracking-widest">Select Brands</p>
-                        <button
-                          onClick={() => setSelectedBrands(selectedBrands.length === ALL_BRANDS.length ? [] : ALL_BRANDS.map(b => b.key))}
-                          className="text-[10px] text-accent hover:text-primary transition-colors"
-                          data-testid="toggle-all-brands"
-                        >
-                          {selectedBrands.length === 0 ? 'All brands (default)' : selectedBrands.length === ALL_BRANDS.length ? 'Deselect all' : 'Select all'}
-                        </button>
-                      </div>
-                      {selectedBrands.length === 0 && (
-                        <p className="text-[10px] text-accent/60 mb-3">No brands selected = alerts from ALL brands</p>
-                      )}
-                      <div className="grid grid-cols-2 gap-2">
-                        {ALL_BRANDS.map(brand => (
-                          <button
-                            key={brand.key}
-                            onClick={() => toggleBrand(brand.key)}
-                            className={`flex items-center gap-2 p-3 border text-left text-xs transition-all ${
-                              selectedBrands.includes(brand.key) ? 'border-accent bg-accent/[0.03] text-primary' : 'border-primary/10 text-primary/50 hover:border-primary/20'
-                            }`}
-                            data-testid={`pref-brand-${brand.key}`}
-                          >
-                            <div className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
-                              selectedBrands.includes(brand.key) ? 'bg-accent border-accent' : 'border-primary/20'
-                            }`}>
-                              {selectedBrands.includes(brand.key) && <Check className="w-2.5 h-2.5 text-primary" strokeWidth={2} />}
-                            </div>
-                            {brand.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Price Range Filter */}
-                    <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Budget Range (₹)</p>
+                    {/* Budget Range (Optional) */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Budget Range (Optional)</p>
                       <p className="text-[10px] text-accent/60 mb-3">Only get alerts for products in your budget</p>
                       <div className="flex gap-3">
                         <div className="flex-1">
@@ -660,32 +852,10 @@ export default function SubscribePage() {
                       </div>
                     </div>
 
-                    {/* Drop Threshold */}
-                    <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Price Drop Threshold</p>
-                      <p className="text-[10px] text-accent/60 mb-3">Alert me only when price drops by at least:</p>
-                      <div className="flex gap-2">
-                        {[5, 10, 15, 20, 30].map(threshold => (
-                          <button
-                            key={threshold}
-                            onClick={() => setDropThreshold(threshold)}
-                            className={`flex-1 py-2.5 border text-xs transition-all ${
-                              dropThreshold === threshold 
-                                ? 'border-accent bg-accent/[0.03] text-primary font-medium' 
-                                : 'border-primary/10 text-primary/50 hover:border-primary/20'
-                            }`}
-                            data-testid={`threshold-${threshold}`}
-                          >
-                            {threshold}%+
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Keywords Filter */}
-                    <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Product Keywords</p>
-                      <p className="text-[10px] text-accent/60 mb-3">Get alerts only for products matching these keywords (e.g., Jordan, Yeezy, Dunk)</p>
+                    {/* Keywords Filter (Optional) */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Product Keywords (Optional)</p>
+                      <p className="text-[10px] text-accent/60 mb-3">Get alerts only for products matching keywords (e.g., Jordan, Yeezy, Dunk, Oversized)</p>
                       <div className="flex gap-2 mb-3">
                         <input
                           type="text"
@@ -720,66 +890,49 @@ export default function SubscribePage() {
                         </div>
                       )}
                       {keywords.length === 0 && (
-                        <p className="text-[10px] text-primary/30">No keywords = alerts for ALL products</p>
+                        <p className="text-[10px] text-primary/30">No keywords = alerts for ALL products matching other filters</p>
                       )}
                     </div>
 
-                    {/* Alert Frequency */}
-                    <div>
-                      <p className="text-xs text-primary/40 uppercase tracking-widest mb-4">Alert Frequency</p>
-                      <p className="text-[10px] text-accent/60 mb-3">How often should we send you alerts?</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { key: 'instant', label: 'Instant', desc: 'Real-time alerts' },
-                          { key: 'daily', label: 'Daily Digest', desc: 'Once per day' },
-                          { key: 'weekly', label: 'Weekly', desc: 'Weekly summary' },
-                        ].map(freq => (
-                          <button
-                            key={freq.key}
-                            onClick={() => setAlertFrequency(freq.key)}
-                            className={`flex flex-col items-center p-3 border text-center transition-all ${
-                              alertFrequency === freq.key 
-                                ? 'border-accent bg-accent/[0.03]' 
-                                : 'border-primary/10 hover:border-primary/20'
-                            }`}
-                            data-testid={`freq-${freq.key}`}
-                          >
-                            <p className={`text-xs font-medium ${alertFrequency === freq.key ? 'text-primary' : 'text-primary/50'}`}>
-                              {freq.label}
-                            </p>
-                            <p className="text-[9px] text-primary/30 mt-0.5">{freq.desc}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Cost Savings Indicator */}
+                    {/* Cost Savings Summary */}
                     <div className="bg-green-500/5 border border-green-500/20 p-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Check className="w-4 h-4 text-green-600" />
+                        <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Check className="w-5 h-5 text-green-600" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-700">Smart Filtering Active</p>
-                          <p className="text-xs text-green-600/70 mt-0.5">
-                            Your filters will reduce irrelevant alerts by ~
-                            {Math.min(95, 
-                              (selectedBrands.length > 0 ? 30 : 0) + 
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-green-700">Your Preference Funnel</p>
+                          <div className="text-xs text-green-600/70 mt-2 space-y-1">
+                            <p>• Brands: {selectedBrands.length > 0 ? `${selectedBrands.length} selected` : 'All brands'} {brandLimit > 0 ? `(max ${brandLimit})` : ''}</p>
+                            <p>• Triggers: {alertTypes.length > 0 ? alertTypes.map(t => t.replace('_', ' ')).join(', ') : 'None'}</p>
+                            <p>• Categories: {selectedCategories.length > 0 ? selectedCategories.join(', ') : 'All'}</p>
+                            <p>• Sizes: {selectedSizes.length > 0 ? selectedSizes.join(', ') : 'All'}</p>
+                            <p>• Frequency: {alertFrequency === 'daily' ? 'Daily Digest (8 PM)' : 'Instant'}</p>
+                            {priceRange.min || priceRange.max ? <p>• Budget: ₹{priceRange.min || '0'} - ₹{priceRange.max || '∞'}</p> : null}
+                          </div>
+                          <p className="text-xs text-green-600 font-medium mt-3">
+                            Estimated alert reduction: ~{Math.min(95, 
+                              (selectedBrands.length > 0 ? 25 : 0) + 
                               (selectedCategories.length > 0 ? 20 : 0) + 
-                              (selectedSizes.length > 0 ? 15 : 0) +
-                              (keywords.length > 0 ? 20 : 0) +
-                              (priceRange.min || priceRange.max ? 10 : 0)
+                              (selectedSizes.length > 0 ? 20 : 0) +
+                              (keywords.length > 0 ? 15 : 0) +
+                              (priceRange.min || priceRange.max ? 10 : 0) +
+                              (alertFrequency === 'daily' ? 5 : 0)
                             )}%
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <button onClick={savePreferences} disabled={loading}
-                      className="w-full bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="save-preferences-btn">
-                      {loading ? 'Saving...' : 'Save & Start Receiving Alerts'}
+                    <button onClick={savePreferences} disabled={loading || alertTypes.length === 0}
+                      className="w-full bg-primary text-background py-4 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="save-preferences-btn">
+                      {loading ? 'Saving...' : 'Save Preferences & Start Receiving Alerts'}
                       <Bell className="w-4 h-4" strokeWidth={1.5} />
                     </button>
+                    
+                    {alertTypes.length === 0 && (
+                      <p className="text-xs text-red-500 text-center">Please select at least one trigger type</p>
+                    )}
                   </div>
                 </div>
               )}

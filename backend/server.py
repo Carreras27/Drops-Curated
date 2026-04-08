@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional
-from datetime import datetime, timezone, timedelta, timedelta
+from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 from enum import Enum
@@ -287,7 +287,7 @@ async def get_curated_drops():
                 created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
                 if datetime.now(timezone.utc) - created_date < timedelta(days=7):
                     new_drops.append(product)
-            except:
+            except Exception:
                 pass
     
     # Sort sections with shuffle for variety
@@ -667,7 +667,9 @@ async def verify_payment(data: VerifyPaymentRequest):
         # Auto-approve in sandbox
         is_valid = True
     else:
-        import razorpay, hmac, hashlib
+        import razorpay
+        import hmac
+        import hashlib
         rz_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         try:
             rz_client.utility.verify_payment_signature({
@@ -739,38 +741,88 @@ async def subscriber_count():
     return {'count': count}
 
 # ============ USER PREFERENCES ============
+class PriceRange(BaseModel):
+    min: Optional[int] = None
+    max: Optional[int] = None
+
 class UpdatePreferences(BaseModel):
     phone: str
+    # Brand selection
     brands: list[str] = []  # Empty = all brands
-    alert_types: list[str] = ["price_drop", "new_release"]  # price_drop, new_release
+    brand_limit: int = 10  # 5, 10, or 0 (unlimited)
+    # Trigger types
+    alert_types: list[str] = ["price_drop", "new_release"]  # price_drop, new_release, restock
+    # Specificity filters
     categories: list[str] = []  # Empty = all categories (garments, sneakers, accessories)
     sizes: list[str] = []  # Empty = all sizes
+    # Budget filter
+    price_range: Optional[PriceRange] = None
+    # Keyword matching
+    keywords: list[str] = []  # Empty = match all products
+    # Price drop threshold (only alert if discount >= threshold)
+    drop_threshold: int = 10  # Default 10%
+    # Notification frequency
+    alert_frequency: str = "daily"  # instant or daily (daily = digest at 8 PM)
 
 @api_router.post('/preferences')
 async def update_preferences(data: UpdatePreferences):
     phone = data.phone.strip()
+    
+    # Build the complete preferences object
+    preferences = {
+        # Brand selection
+        'brands': data.brands,
+        'brand_limit': data.brand_limit,
+        # Trigger types
+        'alert_types': data.alert_types,
+        # Specificity
+        'categories': data.categories,
+        'sizes': data.sizes,
+        # Budget range
+        'price_range': {
+            'min': data.price_range.min if data.price_range else None,
+            'max': data.price_range.max if data.price_range else None,
+        },
+        # Keyword matching
+        'keywords': data.keywords,
+        # Price drop threshold
+        'drop_threshold': data.drop_threshold,
+        # Notification frequency
+        'alert_frequency': data.alert_frequency,
+    }
+    
     result = await db.subscribers.update_one(
         {'phone': phone},
         {'$set': {
-            'preferences': {
-                'brands': data.brands,
-                'alert_types': data.alert_types,
-                'categories': data.categories,
-                'sizes': data.sizes,
-            },
+            'preferences': preferences,
             'updatedAt': datetime.now(timezone.utc).isoformat(),
         }}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail='Subscriber not found')
-    return {'message': 'Preferences updated'}
+    
+    logger.info(f"[Preferences] Updated for {phone}: {len(data.brands)} brands, {data.alert_types}, {data.alert_frequency} frequency")
+    return {'message': 'Preferences updated', 'preferences': preferences}
 
 @api_router.get('/preferences/{phone}')
 async def get_preferences(phone: str):
     sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0, 'preferences': 1, 'phone': 1})
     if not sub:
         raise HTTPException(status_code=404, detail='Subscriber not found')
-    prefs = sub.get('preferences', {'brands': [], 'alert_types': ['price_drop', 'new_release'], 'categories': [], 'sizes': []})
+    
+    # Return full preference funnel with defaults
+    default_prefs = {
+        'brands': [],
+        'brand_limit': 10,
+        'alert_types': ['price_drop', 'new_release'],
+        'categories': [],
+        'sizes': [],
+        'price_range': {'min': None, 'max': None},
+        'keywords': [],
+        'drop_threshold': 10,
+        'alert_frequency': 'daily',
+    }
+    prefs = {**default_prefs, **sub.get('preferences', {})}
     return {'phone': phone, 'preferences': prefs}
 
 # ============ WALLET PASS GENERATION ============
@@ -987,7 +1039,6 @@ async def generate_google_wallet_pass(data: WalletPassRequest):
 
 # ============ RAFFLE & ENTRY MANAGEMENT SYSTEM ============
 import secrets
-import hashlib
 import time
 from collections import defaultdict
 
@@ -1095,7 +1146,6 @@ async def get_raffles(status: Optional[str] = None):
     for raffle in raffles:
         entry_start = datetime.fromisoformat(raffle['entry_start'].replace('Z', '+00:00'))
         entry_end = datetime.fromisoformat(raffle['entry_end'].replace('Z', '+00:00'))
-        draw_time = datetime.fromisoformat(raffle['draw_time'].replace('Z', '+00:00'))
         
         if raffle['status'] == RaffleStatus.UPCOMING and now >= entry_start:
             raffle['status'] = RaffleStatus.OPEN
@@ -1353,6 +1403,103 @@ async def trigger_scrape():
 async def recent_alerts():
     alerts = await db.alert_log.find({}, {'_id': 0}).sort('createdAt', -1).limit(50).to_list(50)
     return {'alerts': alerts, 'count': len(alerts)}
+
+@api_router.get('/alerts/digest/{phone}')
+async def get_daily_digest(phone: str):
+    """Get pending daily digest for a subscriber"""
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    digest = await db.daily_digest.find_one(
+        {'phone': phone, 'date': today},
+        {'_id': 0}
+    )
+    if not digest:
+        return {'phone': phone, 'date': today, 'alerts': [], 'count': 0}
+    return {
+        'phone': phone,
+        'date': today,
+        'alerts': digest.get('alerts', []),
+        'count': len(digest.get('alerts', []))
+    }
+
+@api_router.post('/alerts/send-digests')
+async def send_daily_digests():
+    """
+    Send daily digest messages to all subscribers with queued alerts.
+    This should be called by a scheduled job at 8 PM IST.
+    """
+    from whatsapp import whatsapp_client, IS_CONFIGURED
+    
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    digests = await db.daily_digest.find({'date': today, 'sent': {'$ne': True}}).to_list(1000)
+    
+    sent_count = 0
+    failed_count = 0
+    
+    for digest in digests:
+        phone = digest.get('phone', '')
+        alerts = digest.get('alerts', [])
+        
+        if not alerts:
+            continue
+        
+        # Group alerts by type
+        new_drops = [a for a in alerts if a.get('type') == 'new_release']
+        price_drops = [a for a in alerts if a.get('type') == 'price_drop']
+        restocks = [a for a in alerts if a.get('type') == 'restock']
+        
+        # Build digest message
+        message = "🌙 *Your Daily Drops Digest*\n\n"
+        message += f"_{today}_\n\n"
+        
+        if new_drops:
+            message += f"🆕 *{len(new_drops)} New Arrivals*\n"
+            for nd in new_drops[:3]:
+                data = nd.get('data', {})
+                message += f"  • {data.get('name', 'Product')[:40]} - ₹{data.get('price', 0):,.0f}\n"
+            if len(new_drops) > 3:
+                message += f"  _...and {len(new_drops) - 3} more_\n"
+            message += "\n"
+        
+        if price_drops:
+            message += f"💰 *{len(price_drops)} Price Drops*\n"
+            for pd in price_drops[:3]:
+                data = pd.get('data', {})
+                message += f"  • {data.get('name', 'Product')[:40]} - ₹{data.get('new_price', 0):,.0f} (was ₹{data.get('old_price', 0):,.0f})\n"
+            if len(price_drops) > 3:
+                message += f"  _...and {len(price_drops) - 3} more_\n"
+            message += "\n"
+        
+        if restocks:
+            message += f"📦 *{len(restocks)} Back in Stock*\n"
+            for rs in restocks[:3]:
+                data = rs.get('data', {})
+                message += f"  • {data.get('name', 'Product')[:40]}\n"
+            message += "\n"
+        
+        message += "👉 Browse all drops on Drops Curated!"
+        
+        # Send the digest
+        if IS_CONFIGURED:
+            success, result = whatsapp_client.send_text_message(phone, message)
+        else:
+            success = True  # Sandbox mode
+            logger.info(f"[Sandbox] Daily digest to {phone}: {len(alerts)} alerts")
+        
+        if success:
+            sent_count += 1
+            await db.daily_digest.update_one(
+                {'_id': digest['_id']},
+                {'$set': {'sent': True, 'sentAt': datetime.now(timezone.utc).isoformat()}}
+            )
+        else:
+            failed_count += 1
+    
+    logger.info(f"[Daily Digest] Sent {sent_count} digests, {failed_count} failed")
+    return {
+        'sent': sent_count,
+        'failed': failed_count,
+        'date': today
+    }
 
 # ============ PARTNER INQUIRIES ============
 class PartnerInquiry(BaseModel):

@@ -1,6 +1,7 @@
 """
 Background scheduler for auto-scraping all brands every 15 minutes.
 Detects changes (price drops, new products) and triggers WhatsApp alerts.
+Also handles daily digest notifications at 8 PM IST.
 """
 import asyncio
 import logging
@@ -24,6 +25,7 @@ def init_scheduler(db):
     global _db
     _db = db
 
+    # Auto-scrape job every 15 minutes
     scheduler.add_job(
         scrape_all_brands,
         'interval',
@@ -32,8 +34,20 @@ def init_scheduler(db):
         max_instances=1,
         replace_existing=True,
     )
+    
+    # Daily digest job at 8 PM IST (14:30 UTC)
+    scheduler.add_job(
+        send_daily_digest_notifications,
+        'cron',
+        hour=14,
+        minute=30,
+        id='daily_digest',
+        max_instances=1,
+        replace_existing=True,
+    )
+    
     scheduler.start()
-    logger.info("[Scheduler] Started — scraping every 15 minutes")
+    logger.info("[Scheduler] Started — scraping every 15 minutes, daily digest at 8 PM IST")
 
 
 async def scrape_all_brands():
@@ -67,7 +81,7 @@ async def scrape_all_brands():
             drops_count = len(changes["price_drops"])
 
             # Store products (same logic as the API endpoint)
-            stored = await _store_products(_db, scraped, key)
+            await _store_products(_db, scraped, key)
 
             # Send alerts if there are changes
             alert_result = {"sent": 0}
@@ -175,6 +189,81 @@ def get_scheduler_status():
         "is_running": _is_running,
         "last_run": _last_run,
         "results": _run_results,
-        "next_run": str(scheduler.get_jobs()[0].next_run_time) if scheduler.get_jobs() else None,
+        "next_scrape": str(scheduler.get_job('auto_scrape').next_run_time) if scheduler.get_job('auto_scrape') else None,
+        "next_digest": str(scheduler.get_job('daily_digest').next_run_time) if scheduler.get_job('daily_digest') else None,
         "interval_minutes": 15,
+        "digest_time": "8:00 PM IST",
     }
+
+
+async def send_daily_digest_notifications():
+    """Send daily digest WhatsApp messages to all subscribers with queued alerts."""
+    global _db
+    
+    from whatsapp import whatsapp_client, IS_CONFIGURED
+    
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    logger.info(f"[Daily Digest] Starting digest send for {today}")
+    
+    digests = await _db.daily_digest.find({'date': today, 'sent': {'$ne': True}}).to_list(1000)
+    
+    sent_count = 0
+    
+    for digest in digests:
+        phone = digest.get('phone', '')
+        alerts = digest.get('alerts', [])
+        
+        if not alerts:
+            continue
+        
+        # Group alerts by type
+        new_drops = [a for a in alerts if a.get('type') == 'new_release']
+        price_drops = [a for a in alerts if a.get('type') == 'price_drop']
+        restocks = [a for a in alerts if a.get('type') == 'restock']
+        
+        # Build digest message
+        message = "🌙 *Your Daily Drops Digest*\n\n"
+        message += f"_{today}_\n\n"
+        
+        if new_drops:
+            message += f"🆕 *{len(new_drops)} New Arrivals*\n"
+            for nd in new_drops[:3]:
+                data = nd.get('data', {})
+                message += f"  • {data.get('name', 'Product')[:40]} - ₹{data.get('price', 0):,.0f}\n"
+            if len(new_drops) > 3:
+                message += f"  _...and {len(new_drops) - 3} more_\n"
+            message += "\n"
+        
+        if price_drops:
+            message += f"💰 *{len(price_drops)} Price Drops*\n"
+            for pd in price_drops[:3]:
+                data = pd.get('data', {})
+                message += f"  • {data.get('name', 'Product')[:40]} - ₹{data.get('new_price', 0):,.0f} (was ₹{data.get('old_price', 0):,.0f})\n"
+            if len(price_drops) > 3:
+                message += f"  _...and {len(price_drops) - 3} more_\n"
+            message += "\n"
+        
+        if restocks:
+            message += f"📦 *{len(restocks)} Back in Stock*\n"
+            for rs in restocks[:3]:
+                data = rs.get('data', {})
+                message += f"  • {data.get('name', 'Product')[:40]}\n"
+            message += "\n"
+        
+        message += "👉 Browse all drops on Drops Curated!"
+        
+        # Send the digest
+        if IS_CONFIGURED:
+            success, result = whatsapp_client.send_text_message(phone, message)
+        else:
+            success = True  # Sandbox mode
+            logger.info(f"[Sandbox] Daily digest to {phone}: {len(alerts)} alerts")
+        
+        if success:
+            sent_count += 1
+            await _db.daily_digest.update_one(
+                {'_id': digest['_id']},
+                {'$set': {'sent': True, 'sentAt': datetime.now(timezone.utc).isoformat()}}
+            )
+    
+    logger.info(f"[Daily Digest] Completed: {sent_count} digests sent")
