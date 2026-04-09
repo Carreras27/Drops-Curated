@@ -8,6 +8,7 @@
 ## Recent Changes (December 2025)
 - **Search Fix:** Short search terms (≤3 chars like "On") now use strict brand-only matching to prevent false positives from product names containing prepositions
 - **Brand-Specific Search:** Added in-store search functionality on brand pages - users can now search within a specific brand's products (e.g., search "hoodie" within Crep Dog Crew)
+- **Item Type Filters:** Added new filter section on Browse page with T-Shirts, Shirts, Hoodies, Collectables, Jackets, and Pants filters for quick product type filtering
 
 ## Business Model
 - ₹399/month subscription via UPI (Razorpay)

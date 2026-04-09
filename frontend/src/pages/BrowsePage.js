@@ -7,6 +7,7 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES'];
+const SUBCATEGORIES = ['T-Shirts', 'Shirts', 'Hoodies', 'Collectables', 'Jackets', 'Pants'];
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in ms
 
 // ============ SIZE CONVERSION SYSTEM ============
@@ -580,6 +581,7 @@ export default function BrowsePage() {
   const [query, setQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -809,6 +811,7 @@ export default function BrowsePage() {
   const clearFilters = () => {
     setSelectedBrand(null);
     setSelectedCategory('All');
+    setSelectedSubcategory(null);
     setQuery('');
     setPage(1);
     fetchAllProducts(1);
@@ -836,11 +839,46 @@ export default function BrowsePage() {
     }
   };
 
-  // Apply category filter and size filter
+  // Apply category filter, subcategory filter, and size filter
   const filteredProducts = allProducts.filter(p => {
     // Category filter
     if (selectedCategory !== 'All' && p.category !== selectedCategory) {
       return false;
+    }
+    
+    // Subcategory/Item Type filter (searches in name, tags, description)
+    if (selectedSubcategory) {
+      const searchTerm = selectedSubcategory.toLowerCase();
+      const productName = (p.name || '').toLowerCase();
+      const productTags = (p.tags || []).join(' ').toLowerCase();
+      const productDesc = (p.description || '').toLowerCase();
+      
+      // Handle different subcategory search patterns
+      let matches = false;
+      if (searchTerm === 't-shirts') {
+        matches = productName.includes('t-shirt') || productName.includes('tee') || 
+                  productTags.includes('t-shirt') || productTags.includes('tee') ||
+                  productDesc.includes('t-shirt') || productDesc.includes('tee');
+      } else if (searchTerm === 'shirts') {
+        // Match "shirt" but not "t-shirt"
+        const hasShirt = productName.includes('shirt') || productTags.includes('shirt') || productDesc.includes('shirt');
+        const isTShirt = productName.includes('t-shirt') || productName.includes('tee') || 
+                         productTags.includes('t-shirt') || productTags.includes('tee');
+        matches = hasShirt && !isTShirt;
+      } else if (searchTerm === 'collectables') {
+        matches = productName.includes('collectab') || productName.includes('collectib') ||
+                  productName.includes('figure') || productName.includes('toy') ||
+                  productName.includes('bearbrick') || productName.includes('funko') ||
+                  productTags.includes('collectab') || productTags.includes('collectib') ||
+                  productTags.includes('figure') || productTags.includes('bearbrick');
+      } else {
+        // General search for hoodies, jackets, pants
+        matches = productName.includes(searchTerm) || 
+                  productTags.includes(searchTerm) || 
+                  productDesc.includes(searchTerm);
+      }
+      
+      if (!matches) return false;
     }
     
     // Size filter (if active)
@@ -984,11 +1022,38 @@ export default function BrowsePage() {
                   {CATEGORIES.map(c => (
                     <button
                       key={c}
-                      onClick={() => setSelectedCategory(c)}
+                      onClick={() => {
+                        setSelectedCategory(c);
+                        setSelectedSubcategory(null); // Clear subcategory when changing main category
+                      }}
                       className={`text-xs px-4 py-2 border transition-colors ${selectedCategory === c ? 'border-accent text-accent bg-accent/5' : 'border-primary/10 text-primary/60 hover:border-primary/30'}`}
                       data-testid={`category-filter-${c.toLowerCase()}`}
                     >
                       {c === 'All' ? 'All' : c.charAt(0) + c.slice(1).toLowerCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Subcategories / Item Types */}
+              <div className="mb-6">
+                <p className="text-xs text-primary/50 mb-3">Item Type</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedSubcategory(null)}
+                    className={`text-xs px-4 py-2 border transition-colors ${!selectedSubcategory ? 'border-accent text-accent bg-accent/5' : 'border-primary/10 text-primary/60 hover:border-primary/30'}`}
+                    data-testid="subcategory-filter-all"
+                  >
+                    All Types
+                  </button>
+                  {SUBCATEGORIES.map(sub => (
+                    <button
+                      key={sub}
+                      onClick={() => setSelectedSubcategory(sub)}
+                      className={`text-xs px-4 py-2 border transition-colors ${selectedSubcategory === sub ? 'border-accent text-accent bg-accent/5' : 'border-primary/10 text-primary/60 hover:border-primary/30'}`}
+                      data-testid={`subcategory-filter-${sub.toLowerCase().replace(/\s/g, '-')}`}
+                    >
+                      {sub}
                     </button>
                   ))}
                 </div>
@@ -1032,8 +1097,8 @@ export default function BrowsePage() {
           )}
 
           {/* Active filters */}
-          {(selectedBrand || selectedCategory !== 'All') && (
-            <div className="flex items-center gap-3 mb-6 text-sm">
+          {(selectedBrand || selectedCategory !== 'All' || selectedSubcategory) && (
+            <div className="flex items-center gap-3 mb-6 text-sm flex-wrap">
               <span className="text-primary/40">Showing:</span>
               {selectedBrand && (
                 <span className="border border-accent text-accent text-xs uppercase tracking-widest px-3 py-1 rounded-full">
@@ -1045,7 +1110,18 @@ export default function BrowsePage() {
                   {selectedCategory}
                 </span>
               )}
-              <button onClick={clearFilters} className="text-xs text-primary/30 hover:text-primary ml-2">Clear</button>
+              {selectedSubcategory && (
+                <span className="border border-amber-500/50 text-amber-600 text-xs uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1">
+                  {selectedSubcategory}
+                  <button 
+                    onClick={() => setSelectedSubcategory(null)} 
+                    className="hover:text-amber-800 ml-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              <button onClick={clearFilters} className="text-xs text-primary/30 hover:text-primary ml-2">Clear All</button>
             </div>
           )}
 
