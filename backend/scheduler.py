@@ -2,6 +2,7 @@
 Background scheduler for auto-scraping all brands every 15 minutes.
 Detects changes (price drops, new products) and triggers WhatsApp alerts.
 Also handles daily digest notifications at 8 PM IST.
+Includes AI classification for new products.
 """
 import asyncio
 import logging
@@ -10,6 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from scrapers import SCRAPERS
 from alerts import detect_changes, send_alerts
+from classifier import classify_product, clean_product_title
 
 logger = logging.getLogger(__name__)
 
@@ -110,9 +112,10 @@ async def scrape_all_brands():
 
 
 async def _store_products(db, scraped_products: list[dict], brand_key: str) -> dict:
-    """Store scraped products in the database."""
+    """Store scraped products in the database with AI classification for new products."""
     added = 0
     updated = 0
+    classified = 0
 
     for item in scraped_products:
         slug = item["name"].lower().replace(" ", "-").replace("'", "")[:80]
@@ -128,7 +131,8 @@ async def _store_products(db, scraped_products: list[dict], brand_key: str) -> d
             product_id = existing["id"]
             updated += 1
         else:
-            await db.products.insert_one({
+            # Build base product data
+            product_data = {
                 "id": product_id,
                 "name": item["name"],
                 "slug": slug,
@@ -143,7 +147,28 @@ async def _store_products(db, scraped_products: list[dict], brand_key: str) -> d
                 "isActive": True,
                 "isTrending": False,
                 "createdAt": item["scraped_at"],
-            })
+            }
+            
+            # AI Classification for new products
+            try:
+                classification = await classify_product(product_data)
+                product_data.update({
+                    "normalizedTitle": classification.get("normalizedTitle"),
+                    "aiGender": classification.get("aiGender"),
+                    "aiCategory": classification.get("aiCategory"),
+                    "aiSubcategory": classification.get("aiSubcategory"),
+                    "aiBrand": classification.get("aiBrand"),
+                    "aiConfidence": classification.get("aiConfidence"),
+                    "classifiedAt": classification.get("classifiedAt"),
+                })
+                classified += 1
+                logger.debug(f"[Classifier] Classified: {item['name']} -> {classification.get('aiCategory')}/{classification.get('aiSubcategory')}")
+            except Exception as e:
+                # If classification fails, just use cleaned title
+                product_data["normalizedTitle"] = clean_product_title(item["name"])
+                logger.warning(f"[Classifier] Failed to classify {item['name']}: {e}")
+            
+            await db.products.insert_one(product_data)
             added += 1
 
         await db.prices.update_one(

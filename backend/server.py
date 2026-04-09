@@ -1762,6 +1762,171 @@ async def trigger_scrape():
     asyncio.create_task(run_full_scrape())
     return {'message': 'Scrape cycle triggered', 'status': 'running'}
 
+# ============ AI PRODUCT CLASSIFICATION ============
+from classifier import (
+    classify_product, 
+    classify_products_batch, 
+    run_batch_classification,
+    clean_product_title,
+    update_product_classification
+)
+
+# Track ongoing classification jobs
+classification_jobs = {}
+
+@api_router.get('/classification/status')
+async def classification_status():
+    """Get classification statistics"""
+    # Count products by classification status
+    total = await db.products.count_documents({})
+    classified = await db.products.count_documents({'aiGender': {'$exists': True}})
+    unclassified = total - classified
+    
+    # Get breakdown by AI category
+    pipeline = [
+        {'$match': {'aiCategory': {'$exists': True}}},
+        {'$group': {'_id': '$aiCategory', 'count': {'$sum': 1}}}
+    ]
+    category_breakdown = await db.products.aggregate(pipeline).to_list(100)
+    
+    # Get breakdown by AI gender
+    gender_pipeline = [
+        {'$match': {'aiGender': {'$exists': True}}},
+        {'$group': {'_id': '$aiGender', 'count': {'$sum': 1}}}
+    ]
+    gender_breakdown = await db.products.aggregate(gender_pipeline).to_list(100)
+    
+    # Get ongoing job status
+    active_jobs = {k: v for k, v in classification_jobs.items() if v.get('status') == 'running'}
+    
+    return {
+        'total_products': total,
+        'classified': classified,
+        'unclassified': unclassified,
+        'percentage': round((classified / total * 100) if total > 0 else 0, 2),
+        'by_category': {item['_id']: item['count'] for item in category_breakdown},
+        'by_gender': {item['_id']: item['count'] for item in gender_breakdown},
+        'active_jobs': len(active_jobs),
+        'jobs': active_jobs
+    }
+
+@api_router.post('/classification/run')
+async def trigger_classification(
+    limit: int = Query(100, description='Max products to classify'),
+    skip_classified: bool = Query(True, description='Skip already classified products')
+):
+    """
+    Trigger batch classification of products using Gemini LLM.
+    This runs in the background and classifies products with:
+    - normalizedTitle: Cleaned product title
+    - aiGender: Men/Women/Unisex
+    - aiCategory: SHOES/CLOTHES/ACCESSORIES/COLLECTABLES
+    - aiSubcategory: Specific type (Sneakers, Hoodie, etc.)
+    - aiBrand: Detected brand name
+    """
+    import asyncio
+    import uuid
+    
+    job_id = str(uuid.uuid4())[:8]
+    classification_jobs[job_id] = {
+        'status': 'running',
+        'started_at': datetime.now(timezone.utc).isoformat(),
+        'limit': limit,
+        'skip_classified': skip_classified
+    }
+    
+    async def run_job():
+        try:
+            stats = await run_batch_classification(db, limit=limit, skip_classified=skip_classified)
+            classification_jobs[job_id].update({
+                'status': 'completed',
+                'completed_at': datetime.now(timezone.utc).isoformat(),
+                **stats
+            })
+        except Exception as e:
+            classification_jobs[job_id].update({
+                'status': 'failed',
+                'error': str(e),
+                'completed_at': datetime.now(timezone.utc).isoformat()
+            })
+    
+    asyncio.create_task(run_job())
+    
+    return {
+        'message': f'Classification job started',
+        'job_id': job_id,
+        'limit': limit,
+        'skip_classified': skip_classified
+    }
+
+@api_router.get('/classification/job/{job_id}')
+async def get_classification_job(job_id: str):
+    """Get status of a specific classification job"""
+    if job_id not in classification_jobs:
+        raise HTTPException(status_code=404, detail='Job not found')
+    return classification_jobs[job_id]
+
+@api_router.post('/classification/single/{product_id}')
+async def classify_single_product(product_id: str):
+    """Classify a single product by ID"""
+    product = await db.products.find_one({'id': product_id}, {'_id': 0})
+    if not product:
+        raise HTTPException(status_code=404, detail='Product not found')
+    
+    classified = await classify_product(product)
+    await update_product_classification(db, product_id, classified)
+    
+    return {
+        'product_id': product_id,
+        'classification': {
+            'normalizedTitle': classified.get('normalizedTitle'),
+            'aiGender': classified.get('aiGender'),
+            'aiCategory': classified.get('aiCategory'),
+            'aiSubcategory': classified.get('aiSubcategory'),
+            'aiBrand': classified.get('aiBrand'),
+            'aiConfidence': classified.get('aiConfidence')
+        }
+    }
+
+@api_router.get('/products/classified')
+async def get_classified_products(
+    gender: Optional[str] = Query(None, description='Filter by aiGender'),
+    category: Optional[str] = Query(None, description='Filter by aiCategory'),
+    subcategory: Optional[str] = Query(None, description='Filter by aiSubcategory'),
+    brand: Optional[str] = Query(None, description='Filter by aiBrand'),
+    min_confidence: float = Query(0.0, description='Minimum AI confidence'),
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0)
+):
+    """Get products filtered by AI classification fields"""
+    query = {'aiGender': {'$exists': True}}
+    
+    if gender:
+        query['aiGender'] = gender
+    if category:
+        query['aiCategory'] = category
+    if subcategory:
+        query['aiSubcategory'] = {'$regex': subcategory, '$options': 'i'}
+    if brand:
+        query['aiBrand'] = {'$regex': brand, '$options': 'i'}
+    if min_confidence > 0:
+        query['aiConfidence'] = {'$gte': min_confidence}
+    
+    total = await db.products.count_documents(query)
+    products = await db.products.find(query, {'_id': 0}).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        'products': products,
+        'total': total,
+        'filters': {
+            'gender': gender,
+            'category': category,
+            'subcategory': subcategory,
+            'brand': brand,
+            'min_confidence': min_confidence
+        }
+    }
+
 # ============ ALERT LOG ============
 @api_router.get('/alerts/recent')
 async def recent_alerts():

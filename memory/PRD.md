@@ -9,6 +9,13 @@
 - **Search Fix:** Short search terms (≤3 chars like "On") now use strict brand-only matching to prevent false positives from product names containing prepositions
 - **Brand-Specific Search:** Added in-store search functionality on brand pages - users can now search within a specific brand's products (e.g., search "hoodie" within Crep Dog Crew)
 - **Item Type Filters:** Added new filter section on Browse page with T-Shirts, Shirts, Hoodies, Collectables, Jackets, and Pants filters for quick product type filtering
+- **AI Product Classification (Phase 1):** 
+  - Built Gemini LLM-powered classification system for products
+  - Auto-classifies: Gender (Men/Women/Unisex), Category (SHOES/CLOTHES/ACCESSORIES/COLLECTABLES), Subcategory, Brand
+  - Normalizes product titles (removes noise, punctuation, lowercases)
+  - New products are auto-classified when scraped
+  - Batch classification API for existing products
+  - API Endpoints: `/api/classification/status`, `/api/classification/run`, `/api/products/classified`
 
 ## Business Model
 - ₹399/month subscription via UPI (Razorpay)
@@ -24,6 +31,7 @@
 - WhatsApp: Meta WhatsApp Cloud API (SANDBOX - pending template approval)
 - Scraping: Generic Shopify scraper + WooCommerce + httpx/BeautifulSoup + Playwright
 - Scheduler: APScheduler (every 15 minutes + daily digest at 8 PM IST)
+- **AI Classification: Gemini 2.5 Flash via Emergent LLM Key**
 
 ## Live Brands (23 total, 11,000+ products)
 | Brand | Platform | Volume |

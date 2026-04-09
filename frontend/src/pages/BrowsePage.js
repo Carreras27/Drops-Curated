@@ -841,26 +841,49 @@ export default function BrowsePage() {
 
   // Apply category filter, subcategory filter, and size filter
   const filteredProducts = allProducts.filter(p => {
-    // Category filter
-    if (selectedCategory !== 'All' && p.category !== selectedCategory) {
-      return false;
+    // Category filter - prefer AI classification if available
+    if (selectedCategory !== 'All') {
+      const productCategory = p.aiCategory || p.category;
+      if (productCategory !== selectedCategory) {
+        return false;
+      }
     }
     
-    // Subcategory/Item Type filter (searches in name, tags, description)
+    // Subcategory/Item Type filter
+    // First check AI subcategory, then fall back to keyword matching
     if (selectedSubcategory) {
       const searchTerm = selectedSubcategory.toLowerCase();
-      const productName = (p.name || '').toLowerCase();
+      
+      // If product has AI subcategory, use it for exact matching
+      if (p.aiSubcategory) {
+        const aiSub = p.aiSubcategory.toLowerCase();
+        // Map UI filter names to possible AI subcategory values
+        const subcategoryMappings = {
+          't-shirts': ['t-shirt', 'tee'],
+          'shirts': ['shirt', 'polo'],
+          'hoodies': ['hoodie', 'sweatshirt', 'pullover'],
+          'collectables': ['bearbrick', 'figure', 'lego set', 'collectible', 'funko'],
+          'jackets': ['jacket', 'bomber', 'coat', 'varsity', 'puffer', 'windbreaker'],
+          'pants': ['pants', 'shorts', 'joggers', 'jeans', 'trousers', 'cargo']
+        };
+        
+        const matchTerms = subcategoryMappings[searchTerm] || [searchTerm];
+        if (matchTerms.some(term => aiSub.includes(term))) {
+          return true; // AI classification match - allow through
+        }
+      }
+      
+      // Fallback to keyword matching in product name/tags/description
+      const productName = (p.normalizedTitle || p.name || '').toLowerCase();
       const productTags = (p.tags || []).join(' ').toLowerCase();
       const productDesc = (p.description || '').toLowerCase();
       
-      // Handle different subcategory search patterns
       let matches = false;
       if (searchTerm === 't-shirts') {
         matches = productName.includes('t-shirt') || productName.includes('tee') || 
                   productTags.includes('t-shirt') || productTags.includes('tee') ||
                   productDesc.includes('t-shirt') || productDesc.includes('tee');
       } else if (searchTerm === 'shirts') {
-        // Match "shirt" but not "t-shirt"
         const hasShirt = productName.includes('shirt') || productTags.includes('shirt') || productDesc.includes('shirt');
         const isTShirt = productName.includes('t-shirt') || productName.includes('tee') || 
                          productTags.includes('t-shirt') || productTags.includes('tee');
@@ -872,14 +895,12 @@ export default function BrowsePage() {
                   productTags.includes('collectab') || productTags.includes('collectib') ||
                   productTags.includes('figure') || productTags.includes('bearbrick');
       } else if (searchTerm === 'hoodies') {
-        // Match hoodie, hood, sweatshirt variations
         matches = productName.includes('hoodie') || productName.includes('hood') ||
                   productName.includes('sweatshirt') || productName.includes('pullover') ||
                   productTags.includes('hoodie') || productTags.includes('hood') ||
                   productTags.includes('sweatshirt') ||
                   productDesc.includes('hoodie') || productDesc.includes('sweatshirt');
       } else if (searchTerm === 'jackets') {
-        // Match jacket, bomber, windbreaker, coat variations
         matches = productName.includes('jacket') || productName.includes('bomber') ||
                   productName.includes('windbreaker') || productName.includes('coat') ||
                   productName.includes('varsity') || productName.includes('puffer') ||
@@ -887,7 +908,6 @@ export default function BrowsePage() {
                   productTags.includes('outerwear') ||
                   productDesc.includes('jacket');
       } else if (searchTerm === 'pants') {
-        // Match pants, trousers, joggers, cargos variations
         matches = productName.includes('pant') || productName.includes('trouser') ||
                   productName.includes('jogger') || productName.includes('cargo') ||
                   productName.includes('jeans') || productName.includes('denim') ||
@@ -896,8 +916,10 @@ export default function BrowsePage() {
                   productTags.includes('jogger') || productTags.includes('bottoms') ||
                   productDesc.includes('pant') || productDesc.includes('trouser');
       } else {
-        // General fallback search
         matches = productName.includes(searchTerm) || 
+                  productTags.includes(searchTerm) || 
+                  productDesc.includes(searchTerm);
+      } 
                   productTags.includes(searchTerm) || 
                   productDesc.includes(searchTerm);
       }
