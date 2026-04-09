@@ -541,11 +541,17 @@ class CreateOrderRequest(BaseModel):
     dob: str  # Date of Birth for birthday offers
     plan: str = "monthly"
 
+class ConsentData(BaseModel):
+    whatsapp_opt_in: bool = True
+    timestamp: str = ""
+    agreed_to_terms: bool = True
+
 class VerifyPaymentRequest(BaseModel):
     phone: str
     order_id: str
     payment_id: str = ""
     signature: str = ""
+    consent: Optional[ConsentData] = None
 
 @api_router.post('/otp/send')
 async def send_otp_endpoint(data: OTPRequest):
@@ -656,8 +662,10 @@ async def create_payment_order(data: CreateOrderRequest):
     }
 
 @api_router.post('/payment/verify')
-async def verify_payment(data: VerifyPaymentRequest):
+async def verify_payment(data: VerifyPaymentRequest, request: Request):
     """Verify payment and activate membership"""
+    from whatsapp import send_welcome_message, IS_CONFIGURED as WHATSAPP_CONFIGURED
+    
     phone = data.phone.strip()
 
     # Find the order
@@ -696,6 +704,23 @@ async def verify_payment(data: VerifyPaymentRequest):
         {'$set': {'status': 'paid', 'paymentId': data.payment_id, 'paidAt': now.isoformat()}}
     )
 
+    # Get client IP for consent logging
+    client_ip = request.client.host if request.client else 'unknown'
+    forwarded_for = request.headers.get('x-forwarded-for', '')
+    if forwarded_for:
+        client_ip = forwarded_for.split(',')[0].strip()
+
+    # Build consent log for Meta compliance
+    consent_log = None
+    if data.consent:
+        consent_log = {
+            'whatsapp_opt_in': data.consent.whatsapp_opt_in,
+            'timestamp': data.consent.timestamp or now.isoformat(),
+            'ip_address': client_ip,
+            'agreed_to_terms': data.consent.agreed_to_terms,
+            'user_agent': request.headers.get('user-agent', 'unknown'),
+        }
+
     await db.subscribers.update_one(
         {'phone': phone},
         {'$set': {
@@ -710,9 +735,26 @@ async def verify_payment(data: VerifyPaymentRequest):
             'paidAt': now.isoformat(),
             'expiresAt': expires.isoformat(),
             'updatedAt': now.isoformat(),
+            # Meta compliance: consent log
+            'consent': consent_log,
         }},
         upsert=True,
     )
+
+    # Send Welcome Message via WhatsApp (Meta compliance: proof of opt-in)
+    user_name = order.get('name', '').split()[0] if order.get('name') else 'there'
+    welcome_sent = False
+    if WHATSAPP_CONFIGURED or SANDBOX_MODE:
+        try:
+            success, _ = send_welcome_message(
+                phone=phone,
+                name=user_name,
+                membership_id=membership_id
+            )
+            welcome_sent = success
+            logger.info(f"[Welcome] Sent to {phone}: {success}")
+        except Exception as e:
+            logger.error(f"[Welcome] Failed for {phone}: {e}")
 
     return {
         'success': True,
@@ -720,6 +762,7 @@ async def verify_payment(data: VerifyPaymentRequest):
         'expires_at': expires.isoformat(),
         'name': order.get('name', ''),
         'message': 'Welcome to Drops Curated!',
+        'welcome_message_sent': welcome_sent,
     }
 
 @api_router.get('/membership/{phone}')
@@ -1738,6 +1781,146 @@ async def send_daily_digests():
         'failed': failed_count,
         'date': today
     }
+
+
+# ============ WHATSAPP WEBHOOK (Meta Compliance) ============
+@api_router.post('/whatsapp/webhook')
+async def whatsapp_webhook(request: Request):
+    """
+    Handle incoming WhatsApp messages (STOP/UNSUBSCRIBE requests)
+    
+    This endpoint processes opt-out requests to maintain Meta Quality Rating.
+    """
+    from whatsapp import handle_stop_request, IS_CONFIGURED
+    
+    try:
+        body = await request.json()
+        logger.info(f"[WhatsApp Webhook] Received: {body}")
+        
+        # Parse the webhook payload (Meta format)
+        entry = body.get('entry', [{}])[0]
+        changes = entry.get('changes', [{}])[0]
+        value = changes.get('value', {})
+        messages = value.get('messages', [])
+        
+        for msg in messages:
+            msg_type = msg.get('type', '')
+            phone = msg.get('from', '')  # Phone number in E.164 format without +
+            
+            # Normalize phone (remove 91 prefix for Indian numbers)
+            if phone.startswith('91') and len(phone) == 12:
+                phone = phone[2:]
+            
+            if msg_type == 'text':
+                text = msg.get('text', {}).get('body', '').strip().upper()
+                
+                # Check for opt-out keywords
+                if text in ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'QUIT', 'END']:
+                    logger.info(f"[Opt-Out] Processing STOP request from {phone}")
+                    
+                    # Update subscriber status
+                    result = await db.subscribers.update_one(
+                        {'phone': phone},
+                        {'$set': {
+                            'isActive': False,
+                            'optedOutAt': datetime.now(timezone.utc).isoformat(),
+                            'optOutMethod': 'whatsapp_reply',
+                            'optOutKeyword': text,
+                        }}
+                    )
+                    
+                    # Log the opt-out
+                    await db.opt_out_log.insert_one({
+                        'phone': phone,
+                        'keyword': text,
+                        'source': 'whatsapp_webhook',
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                    })
+                    
+                    # Send confirmation message
+                    if IS_CONFIGURED:
+                        handle_stop_request(phone)
+                    else:
+                        logger.info(f"[Sandbox] Opt-out confirmation to {phone}")
+                    
+                    logger.info(f"[Opt-Out] Completed for {phone}, matched: {result.matched_count}")
+        
+        return {'status': 'ok'}
+        
+    except Exception as e:
+        logger.error(f"[WhatsApp Webhook] Error: {e}")
+        return {'status': 'error', 'message': str(e)}
+
+
+@api_router.get('/whatsapp/webhook')
+async def whatsapp_webhook_verify(request: Request):
+    """
+    Verify webhook for Meta WhatsApp Business API
+    
+    Meta sends a GET request with hub.mode, hub.verify_token, and hub.challenge
+    """
+    mode = request.query_params.get('hub.mode', '')
+    token = request.query_params.get('hub.verify_token', '')
+    challenge = request.query_params.get('hub.challenge', '')
+    
+    # Set your verify token in environment variable
+    verify_token = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'drops_curated_webhook_2024')
+    
+    if mode == 'subscribe' and token == verify_token:
+        logger.info("[WhatsApp Webhook] Verification successful")
+        return int(challenge)
+    else:
+        logger.warning(f"[WhatsApp Webhook] Verification failed - mode: {mode}, token: {token}")
+        raise HTTPException(status_code=403, detail='Verification failed')
+
+
+@api_router.post('/unsubscribe')
+async def manual_unsubscribe(phone: str = Query(...)):
+    """
+    Manual unsubscribe endpoint (alternative to WhatsApp reply)
+    
+    Can be called from a web page or API.
+    """
+    from whatsapp import handle_stop_request, IS_CONFIGURED
+    
+    phone = phone.strip()
+    if len(phone) == 12 and phone.startswith('91'):
+        phone = phone[2:]
+    
+    # Find subscriber
+    sub = await db.subscribers.find_one({'phone': phone})
+    if not sub:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    
+    if not sub.get('isActive', False):
+        return {'message': 'Already unsubscribed', 'phone': phone}
+    
+    # Update subscriber status
+    await db.subscribers.update_one(
+        {'phone': phone},
+        {'$set': {
+            'isActive': False,
+            'optedOutAt': datetime.now(timezone.utc).isoformat(),
+            'optOutMethod': 'manual_api',
+        }}
+    )
+    
+    # Log the opt-out
+    await db.opt_out_log.insert_one({
+        'phone': phone,
+        'keyword': 'MANUAL',
+        'source': 'api_endpoint',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    })
+    
+    # Send confirmation message
+    if IS_CONFIGURED:
+        handle_stop_request(phone)
+    else:
+        logger.info(f"[Sandbox] Manual opt-out confirmation to {phone}")
+    
+    return {'message': 'Successfully unsubscribed', 'phone': phone}
+
 
 # ============ PARTNER INQUIRIES ============
 class PartnerInquiry(BaseModel):

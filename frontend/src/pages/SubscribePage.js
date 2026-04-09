@@ -341,6 +341,7 @@ export default function SubscribePage() {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [dob, setDob] = useState(''); // Date of Birth for offers
+  const [consentChecked, setConsentChecked] = useState(false); // WhatsApp consent
   const [loading, setLoading] = useState(false);
   const [sandboxOtp, setSandboxOtp] = useState('');
   const [membership, setMembership] = useState(null);
@@ -472,8 +473,20 @@ export default function SubscribePage() {
   const completePayment = async (paymentId = 'sandbox_pay', signature = '', oid = '') => {
     setLoading(true);
     try {
+      // Log consent with timestamp (IP is captured server-side)
+      const consentTimestamp = new Date().toISOString();
+      
       const resp = await axios.post(`${API_URL}/payment/verify`, {
-        phone, order_id: oid || orderId, payment_id: paymentId, signature,
+        phone, 
+        order_id: oid || orderId, 
+        payment_id: paymentId, 
+        signature,
+        // Consent logging for Meta compliance
+        consent: {
+          whatsapp_opt_in: true,
+          timestamp: consentTimestamp,
+          agreed_to_terms: true,
+        }
       });
       if (resp.data.success) {
         setMembership(resp.data);
@@ -729,18 +742,63 @@ export default function SubscribePage() {
                     <CreditCard className="w-6 h-6 text-accent" strokeWidth={1.5} />
                   </div>
                   <h2 className="font-serif text-2xl md:text-3xl mb-2">Complete Payment</h2>
-                  <p className="text-sm text-primary/40 mb-8">Sandbox mode: Click to simulate payment.</p>
-                  <div className="max-w-md space-y-4">
+                  <p className="text-sm text-primary/40 mb-6">Sandbox mode: Click to simulate payment.</p>
+                  
+                  <div className="max-w-md space-y-6">
                     <div className="bg-primary/[0.03] border border-primary/10 p-6 text-center">
                       <p className="text-xs text-primary/40 uppercase tracking-widest mb-2">Amount</p>
                       <p className="font-serif text-4xl mb-1">₹399</p>
                       <p className="text-xs text-primary/30">Monthly Membership</p>
                     </div>
-                    <button onClick={() => completePayment()} disabled={loading}
-                      className="w-full bg-accent text-primary py-4 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="confirm-payment-btn">
+
+                    {/* WhatsApp Consent Disclaimer */}
+                    <div className="bg-blue-50 border border-blue-200 p-4 text-xs">
+                      <p className="font-medium text-blue-800 mb-3">WhatsApp Subscription & Terms Agreement</p>
+                      <div className="text-blue-700/80 space-y-2 mb-4">
+                        <p><span className="font-medium">1. Explicit Consent:</span> You authorize Drops Curated to send automated notifications, product alerts, and marketing messages to your registered mobile number via WhatsApp.</p>
+                        <p><span className="font-medium">2. Frequency & Content:</span> You understand that alerts will be sent based on your selected brand and price-drop preferences.</p>
+                        <p><span className="font-medium">3. Meta Terms Compliance:</span> You acknowledge that these services are delivered via the WhatsApp platform and agree to abide by Meta's Terms of Service.</p>
+                        <p><span className="font-medium">4. Opt-Out Anytime:</span> You can stop all alerts at any time by replying <span className="font-bold">"STOP"</span> or <span className="font-bold">"UNSUBSCRIBE"</span> to any of our WhatsApp messages. We process opt-out requests instantly.</p>
+                        <p><span className="font-medium">5. Data Privacy:</span> Your number will only be used for the alert services you have subscribed to and will not be shared with third parties.</p>
+                      </div>
+                      
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className="relative mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={consentChecked}
+                            onChange={(e) => setConsentChecked(e.target.checked)}
+                            className="sr-only"
+                            data-testid="consent-checkbox"
+                          />
+                          <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${
+                            consentChecked 
+                              ? 'bg-blue-600 border-blue-600' 
+                              : 'border-blue-400 group-hover:border-blue-500'
+                          }`}>
+                            {consentChecked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                          </div>
+                        </div>
+                        <span className="text-blue-800 leading-tight">
+                          I have read and agree to the above terms. I consent to receive WhatsApp messages from Drops Curated.
+                        </span>
+                      </label>
+                    </div>
+
+                    <button 
+                      onClick={() => completePayment()} 
+                      disabled={loading || !consentChecked}
+                      className="w-full bg-accent text-primary py-4 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed" 
+                      data-testid="confirm-payment-btn"
+                    >
                       {loading ? 'Processing...' : 'Confirm Payment (Sandbox)'}
                       <Check className="w-4 h-4" strokeWidth={1.5} />
                     </button>
+                    
+                    {!consentChecked && (
+                      <p className="text-[10px] text-red-500 text-center">Please agree to the WhatsApp terms above to proceed</p>
+                    )}
+                    
                     <p className="text-[10px] text-primary/30 text-center flex items-center justify-center gap-1">
                       <Shield className="w-3 h-3" /> Secure payment via Razorpay UPI
                     </p>

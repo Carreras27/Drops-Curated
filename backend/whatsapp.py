@@ -384,3 +384,67 @@ def send_bulk_alerts(
     
     logger.info(f"Bulk alert: {results['successful']} sent, {results['failed']} failed")
     return results
+
+
+def send_welcome_message(phone: str, name: str, membership_id: str) -> Tuple[bool, str]:
+    """
+    Send Welcome Message after successful payment (Meta compliance: proof of opt-in)
+    
+    This creates a digital trail that the user initiated the conversation.
+    
+    Args:
+        phone: Recipient phone number
+        name: User's first name
+        membership_id: The membership ID
+        
+    Returns:
+        Tuple of (success, message_id or error)
+    """
+    if not IS_CONFIGURED:
+        # Log the welcome message in sandbox mode
+        logger.info(f"[Sandbox] Welcome message to {phone}: Hi {name}! Welcome to Drops Curated (ID: {membership_id})")
+        return True, "sandbox_welcome"
+    
+    message = f"""Hi {name}! 👋
+
+Welcome to *Drops Curated* VIP! 🎉
+
+Your membership ID: *{membership_id}*
+
+You've successfully subscribed to exclusive streetwear alerts. We'll only message you when there's a drop that matches your preferences.
+
+📱 *Save this contact* to see images and links clearly!
+
+To stop getting alerts anytime, just reply *STOP*.
+
+Happy shopping! 🛍️"""
+    
+    return whatsapp_client.send_text_message(phone, message)
+
+
+def handle_stop_request(phone: str) -> Tuple[bool, str]:
+    """
+    Handle STOP/UNSUBSCRIBE request from user
+    
+    This immediately opts the user out and sends confirmation.
+    
+    Args:
+        phone: Phone number requesting opt-out
+        
+    Returns:
+        Tuple of (success, message)
+    """
+    if not IS_CONFIGURED:
+        logger.info(f"[Sandbox] STOP request from {phone}")
+        return True, "sandbox_stop"
+    
+    # Send confirmation message
+    message = """You've been unsubscribed from Drops Curated alerts. ✅
+
+You will no longer receive WhatsApp messages from us.
+
+If you change your mind, you can resubscribe anytime at dropscurated.com
+
+Thank you for being with us! 🙏"""
+    
+    return whatsapp_client.send_text_message(phone, message)
