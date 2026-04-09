@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 
@@ -8,6 +8,278 @@ const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES'];
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in ms
+
+// ============ SIZE CONVERSION SYSTEM ============
+// Comprehensive size conversion charts
+const SHOE_SIZE_CONVERSIONS = {
+  // UK to other formats (Men's)
+  'UK5': { uk: 'UK5', us: 'US6', eu: 'EU38' },
+  'UK6': { uk: 'UK6', us: 'US7', eu: 'EU39' },
+  'UK7': { uk: 'UK7', us: 'US8', eu: 'EU40.5' },
+  'UK8': { uk: 'UK8', us: 'US9', eu: 'EU42' },
+  'UK9': { uk: 'UK9', us: 'US10', eu: 'EU43' },
+  'UK10': { uk: 'UK10', us: 'US11', eu: 'EU44' },
+  'UK11': { uk: 'UK11', us: 'US12', eu: 'EU45' },
+  'UK12': { uk: 'UK12', us: 'US13', eu: 'EU46' },
+  // US to other formats
+  'US6': { uk: 'UK5', us: 'US6', eu: 'EU38' },
+  'US7': { uk: 'UK6', us: 'US7', eu: 'EU39' },
+  'US8': { uk: 'UK7', us: 'US8', eu: 'EU40.5' },
+  'US9': { uk: 'UK8', us: 'US9', eu: 'EU42' },
+  'US10': { uk: 'UK9', us: 'US10', eu: 'EU43' },
+  'US11': { uk: 'UK10', us: 'US11', eu: 'EU44' },
+  'US12': { uk: 'UK11', us: 'US12', eu: 'EU45' },
+  'US13': { uk: 'UK12', us: 'US13', eu: 'EU46' },
+  // EU to other formats
+  'EU38': { uk: 'UK5', us: 'US6', eu: 'EU38' },
+  'EU39': { uk: 'UK6', us: 'US7', eu: 'EU39' },
+  'EU40': { uk: 'UK6.5', us: 'US7.5', eu: 'EU40' },
+  'EU40.5': { uk: 'UK7', us: 'US8', eu: 'EU40.5' },
+  'EU41': { uk: 'UK7.5', us: 'US8.5', eu: 'EU41' },
+  'EU42': { uk: 'UK8', us: 'US9', eu: 'EU42' },
+  'EU43': { uk: 'UK9', us: 'US10', eu: 'EU43' },
+  'EU44': { uk: 'UK10', us: 'US11', eu: 'EU44' },
+  'EU45': { uk: 'UK11', us: 'US12', eu: 'EU45' },
+  'EU46': { uk: 'UK12', us: 'US13', eu: 'EU46' },
+};
+
+// Garment sizes are more universal
+const GARMENT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+// Get all equivalent sizes for a given size
+const getEquivalentSizes = (size) => {
+  if (!size) return [];
+  const normalizedSize = size.toUpperCase().replace(/\s/g, '');
+  
+  // Check if it's a shoe size
+  if (SHOE_SIZE_CONVERSIONS[normalizedSize]) {
+    const conversions = SHOE_SIZE_CONVERSIONS[normalizedSize];
+    return [conversions.uk, conversions.us, conversions.eu, 
+            conversions.uk.toLowerCase(), conversions.us.toLowerCase(), conversions.eu.toLowerCase(),
+            // Also add variations like "UK 10", "US 11", "EU 44"
+            conversions.uk.replace('UK', 'UK '), conversions.us.replace('US', 'US '), conversions.eu.replace('EU', 'EU '),
+            // Numeric only variations
+            normalizedSize.replace(/[A-Z]/g, ''),
+    ].filter(Boolean);
+  }
+  
+  // For garment sizes, return the size and common variations
+  if (GARMENT_SIZES.includes(normalizedSize)) {
+    return [normalizedSize, normalizedSize.toLowerCase(), size];
+  }
+  
+  return [size, normalizedSize];
+};
+
+// Check if a product size matches user's preferred sizes
+const doesProductMatchSize = (productSizes, userSizes) => {
+  if (!userSizes || userSizes.length === 0) return true; // No filter = show all
+  if (!productSizes || productSizes.length === 0) return true; // No size info = show it
+  
+  // Get all equivalent sizes for user's preferences
+  const allEquivalentSizes = userSizes.flatMap(s => getEquivalentSizes(s));
+  
+  // Check if any product size matches any equivalent size
+  return productSizes.some(ps => {
+    const normalizedPS = ps.toUpperCase().replace(/\s/g, '');
+    return allEquivalentSizes.some(es => {
+      const normalizedES = es.toUpperCase().replace(/\s/g, '');
+      return normalizedPS.includes(normalizedES) || normalizedES.includes(normalizedPS);
+    });
+  });
+};
+
+// ============ SIZE FIRST MODAL ============
+const SizeFirstModal = ({ isOpen, onClose, onSave, initialSizes = {} }) => {
+  const [selectedGarmentSizes, setSelectedGarmentSizes] = useState(initialSizes.garments || []);
+  const [selectedShoeSizes, setSelectedShoeSizes] = useState(initialSizes.shoes || []);
+  const [sizeSystem, setSizeSystem] = useState(initialSizes.system || 'UK'); // UK, US, EU
+  
+  const toggleGarmentSize = (size) => {
+    setSelectedGarmentSizes(prev => 
+      prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
+    );
+  };
+  
+  const toggleShoeSize = (size) => {
+    setSelectedShoeSizes(prev => 
+      prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
+    );
+  };
+  
+  const handleSave = () => {
+    const sizePrefs = {
+      garments: selectedGarmentSizes,
+      shoes: selectedShoeSizes,
+      system: sizeSystem,
+      allSizes: [...selectedGarmentSizes, ...selectedShoeSizes],
+    };
+    onSave(sizePrefs);
+    onClose();
+  };
+  
+  const handleSkip = () => {
+    onSave({ garments: [], shoes: [], system: sizeSystem, allSizes: [], skipped: true });
+    onClose();
+  };
+  
+  // Get shoe sizes based on selected system
+  const getShoeSizesForSystem = () => {
+    switch (sizeSystem) {
+      case 'US':
+        return ['US6', 'US7', 'US8', 'US9', 'US10', 'US11', 'US12', 'US13'];
+      case 'EU':
+        return ['EU38', 'EU39', 'EU40', 'EU41', 'EU42', 'EU43', 'EU44', 'EU45', 'EU46'];
+      default: // UK
+        return ['UK5', 'UK6', 'UK7', 'UK8', 'UK9', 'UK10', 'UK11', 'UK12'];
+    }
+  };
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/70 backdrop-blur-sm" data-testid="size-first-modal">
+      <div className="bg-background border border-primary/10 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-fade-up">
+        <div className="p-6 border-b border-primary/10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-accent/10 flex items-center justify-center">
+              <Ruler className="w-5 h-5 text-accent" />
+            </div>
+            <div>
+              <h2 className="font-serif text-xl">Size First</h2>
+              <p className="text-xs text-primary/50">See only products in your size</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          {/* Size System Selector */}
+          <div>
+            <p className="text-xs text-primary/40 uppercase tracking-widest mb-3">Size System</p>
+            <div className="grid grid-cols-3 gap-2">
+              {['UK', 'US', 'EU'].map(system => (
+                <button
+                  key={system}
+                  onClick={() => {
+                    setSizeSystem(system);
+                    setSelectedShoeSizes([]); // Reset shoe sizes when system changes
+                  }}
+                  className={`py-3 border text-sm font-medium transition-all ${
+                    sizeSystem === system 
+                      ? 'border-accent bg-accent/10 text-primary' 
+                      : 'border-primary/10 text-primary/50 hover:border-primary/30'
+                  }`}
+                  data-testid={`size-system-${system}`}
+                >
+                  {system}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-primary/30 mt-2">
+              We'll automatically convert to other formats (UK 10 = US 11 = EU 44)
+            </p>
+          </div>
+          
+          {/* Garment Sizes */}
+          <div>
+            <p className="text-xs text-primary/40 uppercase tracking-widest mb-3">Garments (T-shirts, Hoodies, Jackets)</p>
+            <div className="grid grid-cols-6 gap-2">
+              {GARMENT_SIZES.slice(0, 6).map(size => (
+                <button
+                  key={size}
+                  onClick={() => toggleGarmentSize(size)}
+                  className={`py-2.5 border text-xs font-medium transition-all ${
+                    selectedGarmentSizes.includes(size)
+                      ? 'border-accent bg-accent/10 text-primary'
+                      : 'border-primary/10 text-primary/50 hover:border-primary/30'
+                  }`}
+                  data-testid={`garment-size-${size}`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Shoe Sizes */}
+          <div>
+            <p className="text-xs text-primary/40 uppercase tracking-widest mb-3">Shoes ({sizeSystem} Sizes)</p>
+            <div className="grid grid-cols-4 gap-2">
+              {getShoeSizesForSystem().map(size => (
+                <button
+                  key={size}
+                  onClick={() => toggleShoeSize(size)}
+                  className={`py-2.5 border text-xs font-medium transition-all ${
+                    selectedShoeSizes.includes(size)
+                      ? 'border-accent bg-accent/10 text-primary'
+                      : 'border-primary/10 text-primary/50 hover:border-primary/30'
+                  }`}
+                  data-testid={`shoe-size-${size}`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            
+            {/* Show equivalent sizes */}
+            {selectedShoeSizes.length > 0 && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 text-xs">
+                <p className="text-green-700 font-medium mb-1">Auto-converting your sizes:</p>
+                <div className="text-green-600 space-y-0.5">
+                  {selectedShoeSizes.map(size => {
+                    const conversions = SHOE_SIZE_CONVERSIONS[size];
+                    if (conversions) {
+                      return (
+                        <p key={size}>
+                          {conversions.uk} = {conversions.us} = {conversions.eu}
+                        </p>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Summary */}
+          {(selectedGarmentSizes.length > 0 || selectedShoeSizes.length > 0) && (
+            <div className="p-4 bg-accent/5 border border-accent/20">
+              <p className="text-xs font-medium text-primary mb-2">Your Sizes</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedGarmentSizes.map(s => (
+                  <span key={s} className="px-2 py-1 bg-primary/10 text-xs">{s}</span>
+                ))}
+                {selectedShoeSizes.map(s => (
+                  <span key={s} className="px-2 py-1 bg-accent/20 text-xs">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-6 border-t border-primary/10 space-y-3">
+          <button
+            onClick={handleSave}
+            disabled={selectedGarmentSizes.length === 0 && selectedShoeSizes.length === 0}
+            className="w-full bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 transition-all disabled:opacity-40"
+            data-testid="save-sizes-btn"
+          >
+            <Check className="w-4 h-4" />
+            Show Products in My Size
+          </button>
+          <button
+            onClick={handleSkip}
+            className="w-full border border-primary/10 text-primary/50 py-3 text-sm hover:border-primary/30 transition-colors"
+            data-testid="skip-sizes-btn"
+          >
+            Skip - Show All Sizes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Last Updated Component
 const LastUpdatedBadge = ({ lastUpdated, isRefreshing, onRefresh }) => {
@@ -315,6 +587,44 @@ export default function BrowsePage() {
   
   // Ref for filter section to scroll into view
   const filterSectionRef = useRef(null);
+  
+  // Size First feature
+  const [showSizeFirstModal, setShowSizeFirstModal] = useState(false);
+  const [userSizePrefs, setUserSizePrefs] = useState(null);
+  const [sizeFilterActive, setSizeFilterActive] = useState(false);
+  
+  // Load size preferences from localStorage or show modal
+  useEffect(() => {
+    const savedSizePrefs = localStorage.getItem('dropsCurated_sizePrefs');
+    if (savedSizePrefs) {
+      const prefs = JSON.parse(savedSizePrefs);
+      setUserSizePrefs(prefs);
+      setSizeFilterActive(!prefs.skipped && prefs.allSizes?.length > 0);
+    } else {
+      // Show size first modal for new visitors
+      const timer = setTimeout(() => {
+        setShowSizeFirstModal(true);
+      }, 1500); // Show after 1.5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, []);
+  
+  // Handle saving size preferences
+  const handleSaveSizePrefs = (prefs) => {
+    setUserSizePrefs(prefs);
+    localStorage.setItem('dropsCurated_sizePrefs', JSON.stringify(prefs));
+    setSizeFilterActive(!prefs.skipped && prefs.allSizes?.length > 0);
+  };
+  
+  // Clear size filter
+  const clearSizeFilter = () => {
+    setSizeFilterActive(false);
+  };
+  
+  // Edit size preferences
+  const editSizePrefs = () => {
+    setShowSizeFirstModal(true);
+  };
 
   // Check for brand filter in URL params
   useEffect(() => {
@@ -526,13 +836,71 @@ export default function BrowsePage() {
     }
   };
 
-  const filteredProducts = selectedCategory === 'All'
-    ? allProducts
-    : allProducts.filter(p => p.category === selectedCategory);
+  // Apply category filter and size filter
+  const filteredProducts = allProducts.filter(p => {
+    // Category filter
+    if (selectedCategory !== 'All' && p.category !== selectedCategory) {
+      return false;
+    }
+    
+    // Size filter (if active)
+    if (sizeFilterActive && userSizePrefs && userSizePrefs.allSizes?.length > 0) {
+      const productSizes = p.attributes?.sizes || p.sizes || [];
+      if (!doesProductMatchSize(productSizes, userSizePrefs.allSizes)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 
   return (
     <div className="bg-background min-h-screen" data-testid="browse-page">
       <Header />
+      
+      {/* Size First Modal */}
+      <SizeFirstModal
+        isOpen={showSizeFirstModal}
+        onClose={() => setShowSizeFirstModal(false)}
+        onSave={handleSaveSizePrefs}
+        initialSizes={userSizePrefs || {}}
+      />
+      
+      {/* Size Filter Active Banner */}
+      {sizeFilterActive && userSizePrefs && (
+        <div className="bg-accent/10 border-b border-accent/20 py-2 px-6">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              <Ruler className="w-4 h-4 text-accent" />
+              <span className="text-primary/70">Showing products in your size:</span>
+              <div className="flex gap-1">
+                {userSizePrefs.allSizes?.slice(0, 4).map(s => (
+                  <span key={s} className="px-2 py-0.5 bg-accent/20 text-accent text-[10px] font-medium">{s}</span>
+                ))}
+                {userSizePrefs.allSizes?.length > 4 && (
+                  <span className="px-2 py-0.5 bg-primary/10 text-[10px]">+{userSizePrefs.allSizes.length - 4} more</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={editSizePrefs}
+                className="text-[10px] text-accent hover:underline"
+                data-testid="edit-sizes-btn"
+              >
+                Edit
+              </button>
+              <button
+                onClick={clearSizeFilter}
+                className="text-[10px] text-primary/40 hover:text-primary"
+                data-testid="clear-size-filter"
+              >
+                Show All Sizes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Search Bar */}
       <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-sm border-b border-primary/5">
@@ -610,7 +978,7 @@ export default function BrowsePage() {
               </div>
 
               {/* Categories */}
-              <div>
+              <div className="mb-6">
                 <p className="text-xs text-primary/50 mb-3">Category</p>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map(c => (
@@ -624,6 +992,41 @@ export default function BrowsePage() {
                     </button>
                   ))}
                 </div>
+              </div>
+              
+              {/* Size Filter */}
+              <div>
+                <p className="text-xs text-primary/50 mb-3">My Size</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={editSizePrefs}
+                    className={`text-xs px-4 py-2 border transition-colors flex items-center gap-2 ${
+                      sizeFilterActive 
+                        ? 'border-accent text-accent bg-accent/5' 
+                        : 'border-primary/10 text-primary/60 hover:border-primary/30'
+                    }`}
+                    data-testid="size-filter-btn"
+                  >
+                    <Ruler className="w-3 h-3" />
+                    {sizeFilterActive && userSizePrefs?.allSizes?.length > 0
+                      ? `${userSizePrefs.allSizes.slice(0, 3).join(', ')}${userSizePrefs.allSizes.length > 3 ? '...' : ''}`
+                      : 'Select My Size'
+                    }
+                  </button>
+                  {sizeFilterActive && (
+                    <button
+                      onClick={clearSizeFilter}
+                      className="text-xs text-primary/30 hover:text-primary"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {sizeFilterActive && userSizePrefs?.allSizes?.length > 0 && (
+                  <p className="text-[10px] text-green-600 mt-2">
+                    Auto-converting: UK ↔ US ↔ EU sizes
+                  </p>
+                )}
               </div>
             </div>
           )}
