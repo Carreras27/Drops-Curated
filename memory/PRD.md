@@ -1,7 +1,12 @@
 # Drops Curated - Product Requirements Document
 
+**Last Updated:** December 2025
+
 ## Overview
 **Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
+
+## Recent Changes (December 2025)
+- **Search Fix:** Short search terms (≤3 chars like "On") now use strict brand-only matching to prevent false positives from product names containing prepositions
 
 ## Business Model
 - ₹399/month subscription via UPI (Razorpay)

@@ -153,23 +153,18 @@ async def search_products(
         query['store'] = {'$regex': f'^{store}$', '$options': 'i'}
     # Search query - searches name, description, brand, tags, store
     elif search_term:
-        # For very short search terms (<=2 chars like "On"), only search brand and name
-        # This avoids false positives from tags like "on prepaid orders"
-        if len(search_term) <= 2:
-            # Strict matching: exact brand match OR word in product name
-            query['$or'] = [
-                # Exact brand match (case insensitive)
-                {'brand': {'$regex': f'^{search_term}$', '$options': 'i'}},
-                # Product name contains the word (with word boundaries)
-                {'name': {'$regex': f'\\b{search_term}\\b', '$options': 'i'}},
-            ]
-        elif len(search_term) <= 4:
-            # For short terms (3-4 chars), use word boundary matching but include more fields
+        # For very short search terms (<=3 chars like "On", "NIL"), ONLY search brand field
+        # This prevents false positives like "Monk On Fire Hoodie" where "on" is just a preposition
+        if len(search_term) <= 3:
+            # STRICT BRAND-ONLY MATCH for short terms
+            query['brand'] = {'$regex': f'^{search_term}$', '$options': 'i'}
+        elif len(search_term) <= 5:
+            # For medium terms (4-5 chars), use word boundary matching on brand and name
             word_regex = f'\\b{search_term}\\b'
             query['$or'] = [
                 {'brand': {'$regex': f'^{search_term}$', '$options': 'i'}},
-                {'name': {'$regex': word_regex, '$options': 'i'}},
                 {'brand': {'$regex': word_regex, '$options': 'i'}},
+                {'name': {'$regex': word_regex, '$options': 'i'}},
                 {'store': {'$regex': word_regex, '$options': 'i'}},
             ]
         else:
