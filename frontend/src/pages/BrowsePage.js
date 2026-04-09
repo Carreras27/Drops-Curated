@@ -871,8 +871,32 @@ export default function BrowsePage() {
                   productName.includes('bearbrick') || productName.includes('funko') ||
                   productTags.includes('collectab') || productTags.includes('collectib') ||
                   productTags.includes('figure') || productTags.includes('bearbrick');
+      } else if (searchTerm === 'hoodies') {
+        // Match hoodie, hood, sweatshirt variations
+        matches = productName.includes('hoodie') || productName.includes('hood') ||
+                  productName.includes('sweatshirt') || productName.includes('pullover') ||
+                  productTags.includes('hoodie') || productTags.includes('hood') ||
+                  productTags.includes('sweatshirt') ||
+                  productDesc.includes('hoodie') || productDesc.includes('sweatshirt');
+      } else if (searchTerm === 'jackets') {
+        // Match jacket, bomber, windbreaker, coat variations
+        matches = productName.includes('jacket') || productName.includes('bomber') ||
+                  productName.includes('windbreaker') || productName.includes('coat') ||
+                  productName.includes('varsity') || productName.includes('puffer') ||
+                  productTags.includes('jacket') || productTags.includes('bomber') ||
+                  productTags.includes('outerwear') ||
+                  productDesc.includes('jacket');
+      } else if (searchTerm === 'pants') {
+        // Match pants, trousers, joggers, cargos variations
+        matches = productName.includes('pant') || productName.includes('trouser') ||
+                  productName.includes('jogger') || productName.includes('cargo') ||
+                  productName.includes('jeans') || productName.includes('denim') ||
+                  productName.includes('shorts') ||
+                  productTags.includes('pants') || productTags.includes('trouser') ||
+                  productTags.includes('jogger') || productTags.includes('bottoms') ||
+                  productDesc.includes('pant') || productDesc.includes('trouser');
       } else {
-        // General search for hoodies, jackets, pants
+        // General fallback search
         matches = productName.includes(searchTerm) || 
                   productTags.includes(searchTerm) || 
                   productDesc.includes(searchTerm);
