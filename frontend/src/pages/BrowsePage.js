@@ -312,6 +312,9 @@ export default function BrowsePage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
+  
+  // Ref for filter section to scroll into view
+  const filterSectionRef = useRef(null);
 
   // Check for brand filter in URL params
   useEffect(() => {
@@ -501,6 +504,28 @@ export default function BrowsePage() {
     fetchAllProducts(1);
   };
 
+  // Handle filter toggle with auto-scroll
+  const handleFilterToggle = () => {
+    const newShowFilters = !showFilters;
+    setShowFilters(newShowFilters);
+    
+    // If opening filters, scroll to the filter section
+    if (newShowFilters) {
+      // Small delay to allow the filter panel to render
+      setTimeout(() => {
+        if (filterSectionRef.current) {
+          filterSectionRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        } else {
+          // Fallback: scroll to top
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  };
+
   const filteredProducts = selectedCategory === 'All'
     ? allProducts
     : allProducts.filter(p => p.category === selectedCategory);
@@ -525,12 +550,15 @@ export default function BrowsePage() {
               />
             </form>
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center justify-center gap-2 border border-primary/10 px-5 py-3 text-sm hover:border-accent transition-colors"
+              onClick={handleFilterToggle}
+              className={`inline-flex items-center justify-center gap-2 border px-5 py-3 text-sm transition-colors ${
+                showFilters ? 'border-accent bg-accent/5' : 'border-primary/10 hover:border-accent'
+              }`}
               data-testid="filter-toggle"
             >
               <SlidersHorizontal className="w-4 h-4" strokeWidth={1.5} />
               Filters
+              {showFilters && <X className="w-3 h-3 ml-1" />}
             </button>
           </div>
           
@@ -556,7 +584,7 @@ export default function BrowsePage() {
 
           {/* Filter panel */}
           {showFilters && (
-            <div className="mb-8 p-6 border border-primary/10 bg-surface animate-fade-up" data-testid="filter-panel">
+            <div ref={filterSectionRef} className="mb-8 p-6 border border-primary/10 bg-surface animate-fade-up" data-testid="filter-panel">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Refine</p>
                 <button onClick={clearFilters} className="text-xs text-primary/40 hover:text-primary flex items-center gap-1">
