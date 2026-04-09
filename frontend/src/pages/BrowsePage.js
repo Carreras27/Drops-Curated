@@ -919,9 +919,6 @@ export default function BrowsePage() {
         matches = productName.includes(searchTerm) || 
                   productTags.includes(searchTerm) || 
                   productDesc.includes(searchTerm);
-      } 
-                  productTags.includes(searchTerm) || 
-                  productDesc.includes(searchTerm);
       }
       
       if (!matches) return false;
