@@ -95,3 +95,46 @@ img {
 .pause-animation {
   animation-play-state: paused !important;
 }
+
+
+/* ============ SKELETON LOADERS (Fix #12) ============ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 31, 63, 0.05) 25%,
+    rgba(0, 31, 63, 0.1) 50%,
+    rgba(0, 31, 63, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skeleton-card {
+  background: rgba(0, 31, 63, 0.03);
+  border: 1px solid rgba(0, 31, 63, 0.05);
+}
+
+.skeleton-text {
+  height: 1em;
+  margin-bottom: 0.5em;
+}
+
+.skeleton-text-sm {
+  height: 0.75em;
+}
+
+.skeleton-image {
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.skeleton-button {
+  height: 40px;
+  border-radius: 4px;
+}

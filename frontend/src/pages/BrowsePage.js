@@ -11,6 +11,26 @@ const SUBCATEGORIES = ['T-Shirts', 'Shirts', 'Hoodies', 'Jackets', 'Pants', 'Sne
 const GENDERS = ['All', 'Men', 'Women', 'Unisex'];
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in ms
 
+// ============ SKELETON LOADERS (Fix #12) ============
+const ProductSkeleton = () => (
+  <div className="skeleton-card p-3 animate-pulse">
+    <div className="skeleton skeleton-image mb-3" />
+    <div className="space-y-2">
+      <div className="skeleton skeleton-text w-3/4" />
+      <div className="skeleton skeleton-text-sm w-1/2" />
+      <div className="skeleton skeleton-text-sm w-1/3 mt-3" />
+    </div>
+  </div>
+);
+
+const ProductGridSkeleton = ({ count = 8 }) => (
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+    {Array.from({ length: count }).map((_, i) => (
+      <ProductSkeleton key={i} />
+    ))}
+  </div>
+);
+
 // ============ SIZE CONVERSION SYSTEM ============
 // Comprehensive size conversion charts
 const SHOE_SIZE_CONVERSIONS = {
@@ -1203,8 +1223,20 @@ export default function BrowsePage() {
 
           {/* Content */}
           {loading ? (
-            <div className="flex justify-center py-24">
-              <RefreshCw className="w-5 h-5 animate-spin text-primary/20" />
+            <div className="space-y-12">
+              {/* Skeleton for curated sections */}
+              <div>
+                <div className="skeleton h-8 w-48 mb-6" />
+                <ProductGridSkeleton count={4} />
+              </div>
+              <div>
+                <div className="skeleton h-8 w-48 mb-6" />
+                <ProductGridSkeleton count={4} />
+              </div>
+              <div>
+                <div className="skeleton h-8 w-32 mb-6" />
+                <ProductGridSkeleton count={8} />
+              </div>
             </div>
           ) : (
             <>

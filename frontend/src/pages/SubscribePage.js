@@ -407,14 +407,51 @@ export default function SubscribePage() {
     }
   };
 
+  // Phone validation helper
+  const validatePhone = (phoneNumber) => {
+    // Indian mobile numbers: 10 digits starting with 6, 7, 8, or 9
+    const cleanedPhone = phoneNumber.replace(/\D/g, '');
+    if (cleanedPhone.length !== 10) {
+      return { valid: false, error: 'Phone number must be 10 digits' };
+    }
+    if (!'6789'.includes(cleanedPhone[0])) {
+      return { valid: false, error: 'Indian mobile numbers start with 6, 7, 8, or 9' };
+    }
+    // Check for obviously fake numbers (all same digits)
+    if (/^(\d)\1{9}$/.test(cleanedPhone)) {
+      return { valid: false, error: 'Please enter a valid phone number' };
+    }
+    return { valid: true, phone: cleanedPhone };
+  };
+
+  const [phoneError, setPhoneError] = useState('');
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setPhone(value);
+    
+    // Real-time validation feedback
+    if (value.length > 0 && value.length < 10) {
+      setPhoneError(`${10 - value.length} more digits needed`);
+    } else if (value.length === 10) {
+      const validation = validatePhone(value);
+      setPhoneError(validation.valid ? '' : validation.error);
+    } else {
+      setPhoneError('');
+    }
+  };
+
   const sendOtp = async () => {
-    if (phone.length !== 10 || !'6789'.includes(phone[0])) {
-      toast.error('Enter a valid 10-digit Indian mobile number');
+    const validation = validatePhone(phone);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      setPhoneError(validation.error);
       return;
     }
     setLoading(true);
+    setPhoneError('');
     try {
-      const resp = await axios.post(`${API_URL}/otp/send`, { phone });
+      const resp = await axios.post(`${API_URL}/otp/send`, { phone: validation.phone });
       if (resp.data.sandbox_otp) {
         setSandboxOtp(resp.data.sandbox_otp);
         setOtp(resp.data.sandbox_otp);
@@ -423,7 +460,11 @@ export default function SubscribePage() {
         toast.success('OTP sent to your WhatsApp!');
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to send OTP');
+      const errorMsg = err.response?.data?.detail || 'Failed to send OTP';
+      toast.error(errorMsg);
+      if (errorMsg.includes('Rate limit')) {
+        setPhoneError('Too many attempts. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -644,8 +685,9 @@ export default function SubscribePage() {
                       <label className="text-xs text-primary/40 uppercase tracking-widest mb-2 block">WhatsApp Number</label>
                       <div className="flex">
                         <span className="flex items-center px-4 bg-primary/[0.03] border border-primary/10 border-r-0 text-sm text-primary/50 font-medium">+91</span>
-                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210"
-                          className="flex-1 px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors" data-testid="phone-input" />
+                        <input type="tel" value={phone} onChange={handlePhoneChange} placeholder="9876543210"
+                          className={`flex-1 px-4 py-3.5 bg-surface border text-sm placeholder:text-primary/20 focus:outline-none transition-colors ${phoneError ? 'border-red-500 focus:border-red-500' : 'border-primary/10 focus:border-accent'}`} data-testid="phone-input" />
+                        {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
                       </div>
                     </div>
                     {!sandboxOtp ? (

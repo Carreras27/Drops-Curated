@@ -17,6 +17,17 @@
   - Batch classification API for existing products
   - API Endpoints: `/api/classification/status`, `/api/classification/run`, `/api/products/classified`
 
+## Architectural Fixes Implemented (December 2025)
+- **Fix #1 — Admin Panel + JWT Auth:** Full admin dashboard at `/admin` with subscriber management, brand controls, classification stats, and quick actions
+- **Fix #3 — Health Check + Dead-Man's Switch:** `/api/health` endpoint, scheduler monitoring, auto-alerts for stuck scrapers
+- **Fix #4 — WhatsApp Rate Limiting + Opt-out:** Rate limits per user (10 instant/day, 5 OTP/day), opt-out tracking
+- **Fix #6 — Classifier Feedback Loop:** API for recording feedback on AI classifications, accuracy tracking
+- **Fix #7 — Duplicate Detection:** Prevents duplicate products (same name + brand) from being added
+- **Fix #8 — Phone Validation:** Real-time Indian mobile validation with error feedback
+- **Fix #9 — ErrorBoundary + 404:** React error catching, proper 404 page
+- **Fix #10 — Live Stats Social Proof:** Real-time stats on landing page (members, products, brands, alerts)
+- **Fix #12 — Skeleton Loaders:** Shimmer loading states for better perceived performance
+
 ## Business Model
 - ₹399/month subscription via UPI (Razorpay)
 - WhatsApp OTP registration (prevents spam)

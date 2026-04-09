@@ -1,9 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake } from 'lucide-react';
+import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity } from 'lucide-react';
 import axios from 'axios';
+import SEO from '../components/SEO';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
+
+// ============ LIVE STATS SOCIAL PROOF (Fix #10) ============
+const LiveStats = () => {
+  const [stats, setStats] = useState({
+    activeMembers: 0,
+    productsTracked: 0,
+    brandsMonitored: 0,
+    alertsSent: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStats();
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchStats, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const resp = await axios.get(`${API_URL}/stats/public`);
+      setStats(resp.data);
+    } catch (err) {
+      // Use fallback stats if API fails
+      setStats({
+        activeMembers: 35,
+        productsTracked: 11000,
+        brandsMonitored: 23,
+        alertsSent: 1500
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatNumber = (num) => {
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="flex items-center gap-6 text-xs" data-testid="live-stats">
+      <div className="flex items-center gap-1.5 text-primary/50">
+        <Users className="w-3.5 h-3.5 text-accent" />
+        <span className="font-medium text-primary">{stats.activeMembers}</span>
+        <span>members</span>
+      </div>
+      <div className="flex items-center gap-1.5 text-primary/50">
+        <Package className="w-3.5 h-3.5 text-accent" />
+        <span className="font-medium text-primary">{formatNumber(stats.productsTracked)}</span>
+        <span>products</span>
+      </div>
+      <div className="flex items-center gap-1.5 text-primary/50">
+        <Store className="w-3.5 h-3.5 text-accent" />
+        <span className="font-medium text-primary">{stats.brandsMonitored}</span>
+        <span>brands</span>
+      </div>
+      <div className="hidden md:flex items-center gap-1.5 text-primary/50">
+        <Activity className="w-3.5 h-3.5 text-green-500" />
+        <span className="font-medium text-green-500">{formatNumber(stats.alertsSent)}</span>
+        <span>alerts sent</span>
+      </div>
+    </div>
+  );
+};
 
 // Live Timestamp Component
 const LiveTimestamp = () => {
@@ -313,9 +381,15 @@ export default function LandingPage() {
               <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
                 Never Miss<br />a Drop Again.
               </h1>
-              <p className="text-base md:text-lg text-primary/50 leading-relaxed max-w-lg mb-10 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+              <p className="text-base md:text-lg text-primary/50 leading-relaxed max-w-lg mb-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
                 India's fastest streetwear alerts. Price drops, new collections, restocks — delivered to your WhatsApp in under 10 seconds.
               </p>
+              
+              {/* Live Stats Social Proof */}
+              <div className="mb-10 animate-fade-up" style={{ animationDelay: '0.25s' }}>
+                <LiveStats />
+              </div>
+              
               <div className="flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: '0.3s' }}>
                 <Link
                   to="/subscribe"

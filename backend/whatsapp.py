@@ -1,6 +1,7 @@
 """
 Meta WhatsApp Cloud API Integration
 Direct integration with Meta's WhatsApp Business API for OTP and alerts
+Includes rate limiting and opt-out handling for Meta compliance
 """
 
 import os
@@ -8,7 +9,9 @@ import json
 import logging
 import requests
 from typing import Tuple, Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from collections import defaultdict
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,128 @@ WHATSAPP_API_URL = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"
 
 # Check if properly configured
 IS_CONFIGURED = bool(WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID)
+
+# ============ RATE LIMITING ============
+# Rate limits per user per day (to control WhatsApp costs)
+RATE_LIMITS = {
+    'instant': 10,      # Max 10 instant alerts per day per user
+    'digest': 1,        # 1 daily digest
+    'otp': 5,           # Max 5 OTP requests per day
+    'total_daily': 15   # Total max messages per user per day
+}
+
+# In-memory rate tracking (use Redis in production)
+_rate_tracker: Dict[str, Dict] = defaultdict(lambda: {
+    'instant': 0,
+    'digest': 0,
+    'otp': 0,
+    'total': 0,
+    'reset_at': None
+})
+
+def _get_rate_key(phone: str) -> str:
+    """Get rate limit key for a phone number"""
+    return phone.replace('+', '').replace(' ', '')
+
+def _reset_rate_if_needed(phone: str):
+    """Reset rate limits if a new day has started"""
+    key = _get_rate_key(phone)
+    tracker = _rate_tracker[key]
+    
+    now = datetime.now(timezone.utc)
+    if tracker['reset_at'] is None or now >= tracker['reset_at']:
+        # Reset for new day
+        tracker['instant'] = 0
+        tracker['digest'] = 0
+        tracker['otp'] = 0
+        tracker['total'] = 0
+        tracker['reset_at'] = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+def check_rate_limit(phone: str, message_type: str = 'instant') -> Tuple[bool, str]:
+    """
+    Check if user is within rate limits
+    
+    Args:
+        phone: User's phone number
+        message_type: 'instant', 'digest', or 'otp'
+        
+    Returns:
+        Tuple of (allowed, reason)
+    """
+    key = _get_rate_key(phone)
+    _reset_rate_if_needed(phone)
+    
+    tracker = _rate_tracker[key]
+    
+    # Check total daily limit
+    if tracker['total'] >= RATE_LIMITS['total_daily']:
+        return False, f"Daily message limit reached ({RATE_LIMITS['total_daily']})"
+    
+    # Check type-specific limit
+    if message_type in RATE_LIMITS and tracker[message_type] >= RATE_LIMITS[message_type]:
+        return False, f"{message_type.title()} limit reached ({RATE_LIMITS[message_type]}/day)"
+    
+    return True, "OK"
+
+def record_message_sent(phone: str, message_type: str = 'instant'):
+    """Record that a message was sent for rate limiting"""
+    key = _get_rate_key(phone)
+    _reset_rate_if_needed(phone)
+    
+    tracker = _rate_tracker[key]
+    if message_type in tracker:
+        tracker[message_type] += 1
+    tracker['total'] += 1
+
+def get_rate_status(phone: str) -> Dict:
+    """Get current rate limit status for a user"""
+    key = _get_rate_key(phone)
+    _reset_rate_if_needed(phone)
+    
+    tracker = _rate_tracker[key]
+    return {
+        'instant_remaining': RATE_LIMITS['instant'] - tracker['instant'],
+        'otp_remaining': RATE_LIMITS['otp'] - tracker['otp'],
+        'total_remaining': RATE_LIMITS['total_daily'] - tracker['total'],
+        'reset_at': tracker['reset_at'].isoformat() if tracker['reset_at'] else None
+    }
+
+# ============ OPT-OUT MANAGEMENT ============
+# In-memory opt-out list (use database in production)
+_opted_out_users: set = set()
+
+def is_opted_out(phone: str) -> bool:
+    """Check if user has opted out"""
+    key = _get_rate_key(phone)
+    return key in _opted_out_users
+
+def add_opt_out(phone: str):
+    """Add user to opt-out list"""
+    key = _get_rate_key(phone)
+    _opted_out_users.add(key)
+    logger.info(f"User {phone} opted out of WhatsApp messages")
+
+def remove_opt_out(phone: str):
+    """Remove user from opt-out list (when they resubscribe)"""
+    key = _get_rate_key(phone)
+    _opted_out_users.discard(key)
+    logger.info(f"User {phone} removed from opt-out list")
+
+async def sync_opt_outs_from_db(db):
+    """Sync opt-out list from database on startup"""
+    global _opted_out_users
+    try:
+        opted_out = await db.subscribers.find(
+            {'whatsapp_opted_out': True}, 
+            {'phone': 1, '_id': 0}
+        ).to_list(10000)
+        
+        for sub in opted_out:
+            _opted_out_users.add(_get_rate_key(sub['phone']))
+        
+        logger.info(f"Loaded {len(_opted_out_users)} opted-out users from database")
+    except Exception as e:
+        logger.error(f"Error syncing opt-outs: {e}")
 
 
 class WhatsAppClient:
@@ -240,20 +365,18 @@ whatsapp_client = WhatsAppClient()
 
 def send_otp(phone: str, otp_code: str) -> Tuple[bool, str]:
     """
-    Send OTP via WhatsApp
-    
-    For now, uses text message. Once you create and approve an OTP template,
-    update this to use template message.
-    
-    Args:
-        phone: Recipient phone number
-        otp_code: The OTP code to send
-        
-    Returns:
-        Tuple of (success, message_id or error)
+    Send OTP via WhatsApp with rate limiting
     """
+    # Check rate limit for OTP
+    allowed, reason = check_rate_limit(phone, 'otp')
+    if not allowed:
+        logger.warning(f"OTP rate limit exceeded for {phone}: {reason}")
+        return False, f"Rate limit exceeded: {reason}"
+    
     if not IS_CONFIGURED:
         logger.warning("WhatsApp not configured - OTP not sent")
+        record_message_sent(phone, 'otp')  # Still count for rate limiting
+        return False, "WhatsApp not configured"
         return False, "WhatsApp not configured"
     
     # Try sending as text message first (works if user messaged you within 24hrs)
@@ -289,9 +412,22 @@ def send_price_drop_alert(
     image_url: str = None,
     product_url: str = None
 ) -> Tuple[bool, str]:
-    """Send price drop alert via WhatsApp with product image"""
+    """Send price drop alert via WhatsApp with rate limiting and opt-out check"""
+    # Check opt-out
+    if is_opted_out(phone):
+        logger.info(f"User {phone} has opted out, skipping alert")
+        return False, "User opted out"
+    
+    # Check rate limit
+    allowed, reason = check_rate_limit(phone, 'instant')
+    if not allowed:
+        logger.warning(f"Rate limit exceeded for {phone}: {reason}")
+        return False, f"Rate limit: {reason}"
+    
     if not IS_CONFIGURED:
-        return False, "WhatsApp not configured"
+        logger.info(f"[Sandbox] Price drop alert to {phone}: {product_name} ₹{old_price} → ₹{new_price}")
+        record_message_sent(phone, 'instant')
+        return True, "sandbox_mode"
     
     caption = f"""🔥 *Price Drop Alert!*
 
@@ -301,13 +437,20 @@ def send_price_drop_alert(
 
 💰 You save: ₹{int(float(old_price.replace(',','')) - float(new_price.replace(',',''))):,}
 
-🛒 Shop now on Drops Curated!"""
+🛒 Shop now on Drops Curated!
+
+Reply STOP to unsubscribe."""
 
     # Send with image if available
     if image_url:
-        return whatsapp_client.send_image_message(phone, image_url, caption)
+        success, result = whatsapp_client.send_image_message(phone, image_url, caption)
     else:
-        return whatsapp_client.send_text_message(phone, caption)
+        success, result = whatsapp_client.send_text_message(phone, caption)
+    
+    if success:
+        record_message_sent(phone, 'instant')
+    
+    return success, result
 
 
 def send_new_drop_alert(
@@ -318,9 +461,22 @@ def send_new_drop_alert(
     image_url: str = None,
     product_url: str = None
 ) -> Tuple[bool, str]:
-    """Send new product drop alert via WhatsApp with product image"""
+    """Send new product drop alert via WhatsApp with rate limiting and opt-out check"""
+    # Check opt-out
+    if is_opted_out(phone):
+        logger.info(f"User {phone} has opted out, skipping alert")
+        return False, "User opted out"
+    
+    # Check rate limit
+    allowed, reason = check_rate_limit(phone, 'instant')
+    if not allowed:
+        logger.warning(f"Rate limit exceeded for {phone}: {reason}")
+        return False, f"Rate limit: {reason}"
+    
     if not IS_CONFIGURED:
-        return False, "WhatsApp not configured"
+        logger.info(f"[Sandbox] New drop alert to {phone}: {product_name} at ₹{price}")
+        record_message_sent(phone, 'instant')
+        return True, "sandbox_mode"
     
     brand_text = f" by *{brand}*" if brand else ""
     caption = f"""🆕 *New Drop Alert!*

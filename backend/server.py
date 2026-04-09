@@ -152,6 +152,22 @@ async def health_check():
         }
     }
 
+# ============ PUBLIC STATS (Fix #10 - Social Proof) ============
+@api_router.get('/stats/public')
+async def get_public_stats():
+    """Get public statistics for social proof on landing page"""
+    active_members = await db.subscribers.count_documents({'isActive': True, 'isPaid': True})
+    total_products = await db.products.count_documents({})
+    total_brands = await db.brands.count_documents({'isActive': {'$ne': False}})
+    alerts_sent = await db.alert_log.count_documents({})
+    
+    return {
+        'activeMembers': active_members,
+        'productsTracked': total_products,
+        'brandsMonitored': total_brands,
+        'alertsSent': alerts_sent
+    }
+
 # ============ SEARCH & PRODUCTS ============
 @api_router.get('/search')
 async def search_products(

@@ -415,3 +415,126 @@ async def classify_new_product(db, product: Dict) -> Dict:
     )
     
     return classified
+
+
+
+# ============ CLASSIFIER FEEDBACK LOOP ============
+
+async def record_classification_feedback(
+    db,
+    product_id: str,
+    feedback_type: str,  # 'correct', 'wrong_category', 'wrong_gender', 'wrong_brand'
+    correct_value: str = None,
+    user_id: str = None
+) -> bool:
+    """
+    Record user feedback on AI classification.
+    This allows the system to learn from corrections.
+    
+    Args:
+        db: Database instance
+        product_id: Product ID
+        feedback_type: Type of feedback
+        correct_value: The correct value if classification was wrong
+        user_id: Optional user who provided feedback
+        
+    Returns:
+        Success status
+    """
+    try:
+        feedback_doc = {
+            'product_id': product_id,
+            'feedback_type': feedback_type,
+            'correct_value': correct_value,
+            'user_id': user_id,
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.classification_feedback.insert_one(feedback_doc)
+        
+        # If wrong, update the product with correct value
+        if feedback_type != 'correct' and correct_value:
+            update_field = {
+                'wrong_category': 'aiCategory',
+                'wrong_gender': 'aiGender',
+                'wrong_brand': 'aiBrand',
+                'wrong_subcategory': 'aiSubcategory'
+            }.get(feedback_type)
+            
+            if update_field:
+                await db.products.update_one(
+                    {'id': product_id},
+                    {
+                        '$set': {
+                            update_field: correct_value,
+                            'aiConfidence': 1.0,  # Human-corrected = 100% confidence
+                            'humanCorrected': True,
+                            'correctedAt': datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                logger.info(f"[Feedback] Corrected {product_id}: {update_field} = {correct_value}")
+        
+        return True
+    except Exception as e:
+        logger.error(f"[Feedback] Error recording feedback: {e}")
+        return False
+
+
+async def get_classification_accuracy(db) -> Dict:
+    """
+    Calculate classification accuracy based on feedback.
+    
+    Returns:
+        Accuracy statistics
+    """
+    try:
+        total_feedback = await db.classification_feedback.count_documents({})
+        correct_count = await db.classification_feedback.count_documents({'feedback_type': 'correct'})
+        
+        # Get breakdown by feedback type
+        pipeline = [
+            {'$group': {'_id': '$feedback_type', 'count': {'$sum': 1}}}
+        ]
+        breakdown = await db.classification_feedback.aggregate(pipeline).to_list(100)
+        
+        accuracy = (correct_count / total_feedback * 100) if total_feedback > 0 else 0
+        
+        return {
+            'total_feedback': total_feedback,
+            'correct': correct_count,
+            'accuracy_percentage': round(accuracy, 2),
+            'breakdown': {item['_id']: item['count'] for item in breakdown}
+        }
+    except Exception as e:
+        logger.error(f"[Feedback] Error calculating accuracy: {e}")
+        return {'error': str(e)}
+
+
+async def get_products_needing_review(db, limit: int = 20) -> List[Dict]:
+    """
+    Get products with low confidence that need human review.
+    
+    Args:
+        db: Database instance
+        limit: Max products to return
+        
+    Returns:
+        List of products needing review
+    """
+    try:
+        # Find products with confidence < 0.7 that haven't been corrected
+        query = {
+            'aiConfidence': {'$lt': 0.7, '$exists': True},
+            'humanCorrected': {'$ne': True}
+        }
+        
+        products = await db.products.find(
+            query, 
+            {'_id': 0, 'id': 1, 'name': 1, 'brand': 1, 'aiGender': 1, 'aiCategory': 1, 'aiSubcategory': 1, 'aiConfidence': 1, 'imageUrl': 1}
+        ).sort('aiConfidence', 1).limit(limit).to_list(limit)
+        
+        return products
+    except Exception as e:
+        logger.error(f"[Feedback] Error getting products for review: {e}")
+        return []
