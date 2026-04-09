@@ -1,5 +1,10 @@
 # Test Credentials - Drops Curated
 
+## Admin Panel Login
+- **URL**: `/admin`
+- **Email**: `admin@dropscurated.com`
+- **Password**: `DropsCurated2024!`
+
 ## WhatsApp OTP Login (Sandbox Mode)
 - **Phone**: Any 10-digit Indian number starting with 6-9 (e.g., `9876543210`, `9999888877`)
 - **OTP**: Auto-filled in sandbox mode (displayed in toast notification)

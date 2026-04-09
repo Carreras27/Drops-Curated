@@ -3,15 +3,17 @@ Background scheduler for auto-scraping all brands every 15 minutes.
 Detects changes (price drops, new products) and triggers WhatsApp alerts.
 Also handles daily digest notifications at 8 PM IST.
 Includes AI classification for new products.
+Includes health checks and dead-man's switch.
 """
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from scrapers import SCRAPERS
 from alerts import detect_changes, send_alerts
 from classifier import classify_product, clean_product_title
+from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplicate_stats
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,16 @@ scheduler = AsyncIOScheduler()
 _db = None
 _is_running = False
 _last_run = None
+_last_success = None
 _run_results = {}
+_consecutive_failures = 0
+_health_status = {
+    'status': 'unknown',
+    'last_check': None,
+    'scraper_healthy': True,
+    'db_healthy': True,
+    'alerts_healthy': True
+}
 
 
 def init_scheduler(db):
@@ -48,13 +59,33 @@ def init_scheduler(db):
         replace_existing=True,
     )
     
+    # Health check every 5 minutes
+    scheduler.add_job(
+        run_health_check,
+        'interval',
+        minutes=5,
+        id='health_check',
+        max_instances=1,
+        replace_existing=True,
+    )
+    
+    # Dead-man's switch - check if scraper is stuck
+    scheduler.add_job(
+        check_dead_mans_switch,
+        'interval',
+        minutes=30,
+        id='dead_mans_switch',
+        max_instances=1,
+        replace_existing=True,
+    )
+    
     scheduler.start()
-    logger.info("[Scheduler] Started — scraping every 15 minutes, daily digest at 8 PM IST")
+    logger.info("[Scheduler] Started — scraping every 15 minutes, health check every 5 minutes")
 
 
 async def scrape_all_brands():
     """Scrape all brands, detect changes, send alerts."""
-    global _is_running, _last_run, _run_results
+    global _is_running, _last_run, _last_success, _run_results, _consecutive_failures
     if _is_running:
         logger.warning("[Scheduler] Scrape already running, skipping")
         return
@@ -64,6 +95,9 @@ async def scrape_all_brands():
     total_new = 0
     total_drops = 0
     total_alerts = 0
+    total_duplicates = 0
+    brands_succeeded = 0
+    brands_failed = 0
 
     logger.info("[Scheduler] === Auto-scrape cycle starting ===")
 
@@ -82,8 +116,13 @@ async def scrape_all_brands():
             new_count = len(changes["new_products"])
             drops_count = len(changes["price_drops"])
 
-            # Store products (same logic as the API endpoint)
-            await _store_products(_db, scraped, key)
+            # Filter duplicates before storing
+            unique_products, duplicates = await filter_duplicates(_db, scraped)
+            total_duplicates += len(duplicates)
+            
+            # Store products (only unique ones)
+            if unique_products:
+                await _store_products(_db, unique_products, key)
 
             # Send alerts if there are changes
             alert_result = {"sent": 0}
@@ -93,6 +132,8 @@ async def scrape_all_brands():
             _run_results[key] = {
                 "status": "ok",
                 "scraped": len(scraped),
+                "unique": len(unique_products),
+                "duplicates": len(duplicates),
                 "new": new_count,
                 "price_drops": drops_count,
                 "alerts_sent": alert_result["sent"],
@@ -100,14 +141,23 @@ async def scrape_all_brands():
             total_new += new_count
             total_drops += drops_count
             total_alerts += alert_result["sent"]
+            brands_succeeded += 1
 
-            logger.info(f"[Scheduler] {scraper.brand_name}: {len(scraped)} products, {new_count} new, {drops_count} price drops, {alert_result['sent']} alerts")
+            logger.info(f"[Scheduler] {scraper.brand_name}: {len(scraped)} products ({len(duplicates)} duplicates), {new_count} new, {drops_count} price drops, {alert_result['sent']} alerts")
 
         except Exception as e:
             logger.error(f"[Scheduler] Error scraping {key}: {e}")
             _run_results[key] = {"status": "error", "error": str(e)}
+            brands_failed += 1
 
-    logger.info(f"[Scheduler] === Cycle complete: {total_new} new, {total_drops} drops, {total_alerts} alerts sent ===")
+    # Update success tracking
+    if brands_succeeded > 0:
+        _last_success = datetime.now(timezone.utc).isoformat()
+        _consecutive_failures = 0
+    else:
+        _consecutive_failures += 1
+    
+    logger.info(f"[Scheduler] === Cycle complete: {total_new} new, {total_drops} drops, {total_duplicates} duplicates filtered, {total_alerts} alerts sent ===")
     _is_running = False
 
 
@@ -292,3 +342,84 @@ async def send_daily_digest_notifications():
             )
     
     logger.info(f"[Daily Digest] Completed: {sent_count} digests sent")
+
+
+
+# ============ HEALTH CHECKS ============
+
+async def run_health_check():
+    """Run periodic health checks on all systems"""
+    global _health_status, _db
+    
+    now = datetime.now(timezone.utc)
+    _health_status['last_check'] = now.isoformat()
+    
+    # Check database connectivity
+    try:
+        await _db.products.find_one({})
+        _health_status['db_healthy'] = True
+    except Exception as e:
+        _health_status['db_healthy'] = False
+        logger.error(f"[HealthCheck] Database unhealthy: {e}")
+    
+    # Check if scraper has run recently
+    if _last_success:
+        last_success_time = datetime.fromisoformat(_last_success)
+        time_since_success = now - last_success_time
+        _health_status['scraper_healthy'] = time_since_success < timedelta(hours=1)
+    else:
+        _health_status['scraper_healthy'] = _last_run is None  # OK if never run yet
+    
+    # Overall status
+    if _health_status['db_healthy'] and _health_status['scraper_healthy']:
+        _health_status['status'] = 'healthy'
+    elif not _health_status['db_healthy']:
+        _health_status['status'] = 'critical'
+    else:
+        _health_status['status'] = 'degraded'
+    
+    logger.debug(f"[HealthCheck] Status: {_health_status['status']}")
+
+
+async def check_dead_mans_switch():
+    """
+    Dead-man's switch: If scraper hasn't succeeded in 1 hour, trigger alert.
+    This prevents silent failures where the scraper stops working.
+    """
+    global _last_success, _consecutive_failures, _db
+    
+    if not _last_success:
+        return  # Never run yet, skip
+    
+    now = datetime.now(timezone.utc)
+    last_success_time = datetime.fromisoformat(_last_success)
+    time_since_success = now - last_success_time
+    
+    # If no successful scrape in 1 hour, something is wrong
+    if time_since_success > timedelta(hours=1):
+        logger.warning(f"[DeadMansSwitch] No successful scrape in {time_since_success}. Consecutive failures: {_consecutive_failures}")
+        
+        # Log the issue
+        await _db.system_alerts.insert_one({
+            'type': 'dead_mans_switch',
+            'message': f'Scraper has not succeeded in {time_since_success}',
+            'consecutive_failures': _consecutive_failures,
+            'last_success': _last_success,
+            'created_at': now.isoformat()
+        })
+        
+        # If 3+ consecutive failures, mark as critical
+        if _consecutive_failures >= 3:
+            _health_status['status'] = 'critical'
+            _health_status['scraper_healthy'] = False
+
+
+def get_health_status():
+    """Get current health status"""
+    return {
+        **_health_status,
+        'last_run': _last_run,
+        'last_success': _last_success,
+        'consecutive_failures': _consecutive_failures,
+        'is_running': _is_running
+    }

@@ -131,6 +131,27 @@ async def login(login_data: UserLogin):
 async def get_me(current_user: dict = Depends(get_current_user)):
     return User(**current_user)
 
+# ============ HEALTH CHECK ============
+@api_router.get('/health')
+async def health_check():
+    """Public health check endpoint"""
+    from scheduler import get_health_status
+    
+    health = get_health_status()
+    
+    return {
+        'status': health.get('status', 'unknown'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'scraper': {
+            'healthy': health.get('scraper_healthy', False),
+            'last_run': health.get('last_run'),
+            'is_running': health.get('is_running', False)
+        },
+        'database': {
+            'healthy': health.get('db_healthy', True)
+        }
+    }
+
 # ============ SEARCH & PRODUCTS ============
 @api_router.get('/search')
 async def search_products(
@@ -2560,5 +2581,16 @@ async def shutdown_db_client():
 @app.on_event("startup")
 async def startup_scheduler():
     from scheduler import init_scheduler
+    from auth import init_admin_routes, admin_router, seed_admin_user
+    
+    # Initialize scheduler
     init_scheduler(db)
     logger.info("Scheduler initialized - auto-scraping every 15 minutes")
+    
+    # Initialize admin routes
+    init_admin_routes(db)
+    app.include_router(admin_router)
+    logger.info("Admin routes initialized")
+    
+    # Seed default admin user
+    await seed_admin_user()
