@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Package, TrendingUp, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Package, TrendingUp, RefreshCw, Search, X } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 
@@ -16,11 +16,26 @@ export function BrandPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
     fetchBrandDetails();
-    fetchProducts(1);
+    fetchProducts(1, '');
   }, [brandKey]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery !== '') {
+        fetchProducts(1, searchQuery);
+      } else {
+        fetchProducts(1, '');
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const fetchBrandDetails = async () => {
     try {
@@ -37,16 +52,24 @@ export function BrandPage() {
     }
   };
 
-  const fetchProducts = async (pageNum) => {
+  const fetchProducts = async (pageNum, query = '') => {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
+    setIsSearching(query !== '');
     
     try {
-      const resp = await axios.get(`${API_URL}/search?store=${brandKey}&limit=24&skip=${(pageNum - 1) * 24}&sort=date`);
+      // Build query params - always filter by store (brand), optionally add search query
+      let url = `${API_URL}/search?store=${brandKey}&limit=24&skip=${(pageNum - 1) * 24}&sort=date`;
+      if (query.trim()) {
+        url = `${API_URL}/brand-search?store=${brandKey}&q=${encodeURIComponent(query.trim())}&limit=24&skip=${(pageNum - 1) * 24}&sort=date`;
+      }
+      
+      const resp = await axios.get(url);
       const newProducts = resp.data.products || [];
       
       if (pageNum === 1) {
         setProducts(newProducts);
+        setTotalProducts(resp.data.total || newProducts.length);
       } else {
         setProducts(prev => [...prev, ...newProducts]);
       }
@@ -61,9 +84,13 @@ export function BrandPage() {
     }
   };
 
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
   const loadMore = () => {
     if (!loadingMore && hasMore) {
-      fetchProducts(page + 1);
+      fetchProducts(page + 1, searchQuery);
     }
   };
 
@@ -76,7 +103,7 @@ export function BrandPage() {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [page, loadingMore, hasMore]);
+  }, [page, loadingMore, hasMore, searchQuery]);
 
   return (
     <div className="min-h-screen bg-background text-primary">
@@ -95,7 +122,7 @@ export function BrandPage() {
 
           {/* Brand Header */}
           {brand && (
-            <div className="mb-12 pb-8 border-b border-primary/10">
+            <div className="mb-8 pb-8 border-b border-primary/10">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
                   <div className="w-20 h-20 bg-gradient-to-br from-accent/20 to-primary/10 rounded-full flex items-center justify-center mb-4">
@@ -129,6 +156,34 @@ export function BrandPage() {
               </div>
             </div>
           )}
+
+          {/* Search Bar within Brand */}
+          <div className="mb-8">
+            <div className="relative max-w-2xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/30" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search within ${brand?.name || 'this brand'}...`}
+                className="w-full pl-12 pr-12 py-4 bg-surface border border-primary/10 text-sm placeholder:text-primary/30 focus:outline-none focus:border-accent transition-colors"
+                data-testid="brand-search-input"
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 hover:text-primary transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            {isSearching && (
+              <p className="mt-3 text-sm text-primary/50">
+                {loading ? 'Searching...' : `Found ${totalProducts} results for "${searchQuery}" in ${brand?.name}`}
+              </p>
+            )}
+          </div>
 
           {/* Products Grid */}
           {loading ? (

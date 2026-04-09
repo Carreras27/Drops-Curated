@@ -223,6 +223,72 @@ async def search_products(
         'pages': (total + limit - 1) // limit
     }
 
+@api_router.get('/brand-search')
+async def brand_search(
+    store: str = Query(..., description='Brand/Store key to search within'),
+    q: str = Query('', description='Search query within the brand'),
+    sort: str = Query('date', description='Sort by: date, price_low, price_high'),
+    page: int = Query(1, ge=1),
+    limit: int = Query(24, ge=1, le=100),
+    skip: int = Query(0, ge=0)
+):
+    """Search products within a specific brand/store"""
+    import random as rnd
+    
+    # Always filter by store
+    query = {'store': {'$regex': f'^{store}$', '$options': 'i'}}
+    
+    # Add search within the brand's products
+    search_term = q.strip()
+    if search_term:
+        # Search within product name, description, and tags for this brand
+        search_conditions = [
+            {'name': {'$regex': search_term, '$options': 'i'}},
+            {'description': {'$regex': search_term, '$options': 'i'}},
+            {'tags': {'$regex': search_term, '$options': 'i'}},
+        ]
+        query['$and'] = [
+            {'store': {'$regex': f'^{store}$', '$options': 'i'}},
+            {'$or': search_conditions}
+        ]
+        # Remove the duplicate store key
+        del query['store']
+    
+    # Calculate skip value
+    skip_val = skip if skip > 0 else (page - 1) * limit
+    
+    # Get total count
+    total = await db.products.count_documents(query)
+    
+    # Fetch products with sorting
+    if sort == 'price_low':
+        products = await db.products.find(query, {'_id': 0}).sort('price', 1).skip(skip_val).limit(limit).to_list(limit)
+    elif sort == 'price_high':
+        products = await db.products.find(query, {'_id': 0}).sort('price', -1).skip(skip_val).limit(limit).to_list(limit)
+    else:
+        products = await db.products.find(query, {'_id': 0}).sort('createdAt', -1).skip(skip_val).limit(limit).to_list(limit)
+    
+    # Enrich products with price data
+    for product in products:
+        prices = await db.prices.find({'productId': product['id']}, {'_id': 0}).to_list(100)
+        if prices:
+            product['lowestPrice'] = min(p['currentPrice'] for p in prices)
+            product['highestPrice'] = max(p['currentPrice'] for p in prices)
+            product['priceCount'] = len(prices)
+        else:
+            product['lowestPrice'] = product.get('price', 0)
+            product['highestPrice'] = product.get('price', 0)
+            product['priceCount'] = 1
+    
+    return {
+        'products': products,
+        'total': total,
+        'page': page,
+        'pages': (total + limit - 1) // limit,
+        'query': search_term,
+        'store': store
+    }
+
 @api_router.get('/products/{product_id}')
 async def get_product(product_id: str):
     product = await db.products.find_one({'id': product_id}, {'_id': 0})
