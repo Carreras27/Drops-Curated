@@ -168,6 +168,112 @@ async def get_public_stats():
         'alertsSent': alerts_sent
     }
 
+# ============ SEARCH SUGGESTIONS (Dynamic Autocomplete) ============
+@api_router.get('/search/suggestions')
+async def get_search_suggestions(
+    q: str = Query(..., min_length=1, description='Search query'),
+    limit: int = Query(10, ge=1, le=20)
+):
+    """
+    Get search suggestions for autocomplete.
+    Returns matching brands, categories, and product names.
+    """
+    search_term = q.strip().lower()
+    
+    if len(search_term) < 1:
+        return {'suggestions': []}
+    
+    suggestions = []
+    
+    # 1. Search matching brands (highest priority)
+    brand_pipeline = [
+        {'$match': {'brand': {'$regex': search_term, '$options': 'i'}}},
+        {'$group': {'_id': '$brand', 'count': {'$sum': 1}}},
+        {'$sort': {'count': -1}},
+        {'$limit': 5}
+    ]
+    brands = await db.products.aggregate(brand_pipeline).to_list(5)
+    for b in brands:
+        suggestions.append({
+            'type': 'brand',
+            'value': b['_id'],
+            'label': b['_id'],
+            'count': b['count'],
+            'icon': 'store'
+        })
+    
+    # 2. Search matching stores
+    store_pipeline = [
+        {'$match': {'store': {'$regex': search_term, '$options': 'i'}}},
+        {'$group': {'_id': '$store', 'count': {'$sum': 1}}},
+        {'$sort': {'count': -1}},
+        {'$limit': 3}
+    ]
+    stores = await db.products.aggregate(store_pipeline).to_list(3)
+    for s in stores:
+        store_name = s['_id'].replace('_', ' ').title()
+        suggestions.append({
+            'type': 'store',
+            'value': s['_id'],
+            'label': store_name,
+            'count': s['count'],
+            'icon': 'building'
+        })
+    
+    # 3. Search matching categories/subcategories
+    if len(search_term) >= 2:
+        category_pipeline = [
+            {'$match': {'aiSubcategory': {'$regex': search_term, '$options': 'i'}}},
+            {'$group': {'_id': '$aiSubcategory', 'count': {'$sum': 1}}},
+            {'$sort': {'count': -1}},
+            {'$limit': 3}
+        ]
+        categories = await db.products.aggregate(category_pipeline).to_list(3)
+        for c in categories:
+            if c['_id']:
+                suggestions.append({
+                    'type': 'category',
+                    'value': c['_id'],
+                    'label': c['_id'],
+                    'count': c['count'],
+                    'icon': 'tag'
+                })
+    
+    # 4. Search matching product names (show top products)
+    if len(search_term) >= 2:
+        product_query = {'name': {'$regex': search_term, '$options': 'i'}}
+        products = await db.products.find(
+            product_query, 
+            {'_id': 0, 'id': 1, 'name': 1, 'brand': 1, 'price': 1, 'imageUrl': 1}
+        ).limit(5).to_list(5)
+        
+        for p in products:
+            suggestions.append({
+                'type': 'product',
+                'value': p['id'],
+                'label': p['name'][:60] + ('...' if len(p['name']) > 60 else ''),
+                'brand': p.get('brand', ''),
+                'price': p.get('price'),
+                'image': p.get('imageUrl'),
+                'icon': 'package'
+            })
+    
+    # Remove duplicates and limit
+    seen = set()
+    unique_suggestions = []
+    for s in suggestions:
+        key = f"{s['type']}:{s['value']}"
+        if key not in seen:
+            seen.add(key)
+            unique_suggestions.append(s)
+        if len(unique_suggestions) >= limit:
+            break
+    
+    return {
+        'query': q,
+        'suggestions': unique_suggestions
+    }
+
 # ============ SEARCH & PRODUCTS ============
 @api_router.get('/search')
 async def search_products(

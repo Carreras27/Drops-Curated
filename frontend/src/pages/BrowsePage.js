@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 
@@ -609,6 +609,13 @@ export default function BrowsePage() {
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
   
+  // Search suggestions state
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const searchInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
+  
   // Ref for filter section to scroll into view
   const filterSectionRef = useRef(null);
   
@@ -836,8 +843,84 @@ export default function BrowsePage() {
     setSelectedSubcategory(null);
     setSelectedGender('All');
     setQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
     setPage(1);
     fetchAllProducts(1);
+  };
+
+  // ============ DYNAMIC SEARCH SUGGESTIONS ============
+  
+  // Fetch search suggestions with debounce
+  useEffect(() => {
+    if (query.length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    const timer = setTimeout(async () => {
+      setLoadingSuggestions(true);
+      try {
+        const resp = await axios.get(`${API_URL}/search/suggestions?q=${encodeURIComponent(query)}&limit=10`);
+        setSuggestions(resp.data.suggestions || []);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error('Failed to fetch suggestions:', err);
+        setSuggestions([]);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 200); // 200ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(e.target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(e.target)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion) => {
+    setShowSuggestions(false);
+    
+    if (suggestion.type === 'brand') {
+      // Search by brand name
+      setQuery(suggestion.value);
+      setSelectedBrand(null);
+      setPage(1);
+      fetchAllProducts(1, null, suggestion.value);
+    } else if (suggestion.type === 'store') {
+      // Filter by store
+      const brand = brands.find(b => b.key === suggestion.value || b.storeKey === suggestion.value);
+      if (brand) {
+        handleBrandClick(brand);
+      } else {
+        setQuery(suggestion.label);
+        setPage(1);
+        fetchAllProducts(1, suggestion.value, null);
+      }
+    } else if (suggestion.type === 'category') {
+      // Set subcategory filter
+      setSelectedSubcategory(suggestion.value);
+      setQuery('');
+      setPage(1);
+    } else if (suggestion.type === 'product') {
+      // Navigate to product page
+      window.location.href = `/product/${suggestion.value}`;
+    }
   };
 
   // Handle filter toggle with auto-scroll
@@ -1010,13 +1093,83 @@ export default function BrowsePage() {
             <form onSubmit={handleSearch} className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/30" strokeWidth={1.5} />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => query.length > 0 && suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="Search Nike, Jordan, Yeezy, hoodies, sneakers..."
                 className="w-full pl-11 pr-4 py-3 bg-surface border border-primary/10 text-sm placeholder:text-primary/30 focus:outline-none focus:border-accent transition-colors"
                 data-testid="search-input"
+                autoComplete="off"
               />
+              
+              {/* Search Suggestions Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div 
+                  ref={suggestionsRef}
+                  className="absolute top-full left-0 right-0 mt-1 bg-surface border border-primary/10 shadow-lg max-h-96 overflow-y-auto z-50"
+                  data-testid="search-suggestions"
+                >
+                  {loadingSuggestions && (
+                    <div className="px-4 py-3 text-sm text-primary/40 flex items-center gap-2">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Searching...
+                    </div>
+                  )}
+                  
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={`${suggestion.type}-${suggestion.value}-${idx}`}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="w-full px-4 py-3 text-left hover:bg-accent/5 border-b border-primary/5 last:border-0 flex items-center gap-3 transition-colors"
+                      data-testid={`suggestion-${suggestion.type}-${idx}`}
+                    >
+                      {/* Icon based on type */}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        suggestion.type === 'brand' ? 'bg-accent/10 text-accent' :
+                        suggestion.type === 'store' ? 'bg-blue-500/10 text-blue-500' :
+                        suggestion.type === 'category' ? 'bg-purple-500/10 text-purple-500' :
+                        'bg-primary/5 text-primary/50'
+                      }`}>
+                        {suggestion.type === 'brand' && <Store className="w-4 h-4" />}
+                        {suggestion.type === 'store' && <Store className="w-4 h-4" />}
+                        {suggestion.type === 'category' && <Tag className="w-4 h-4" />}
+                        {suggestion.type === 'product' && (
+                          suggestion.image ? (
+                            <img src={suggestion.image} alt="" className="w-8 h-8 object-cover rounded" />
+                          ) : (
+                            <Package className="w-4 h-4" />
+                          )
+                        )}
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-primary truncate">{suggestion.label}</p>
+                        <div className="flex items-center gap-2 text-xs text-primary/40">
+                          <span className="capitalize">{suggestion.type}</span>
+                          {suggestion.count && <span>• {suggestion.count} items</span>}
+                          {suggestion.brand && <span>• {suggestion.brand}</span>}
+                          {suggestion.price && <span>• ₹{suggestion.price.toLocaleString()}</span>}
+                        </div>
+                      </div>
+                      
+                      {/* Arrow */}
+                      <ArrowRight className="w-4 h-4 text-primary/20" />
+                    </button>
+                  ))}
+                  
+                  {/* Search all option */}
+                  <button
+                    onClick={() => { setShowSuggestions(false); handleSearch({ preventDefault: () => {} }); }}
+                    className="w-full px-4 py-3 text-left hover:bg-accent/5 flex items-center gap-3 text-accent text-sm"
+                  >
+                    <Search className="w-4 h-4" />
+                    Search all for "{query}"
+                  </button>
+                </div>
+              )}
             </form>
             <button
               onClick={handleFilterToggle}
