@@ -146,19 +146,35 @@ async def search_products(
     import random as rnd
     
     query = {}
+    search_term = q.strip()
     
     # Store filter - filter by store/brand key (e.g., CREPDOG_CREW)
     if store:
         query['store'] = {'$regex': f'^{store}$', '$options': 'i'}
     # Search query - searches name, description, brand, tags, store
-    elif q.strip():
-        query['$or'] = [
-            {'name': {'$regex': q, '$options': 'i'}},
-            {'description': {'$regex': q, '$options': 'i'}},
-            {'brand': {'$regex': q, '$options': 'i'}},
-            {'tags': {'$regex': q, '$options': 'i'}},
-            {'store': {'$regex': q, '$options': 'i'}},
-        ]
+    elif search_term:
+        # For short search terms (<=3 chars), use word boundary matching to avoid
+        # matching partial words (e.g., "on" shouldn't match "Air Force 1 '07")
+        if len(search_term) <= 3:
+            # Use word boundary regex: match "on" as a standalone word or at start/end
+            word_regex = f'\\b{search_term}\\b'
+            query['$or'] = [
+                {'name': {'$regex': word_regex, '$options': 'i'}},
+                {'brand': {'$regex': word_regex, '$options': 'i'}},
+                {'tags': {'$regex': word_regex, '$options': 'i'}},
+                {'store': {'$regex': word_regex, '$options': 'i'}},
+                # Also try exact brand match
+                {'brand': {'$regex': f'^{search_term}$', '$options': 'i'}},
+            ]
+        else:
+            # For longer search terms, use standard partial matching
+            query['$or'] = [
+                {'name': {'$regex': search_term, '$options': 'i'}},
+                {'description': {'$regex': search_term, '$options': 'i'}},
+                {'brand': {'$regex': search_term, '$options': 'i'}},
+                {'tags': {'$regex': search_term, '$options': 'i'}},
+                {'store': {'$regex': search_term, '$options': 'i'}},
+            ]
     
     # Brand filter - exact match on brand field
     if brand:
