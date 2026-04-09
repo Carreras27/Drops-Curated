@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
-const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES'];
-const SUBCATEGORIES = ['T-Shirts', 'Shirts', 'Hoodies', 'Collectables', 'Jackets', 'Pants'];
+const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES', 'COLLECTABLES'];
+const SUBCATEGORIES = ['T-Shirts', 'Shirts', 'Hoodies', 'Jackets', 'Pants', 'Sneakers', 'Slides'];
+const GENDERS = ['All', 'Men', 'Women', 'Unisex'];
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in ms
 
 // ============ SIZE CONVERSION SYSTEM ============
@@ -582,6 +583,7 @@ export default function BrowsePage() {
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  const [selectedGender, setSelectedGender] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -812,6 +814,7 @@ export default function BrowsePage() {
     setSelectedBrand(null);
     setSelectedCategory('All');
     setSelectedSubcategory(null);
+    setSelectedGender('All');
     setQuery('');
     setPage(1);
     fetchAllProducts(1);
@@ -839,92 +842,89 @@ export default function BrowsePage() {
     }
   };
 
-  // Apply category filter, subcategory filter, and size filter
+  // ============ AI-POWERED FILTERING ============
+  // Uses AI classification fields (aiCategory, aiSubcategory, aiGender) when available
+  // Falls back to keyword matching for unclassified products
+  
   const filteredProducts = allProducts.filter(p => {
-    // Category filter - prefer AI classification if available
+    // Check if product has AI classification
+    const hasAIClassification = !!p.aiCategory;
+    
+    // ===== GENDER FILTER (AI-powered) =====
+    if (selectedGender !== 'All') {
+      if (hasAIClassification && p.aiGender) {
+        // Use AI gender classification
+        if (p.aiGender !== selectedGender) {
+          return false;
+        }
+      } else {
+        // Fallback: keyword matching for unclassified products
+        const productName = (p.name || '').toLowerCase();
+        if (selectedGender === 'Women') {
+          if (!productName.includes('(w)') && !productName.includes('women') && !productName.includes('wmns')) {
+            return false;
+          }
+        } else if (selectedGender === 'Men') {
+          if (!productName.includes('(m)') && !productName.includes(' men ') && !productName.includes('mens')) {
+            return false;
+          }
+        }
+      }
+    }
+    
+    // ===== CATEGORY FILTER (AI-powered) =====
     if (selectedCategory !== 'All') {
-      const productCategory = p.aiCategory || p.category;
+      const productCategory = hasAIClassification ? p.aiCategory : p.category;
       if (productCategory !== selectedCategory) {
         return false;
       }
     }
     
-    // Subcategory/Item Type filter
-    // First check AI subcategory, then fall back to keyword matching
+    // ===== SUBCATEGORY / ITEM TYPE FILTER (AI-powered) =====
     if (selectedSubcategory) {
       const searchTerm = selectedSubcategory.toLowerCase();
       
-      // If product has AI subcategory, use it for exact matching
-      if (p.aiSubcategory) {
+      // AI subcategory mappings
+      const subcategoryMappings = {
+        't-shirts': ['t-shirt', 'tee'],
+        'shirts': ['shirt', 'polo'],
+        'hoodies': ['hoodie', 'sweatshirt', 'pullover'],
+        'jackets': ['jacket', 'bomber', 'coat', 'varsity', 'puffer', 'windbreaker'],
+        'pants': ['pants', 'shorts', 'joggers', 'jeans', 'trousers', 'cargo'],
+        'sneakers': ['sneakers', 'sneaker', 'trainers'],
+        'slides': ['slides', 'slide', 'sandals', 'slippers']
+      };
+      
+      // Priority 1: Use AI subcategory if available
+      if (hasAIClassification && p.aiSubcategory) {
         const aiSub = p.aiSubcategory.toLowerCase();
-        // Map UI filter names to possible AI subcategory values
-        const subcategoryMappings = {
-          't-shirts': ['t-shirt', 'tee'],
-          'shirts': ['shirt', 'polo'],
-          'hoodies': ['hoodie', 'sweatshirt', 'pullover'],
-          'collectables': ['bearbrick', 'figure', 'lego set', 'collectible', 'funko'],
-          'jackets': ['jacket', 'bomber', 'coat', 'varsity', 'puffer', 'windbreaker'],
-          'pants': ['pants', 'shorts', 'joggers', 'jeans', 'trousers', 'cargo']
-        };
-        
         const matchTerms = subcategoryMappings[searchTerm] || [searchTerm];
+        
         if (matchTerms.some(term => aiSub.includes(term))) {
-          return true; // AI classification match - allow through
+          // AI match found - continue to next filter
+        } else {
+          return false; // AI classified but doesn't match
         }
-      }
-      
-      // Fallback to keyword matching in product name/tags/description
-      const productName = (p.normalizedTitle || p.name || '').toLowerCase();
-      const productTags = (p.tags || []).join(' ').toLowerCase();
-      const productDesc = (p.description || '').toLowerCase();
-      
-      let matches = false;
-      if (searchTerm === 't-shirts') {
-        matches = productName.includes('t-shirt') || productName.includes('tee') || 
-                  productTags.includes('t-shirt') || productTags.includes('tee') ||
-                  productDesc.includes('t-shirt') || productDesc.includes('tee');
-      } else if (searchTerm === 'shirts') {
-        const hasShirt = productName.includes('shirt') || productTags.includes('shirt') || productDesc.includes('shirt');
-        const isTShirt = productName.includes('t-shirt') || productName.includes('tee') || 
-                         productTags.includes('t-shirt') || productTags.includes('tee');
-        matches = hasShirt && !isTShirt;
-      } else if (searchTerm === 'collectables') {
-        matches = productName.includes('collectab') || productName.includes('collectib') ||
-                  productName.includes('figure') || productName.includes('toy') ||
-                  productName.includes('bearbrick') || productName.includes('funko') ||
-                  productTags.includes('collectab') || productTags.includes('collectib') ||
-                  productTags.includes('figure') || productTags.includes('bearbrick');
-      } else if (searchTerm === 'hoodies') {
-        matches = productName.includes('hoodie') || productName.includes('hood') ||
-                  productName.includes('sweatshirt') || productName.includes('pullover') ||
-                  productTags.includes('hoodie') || productTags.includes('hood') ||
-                  productTags.includes('sweatshirt') ||
-                  productDesc.includes('hoodie') || productDesc.includes('sweatshirt');
-      } else if (searchTerm === 'jackets') {
-        matches = productName.includes('jacket') || productName.includes('bomber') ||
-                  productName.includes('windbreaker') || productName.includes('coat') ||
-                  productName.includes('varsity') || productName.includes('puffer') ||
-                  productTags.includes('jacket') || productTags.includes('bomber') ||
-                  productTags.includes('outerwear') ||
-                  productDesc.includes('jacket');
-      } else if (searchTerm === 'pants') {
-        matches = productName.includes('pant') || productName.includes('trouser') ||
-                  productName.includes('jogger') || productName.includes('cargo') ||
-                  productName.includes('jeans') || productName.includes('denim') ||
-                  productName.includes('shorts') ||
-                  productTags.includes('pants') || productTags.includes('trouser') ||
-                  productTags.includes('jogger') || productTags.includes('bottoms') ||
-                  productDesc.includes('pant') || productDesc.includes('trouser');
       } else {
-        matches = productName.includes(searchTerm) || 
-                  productTags.includes(searchTerm) || 
-                  productDesc.includes(searchTerm);
+        // Priority 2: Fallback to keyword matching for unclassified products
+        const productName = (p.normalizedTitle || p.name || '').toLowerCase();
+        const productTags = (p.tags || []).join(' ').toLowerCase();
+        
+        let matches = false;
+        const matchTerms = subcategoryMappings[searchTerm] || [searchTerm];
+        
+        for (const term of matchTerms) {
+          if (productName.includes(term) || productTags.includes(term)) {
+            matches = true;
+            break;
+          }
+        }
+        
+        if (!matches) return false;
       }
-      
-      if (!matches) return false;
     }
     
-    // Size filter (if active)
+    // ===== SIZE FILTER =====
     if (sizeFilterActive && userSizePrefs && userSizePrefs.allSizes?.length > 0) {
       const productSizes = p.attributes?.sizes || p.sizes || [];
       if (!doesProductMatchSize(productSizes, userSizePrefs.allSizes)) {
@@ -1102,6 +1102,27 @@ export default function BrowsePage() {
                 </div>
               </div>
               
+              {/* Gender Filter (AI-powered) */}
+              <div className="mb-6">
+                <p className="text-xs text-primary/50 mb-3 flex items-center gap-2">
+                  <User className="w-3 h-3" />
+                  Gender
+                  <span className="text-[10px] px-1.5 py-0.5 bg-accent/10 text-accent rounded">AI</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {GENDERS.map(g => (
+                    <button
+                      key={g}
+                      onClick={() => setSelectedGender(g)}
+                      className={`text-xs px-4 py-2 border transition-colors ${selectedGender === g ? 'border-accent text-accent bg-accent/5' : 'border-primary/10 text-primary/60 hover:border-primary/30'}`}
+                      data-testid={`gender-filter-${g.toLowerCase()}`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               {/* Size Filter */}
               <div>
                 <p className="text-xs text-primary/50 mb-3">My Size</p>
@@ -1140,7 +1161,7 @@ export default function BrowsePage() {
           )}
 
           {/* Active filters */}
-          {(selectedBrand || selectedCategory !== 'All' || selectedSubcategory) && (
+          {(selectedBrand || selectedCategory !== 'All' || selectedSubcategory || selectedGender !== 'All') && (
             <div className="flex items-center gap-3 mb-6 text-sm flex-wrap">
               <span className="text-primary/40">Showing:</span>
               {selectedBrand && (
@@ -1151,6 +1172,18 @@ export default function BrowsePage() {
               {selectedCategory !== 'All' && (
                 <span className="border border-primary/20 text-primary/60 text-xs uppercase tracking-widest px-3 py-1 rounded-full">
                   {selectedCategory}
+                </span>
+              )}
+              {selectedGender !== 'All' && (
+                <span className="border border-blue-500/50 text-blue-600 text-xs uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  {selectedGender}
+                  <button 
+                    onClick={() => setSelectedGender('All')} 
+                    className="hover:text-blue-800 ml-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </span>
               )}
               {selectedSubcategory && (

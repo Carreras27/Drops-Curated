@@ -289,6 +289,46 @@ async def brand_search(
         'store': store
     }
 
+# NOTE: This route MUST come BEFORE /products/{product_id} to avoid route conflicts
+@api_router.get('/products/classified')
+async def get_classified_products(
+    gender: Optional[str] = Query(None, description='Filter by aiGender'),
+    category: Optional[str] = Query(None, description='Filter by aiCategory'),
+    subcategory: Optional[str] = Query(None, description='Filter by aiSubcategory'),
+    brand: Optional[str] = Query(None, description='Filter by aiBrand'),
+    min_confidence: float = Query(0.0, description='Minimum AI confidence'),
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0)
+):
+    """Get products filtered by AI classification fields"""
+    query = {'aiGender': {'$exists': True}}
+    
+    if gender:
+        query['aiGender'] = gender
+    if category:
+        query['aiCategory'] = category
+    if subcategory:
+        query['aiSubcategory'] = {'$regex': subcategory, '$options': 'i'}
+    if brand:
+        query['aiBrand'] = {'$regex': brand, '$options': 'i'}
+    if min_confidence > 0:
+        query['aiConfidence'] = {'$gte': min_confidence}
+    
+    total = await db.products.count_documents(query)
+    products = await db.products.find(query, {'_id': 0}).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        'products': products,
+        'total': total,
+        'filters': {
+            'gender': gender,
+            'category': category,
+            'subcategory': subcategory,
+            'brand': brand,
+            'min_confidence': min_confidence
+        }
+    }
+
 @api_router.get('/products/{product_id}')
 async def get_product(product_id: str):
     product = await db.products.find_one({'id': product_id}, {'_id': 0})
@@ -1885,45 +1925,6 @@ async def classify_single_product(product_id: str):
             'aiSubcategory': classified.get('aiSubcategory'),
             'aiBrand': classified.get('aiBrand'),
             'aiConfidence': classified.get('aiConfidence')
-        }
-    }
-
-@api_router.get('/products/classified')
-async def get_classified_products(
-    gender: Optional[str] = Query(None, description='Filter by aiGender'),
-    category: Optional[str] = Query(None, description='Filter by aiCategory'),
-    subcategory: Optional[str] = Query(None, description='Filter by aiSubcategory'),
-    brand: Optional[str] = Query(None, description='Filter by aiBrand'),
-    min_confidence: float = Query(0.0, description='Minimum AI confidence'),
-    limit: int = Query(20, ge=1, le=100),
-    skip: int = Query(0, ge=0)
-):
-    """Get products filtered by AI classification fields"""
-    query = {'aiGender': {'$exists': True}}
-    
-    if gender:
-        query['aiGender'] = gender
-    if category:
-        query['aiCategory'] = category
-    if subcategory:
-        query['aiSubcategory'] = {'$regex': subcategory, '$options': 'i'}
-    if brand:
-        query['aiBrand'] = {'$regex': brand, '$options': 'i'}
-    if min_confidence > 0:
-        query['aiConfidence'] = {'$gte': min_confidence}
-    
-    total = await db.products.count_documents(query)
-    products = await db.products.find(query, {'_id': 0}).skip(skip).limit(limit).to_list(limit)
-    
-    return {
-        'products': products,
-        'total': total,
-        'filters': {
-            'gender': gender,
-            'category': category,
-            'subcategory': subcategory,
-            'brand': brand,
-            'min_confidence': min_confidence
         }
     }
 
