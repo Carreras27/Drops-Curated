@@ -192,7 +192,8 @@ const NAV_LINKS = [
   { label: 'Drops', to: '/browse' },
   { label: 'Raffles', to: '/raffles' },
   { label: 'Partners', to: '/partners' },
-  { label: 'Subscribe', to: '/subscribe' },
+  { label: 'About', to: '/about' },
+  { label: 'FAQ', to: '/faq' },
 ];
 
 export const Header = ({ transparent = false }) => (
@@ -315,6 +316,8 @@ export const Footer = () => {
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Company</p>
               <div className="flex flex-col gap-2.5">
+                <Link to="/about" className="text-xs text-primary/50 hover:text-primary transition-colors">About Us</Link>
+                <Link to="/faq" className="text-xs text-primary/50 hover:text-primary transition-colors">FAQ</Link>
                 <Link to="/partners" className="text-xs text-primary/50 hover:text-primary transition-colors">Partner With Us</Link>
               </div>
             </div>
