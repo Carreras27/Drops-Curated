@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight, Bell } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { 
@@ -1090,6 +1090,26 @@ export default function BrowsePage() {
       ]} />
       
       <Header />
+      
+      {/* Hero Banner for First-Time Visitors */}
+      <section className="bg-gradient-to-r from-primary to-primary/90 text-background py-8 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-2xl md:text-3xl mb-2">Never Miss a Drop Again</h1>
+            <p className="text-background/70 text-sm md:text-base max-w-xl">
+              India's fastest streetwear alerts. Price drops & new releases from {totalProducts.toLocaleString()}+ products across 23 brands — delivered to WhatsApp in under 10 seconds.
+            </p>
+          </div>
+          <Link
+            to="/subscribe"
+            className="inline-flex items-center justify-center gap-2 bg-accent text-primary px-6 py-3 font-medium text-sm hover:bg-accent/90 transition-all whitespace-nowrap"
+            data-testid="browse-hero-cta"
+          >
+            <Bell className="w-4 h-4" />
+            Get Alerts — ₹399/mo
+          </Link>
+        </div>
+      </section>
       
       {/* Size First Modal */}
       <SizeFirstModal
