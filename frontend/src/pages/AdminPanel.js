@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, DollarSign, Package, Bell, RefreshCw, Settings, 
   LogOut, TrendingUp, AlertTriangle, CheckCircle, XCircle,
-  Search, ChevronRight, Activity, Zap, Brain, Clock
+  Search, ChevronRight, Activity, Zap, Brain, Clock, 
+  Shield, Wifi, WifiOff, AlertCircle, Play, RotateCcw
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -522,6 +523,305 @@ function ClassificationStats() {
   );
 }
 
+// ============ SCRAPER HEALTH DASHBOARD ============
+function ScraperHealthDashboard() {
+  const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState({});
+
+  useEffect(() => {
+    fetchHealth();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchHealth = async () => {
+    try {
+      const resp = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/admin/scraper-health`);
+      setHealth(resp.data);
+    } catch (err) {
+      console.error('Failed to fetch scraper health:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerScrape = async (brandKey) => {
+    setRetrying(prev => ({ ...prev, [brandKey]: true }));
+    try {
+      await axios.post(`${API_URL}/scraper/trigger/${brandKey}`, {}, { headers: getAuthHeader() });
+      // Refresh after 3 seconds
+      setTimeout(fetchHealth, 3000);
+    } catch (err) {
+      alert(`Failed to trigger scrape for ${brandKey}`);
+    } finally {
+      setTimeout(() => setRetrying(prev => ({ ...prev, [brandKey]: false })), 2000);
+    }
+  };
+
+  const triggerFullScrape = async () => {
+    try {
+      await axios.post(`${API_URL}/scraper/trigger`, {}, { headers: getAuthHeader() });
+      alert('Full scrape cycle triggered!');
+      setTimeout(fetchHealth, 5000);
+    } catch (err) {
+      alert('Failed to trigger full scrape');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
+
+  if (!health) {
+    return <div className="text-gray-500">Failed to load scraper health data</div>;
+  }
+
+  const getStatusColor = (scraper) => {
+    if (scraper.is_blocked) return 'red';
+    if (scraper.consecutive_failures > 0) return 'yellow';
+    if (scraper.success_rate >= 80) return 'green';
+    if (scraper.success_rate >= 50) return 'yellow';
+    return 'gray';
+  };
+
+  const getStatusIcon = (scraper) => {
+    if (scraper.is_blocked) return <XCircle className="w-5 h-5 text-red-500" />;
+    if (scraper.consecutive_failures > 0) return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+    if (scraper.last_success) return <CheckCircle className="w-5 h-5 text-green-500" />;
+    return <Clock className="w-5 h-5 text-gray-500" />;
+  };
+
+  const formatTime = (isoString) => {
+    if (!isoString) return 'Never';
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+    return date.toLocaleDateString();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Shield className="w-6 h-6 text-amber-500" />
+            Scraper Health Dashboard
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">LLM-powered self-healing system monitoring</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchHealth}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 text-sm transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+          <button
+            onClick={triggerFullScrape}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded text-white text-sm transition-colors"
+          >
+            <Play className="w-4 h-4" />
+            Scrape All
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-white">{health.summary.total_brands}</div>
+          <div className="text-gray-500 text-sm">Total Brands</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-green-400">{health.summary.healthy}</div>
+          <div className="text-gray-500 text-sm">Healthy</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-yellow-400">{health.summary.degraded}</div>
+          <div className="text-gray-500 text-sm">Degraded</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-red-400">{health.summary.blocked}</div>
+          <div className="text-gray-500 text-sm">Blocked</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-amber-400">{health.summary.average_success_rate}%</div>
+          <div className="text-gray-500 text-sm">Avg Success</div>
+        </div>
+      </div>
+
+      {/* System Status */}
+      <div className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className={`w-3 h-3 rounded-full ${
+            health.system_health.status === 'healthy' ? 'bg-green-500 animate-pulse' :
+            health.system_health.status === 'degraded' ? 'bg-yellow-500 animate-pulse' :
+            'bg-red-500 animate-pulse'
+          }`} />
+          <div>
+            <span className="text-white font-medium">System Status: </span>
+            <span className={`font-bold ${
+              health.system_health.status === 'healthy' ? 'text-green-400' :
+              health.system_health.status === 'degraded' ? 'text-yellow-400' :
+              'text-red-400'
+            }`}>
+              {health.system_health.status?.toUpperCase() || 'UNKNOWN'}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            {health.system_health.db_healthy ? 
+              <CheckCircle className="w-4 h-4 text-green-500" /> : 
+              <XCircle className="w-4 h-4 text-red-500" />}
+            <span className="text-gray-400">Database</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {health.system_health.scraper_healthy ? 
+              <CheckCircle className="w-4 h-4 text-green-500" /> : 
+              <XCircle className="w-4 h-4 text-red-500" />}
+            <span className="text-gray-400">Scraper</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {health.healing.llm_enabled ? 
+              <Brain className="w-4 h-4 text-green-500" /> : 
+              <Brain className="w-4 h-4 text-gray-500" />}
+            <span className="text-gray-400">LLM Healer</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Scrapers Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {health.scrapers.map((scraper) => {
+          const statusColor = getStatusColor(scraper);
+          const borderColor = {
+            green: 'border-green-500/30',
+            yellow: 'border-yellow-500/30',
+            red: 'border-red-500/30',
+            gray: 'border-gray-600'
+          }[statusColor];
+          
+          return (
+            <div 
+              key={scraper.brand_key} 
+              className={`bg-gray-800 rounded-lg border-l-4 ${borderColor} p-4`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(scraper)}
+                  <h3 className="text-white font-medium">{scraper.brand_name}</h3>
+                </div>
+                {scraper.is_blocked && (
+                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">
+                    BLOCKED
+                  </span>
+                )}
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Success Rate</span>
+                  <span className={`font-medium ${
+                    scraper.success_rate >= 80 ? 'text-green-400' :
+                    scraper.success_rate >= 50 ? 'text-yellow-400' :
+                    'text-gray-400'
+                  }`}>
+                    {scraper.success_rate}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Products Found</span>
+                  <span className="text-white">{scraper.products_found.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Last Success</span>
+                  <span className="text-gray-400">{formatTime(scraper.last_success)}</span>
+                </div>
+                {scraper.consecutive_failures > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Failures</span>
+                    <span className="text-red-400">{scraper.consecutive_failures} consecutive</span>
+                  </div>
+                )}
+                {scraper.last_error && (
+                  <div className="mt-2 p-2 bg-red-500/10 rounded text-red-400 text-xs truncate">
+                    {scraper.last_error}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => triggerScrape(scraper.brand_key)}
+                disabled={retrying[scraper.brand_key]}
+                className={`mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  scraper.is_blocked 
+                    ? 'bg-red-600 hover:bg-red-500 text-white' 
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+              >
+                {retrying[scraper.brand_key] ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    {scraper.is_blocked ? 'Force Retry' : 'Scrape Now'}
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Healing Stats */}
+      {health.healing.stats.total_brands_tracked > 0 && (
+        <div className="bg-gray-800 p-6 rounded-lg">
+          <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+            <Brain className="w-5 h-5 text-amber-500" />
+            Self-Healing Statistics
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <div className="text-gray-500">Brands with History</div>
+              <div className="text-white text-lg font-bold">{health.healing.stats.total_brands_tracked}</div>
+            </div>
+            {Object.entries(health.healing.stats.success_history || {}).slice(0, 3).map(([brand, strategies]) => (
+              <div key={brand}>
+                <div className="text-gray-500 truncate">{brand}</div>
+                <div className="text-amber-400 text-xs">
+                  {Object.entries(strategies).map(([s, c]) => `${s}: ${c}`).join(', ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Last Updated */}
+      <div className="text-center text-gray-600 text-xs">
+        Last updated: {new Date(health.timestamp).toLocaleString()} • Auto-refreshes every 30s
+      </div>
+    </div>
+  );
+}
+
 // ============ MAIN ADMIN PANEL ============
 export default function AdminPanel() {
   const [user, setUser] = useState(null);
@@ -568,6 +868,7 @@ export default function AdminPanel() {
     { id: 'dashboard', label: 'Dashboard', icon: Activity },
     { id: 'subscribers', label: 'Subscribers', icon: Users },
     { id: 'brands', label: 'Brands', icon: Package },
+    { id: 'scraper-health', label: 'Scraper Health', icon: Shield },
     { id: 'classification', label: 'AI Classification', icon: Brain },
   ];
 
@@ -614,6 +915,7 @@ export default function AdminPanel() {
         {activeTab === 'dashboard' && <Dashboard stats={stats} onRefresh={fetchStats} />}
         {activeTab === 'subscribers' && <SubscribersList />}
         {activeTab === 'brands' && <BrandsManager />}
+        {activeTab === 'scraper-health' && <ScraperHealthDashboard />}
         {activeTab === 'classification' && <ClassificationStats />}
       </div>
     </div>
