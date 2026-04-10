@@ -1,9 +1,26 @@
 # Drops Curated - Product Requirements Document
 
-**Last Updated:** December 2025
+**Last Updated:** April 2025
 
 ## Overview
 **Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
+
+## Recent Changes (April 2025)
+- **Comprehensive SEO Implementation:**
+  - Updated homepage `<title>` and `<meta description>` with optimized copy
+  - Added Open Graph tags for social sharing (og:title, og:description, og:type, og:url, og:site_name, og:locale)
+  - Added Twitter Card meta tags
+  - Added keywords meta tag with relevant streetwear terms
+  - Added canonical URL
+  - Implemented JSON-LD structured data schemas:
+    - Organization schema (company info)
+    - WebSite schema with SearchAction
+    - FAQPage schema for rich snippets
+    - Product schema on product pages (name, brand, price, availability)
+    - ItemList schema for product sections
+    - BreadcrumbList schema for navigation
+  - All product images now have descriptive alt texts (e.g., "Nike Dunk High AMBUSH – Limited streetwear drop from Crep Dog Crew")
+  - Created reusable `/app/frontend/src/components/SEOSchema.js` component
 
 ## Recent Changes (December 2025)
 - **Search Fix:** Short search terms (≤3 chars like "On") now use strict brand-only matching to prevent false positives from product names containing prepositions

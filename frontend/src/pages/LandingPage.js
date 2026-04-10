@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity } from 'lucide-react';
 import axios from 'axios';
-import SEO from '../components/SEO';
+import { HomepageSchemas, BreadcrumbSchema } from '../components/SEOSchema';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -340,6 +340,10 @@ export default function LandingPage() {
 
   return (
     <div className="bg-background" data-testid="landing-page">
+      {/* Homepage SEO Schemas - Organization, WebSite, FAQ */}
+      <HomepageSchemas />
+      <BreadcrumbSchema items={[{ name: 'Home' }]} />
+      
       <Header transparent />
 
       {/* Hero */}

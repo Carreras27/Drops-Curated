@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
+import { generateProductAlt, ItemListSchema, BreadcrumbSchema, OrganizationSchema, WebSiteSchema } from '../components/SEOSchema';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -363,6 +364,9 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
     }
   };
 
+  // Generate SEO-friendly alt text
+  const altText = generateProductAlt(product);
+
   return (
     <Link
       to={`/product/${product.id}`}
@@ -373,7 +377,8 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
       <div className="aspect-square overflow-hidden mb-3 bg-surface relative">
         <img
           src={product.imageUrl}
-          alt={product.name}
+          alt={altText}
+          title={`${product.brand} ${product.name} - View price comparison`}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
           loading="lazy"
           onError={(e) => { e.target.style.display = 'none'; }}
@@ -411,12 +416,19 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
   );
 };
 
-// Section Component
-const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showStock, emptyMessage }) => {
+// Section Component with ItemList Schema
+const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showStock, emptyMessage, sectionId }) => {
   if (!products || products.length === 0) return null;
   
   return (
     <div className="mb-16">
+      {/* ItemList Schema for SEO */}
+      <ItemListSchema 
+        products={products} 
+        listName={`${title} - Streetwear Drops`}
+        description={`${title} from premium Indian streetwear brands. ${products.length} curated drops.`}
+      />
+      
       <div className="flex items-center gap-3 mb-6">
         <div className={`w-8 h-8 flex items-center justify-center ${iconColor}`}>
           <Icon className="w-4 h-4" strokeWidth={2} />
@@ -483,7 +495,8 @@ const CelebrityCard = ({ celebrity, products, idx }) => {
             <div className="aspect-square overflow-hidden bg-white mb-2">
               <img
                 src={product.imageUrl}
-                alt={product.name}
+                alt={generateProductAlt(product)}
+                title={`${product.brand} ${product.name} - As worn by ${celebrity.name}`}
                 className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-300"
                 loading="lazy"
                 onError={(e) => { e.target.style.display = 'none'; }}
@@ -1040,6 +1053,25 @@ export default function BrowsePage() {
 
   return (
     <div className="bg-background min-h-screen" data-testid="browse-page">
+      {/* JSON-LD Schemas for SEO */}
+      <OrganizationSchema />
+      <WebSiteSchema />
+      
+      {/* Breadcrumb Schema */}
+      <BreadcrumbSchema items={[
+        { name: 'Home', url: '/' },
+        { name: selectedBrand?.name || 'All Drops', url: '/browse' }
+      ]} />
+      
+      {/* Main ItemList Schema for All Products */}
+      {filteredProducts.length > 0 && (
+        <ItemListSchema 
+          products={filteredProducts.slice(0, 50)} 
+          listName={selectedBrand?.name ? `${selectedBrand.name} Collection` : 'All Streetwear Drops'}
+          description={`${filteredProducts.length} premium streetwear products from Indian brands with price comparison`}
+        />
+      )}
+      
       <Header />
       
       {/* Size First Modal */}

@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink, Bell, Share2, Check } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { generateProductAlt, ProductSchema, BreadcrumbSchema, OrganizationSchema } from '../components/SEOSchema';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -52,9 +53,24 @@ export default function ProductPage() {
   const lowestPrice = prices.length > 0 ? Math.min(...prices.map(p => p.currentPrice)) : 0;
   const highestPrice = prices.length > 0 ? Math.max(...prices.map(p => p.currentPrice)) : 0;
   const savings = highestPrice - lowestPrice;
+  
+  // Generate SEO-friendly alt text
+  const productAltText = generateProductAlt(product);
 
   return (
     <div className="bg-background min-h-screen" data-testid="product-page">
+      {/* Product Schema for Rich Snippets */}
+      <ProductSchema product={product} prices={prices} />
+      <OrganizationSchema />
+      
+      {/* Breadcrumb Schema */}
+      <BreadcrumbSchema items={[
+        { name: 'Home', url: '/' },
+        { name: 'All Drops', url: '/browse' },
+        { name: product.brand, url: `/browse?brand=${product.brand}` },
+        { name: product.name }
+      ]} />
+      
       <Header />
 
       <main className="pt-24 pb-16">
@@ -71,7 +87,8 @@ export default function ProductPage() {
               <div className="aspect-square overflow-hidden bg-surface">
                 <img
                   src={product.imageUrl}
-                  alt={product.name}
+                  alt={productAltText}
+                  title={`${product.brand} ${product.name} - Price comparison from ${prices.length} Indian stores`}
                   className="w-full h-full object-cover"
                   data-testid="product-image"
                 />
