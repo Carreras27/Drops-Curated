@@ -3,7 +3,17 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
-import { generateProductAlt, ItemListSchema, BreadcrumbSchema, OrganizationSchema, WebSiteSchema } from '../components/SEOSchema';
+import { 
+  generateProductAlt, 
+  ItemListSchema, 
+  BreadcrumbSchema, 
+  OrganizationSchema, 
+  WebSiteSchema,
+  NewDropsSchema,
+  TrendingSchema,
+  LimitedEditionSchema,
+  AllDropsSchema
+} from '../components/SEOSchema';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -417,17 +427,33 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
 };
 
 // Section Component with ItemList Schema
-const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showStock, emptyMessage, sectionId }) => {
+const DropSection = ({ title, icon: Icon, iconColor, products, showDate, showStock, emptyMessage, sectionType }) => {
   if (!products || products.length === 0) return null;
+  
+  // Use specific schema based on section type
+  const renderSchema = () => {
+    switch (sectionType) {
+      case 'limited':
+        return <LimitedEditionSchema products={products} />;
+      case 'trending':
+        return <TrendingSchema products={products} />;
+      case 'new':
+        return <NewDropsSchema products={products} />;
+      default:
+        return (
+          <ItemListSchema 
+            products={products} 
+            listName={`${title} - Streetwear Drops`}
+            description={`${title} from premium Indian streetwear brands. ${products.length} curated drops.`}
+          />
+        );
+    }
+  };
   
   return (
     <div className="mb-16">
-      {/* ItemList Schema for SEO */}
-      <ItemListSchema 
-        products={products} 
-        listName={`${title} - Streetwear Drops`}
-        description={`${title} from premium Indian streetwear brands. ${products.length} curated drops.`}
-      />
+      {/* Dynamic ItemList Schema based on section type */}
+      {renderSchema()}
       
       <div className="flex items-center gap-3 mb-6">
         <div className={`w-8 h-8 flex items-center justify-center ${iconColor}`}>
@@ -1063,15 +1089,6 @@ export default function BrowsePage() {
         { name: selectedBrand?.name || 'All Drops', url: '/browse' }
       ]} />
       
-      {/* Main ItemList Schema for All Products */}
-      {filteredProducts.length > 0 && (
-        <ItemListSchema 
-          products={filteredProducts.slice(0, 50)} 
-          listName={selectedBrand?.name ? `${selectedBrand.name} Collection` : 'All Streetwear Drops'}
-          description={`${filteredProducts.length} premium streetwear products from Indian brands with price comparison`}
-        />
-      )}
-      
       <Header />
       
       {/* Size First Modal */}
@@ -1437,6 +1454,7 @@ export default function BrowsePage() {
                     showStock={true}
                     showDate={true}
                     emptyMessage="No limited drops right now"
+                    sectionType="limited"
                   />
 
                   {/* Celebrity Style Section */}
@@ -1450,6 +1468,7 @@ export default function BrowsePage() {
                     products={curatedDrops.trending}
                     showDate={true}
                     emptyMessage="No trending drops"
+                    sectionType="trending"
                   />
 
                   {/* New Drops Section */}
@@ -1460,6 +1479,7 @@ export default function BrowsePage() {
                     products={curatedDrops.new_drops}
                     showDate={true}
                     emptyMessage="No new drops this week"
+                    sectionType="new"
                   />
 
                   {/* All Brands Section */}
@@ -1469,6 +1489,11 @@ export default function BrowsePage() {
 
               {/* All Products Section */}
               <div className="mt-8">
+                {/* All Drops Schema */}
+                {filteredProducts.length > 0 && !query && !selectedBrand && (
+                  <AllDropsSchema products={filteredProducts.slice(0, 50)} totalCount={totalProducts} />
+                )}
+                
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 flex items-center justify-center bg-primary/5 text-primary">

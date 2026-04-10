@@ -197,18 +197,28 @@
             });
         </script>
         
-        <!-- JSON-LD Structured Data for SEO -->
+        <!-- JSON-LD Structured Data for SEO - Static Fallback -->
         <script type="application/ld+json">
         {
           "@context": "https://schema.org",
           "@type": "WebSite",
           "name": "Drops Curated",
+          "alternateName": "Drops Curated - India's Fastest Streetwear Alerts",
           "url": "https://drops-curated.preview.emergentagent.com/",
-          "description": "India's fastest streetwear alerts. Price drops, new collections, restocks from 23+ brands delivered to WhatsApp in under 10 seconds.",
+          "description": "India's fastest streetwear alerts. Track 11,371+ products from 23 premium brands. Price drops, new collections, restocks delivered to WhatsApp in under 10 seconds.",
+          "inLanguage": "en-IN",
           "potentialAction": {
             "@type": "SearchAction",
-            "target": "https://drops-curated.preview.emergentagent.com/search?q={search_term_string}",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://drops-curated.preview.emergentagent.com/browse?search={search_term_string}"
+            },
             "query-input": "required name=search_term_string"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "Drops Curated",
+            "url": "https://drops-curated.preview.emergentagent.com/"
           }
         }
         </script>
@@ -218,9 +228,31 @@
           "@context": "https://schema.org",
           "@type": "Organization",
           "name": "Drops Curated",
+          "alternateName": "Drops Curated India",
           "url": "https://drops-curated.preview.emergentagent.com/",
-          "description": "Premium Indian streetwear discovery platform with real-time alerts.",
-          "sameAs": ["https://instagram.com/dropscurated"]
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://drops-curated.preview.emergentagent.com/logo.png",
+            "width": 512,
+            "height": 512
+          },
+          "description": "Premium Indian streetwear discovery platform tracking 11,371+ products from 23 brands. Real-time WhatsApp alerts for price drops and new releases.",
+          "foundingDate": "2024",
+          "areaServed": {
+            "@type": "Country",
+            "name": "India"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "availableLanguage": ["English", "Hindi"],
+            "areaServed": "IN"
+          },
+          "sameAs": [
+            "https://instagram.com/dropscurated",
+            "https://twitter.com/dropscurated"
+          ],
+          "knowsAbout": ["Streetwear", "Sneakers", "Indian Fashion", "Limited Edition Releases", "Price Tracking"]
         }
         </script>
     </body>
