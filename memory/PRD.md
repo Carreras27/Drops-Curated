@@ -6,6 +6,28 @@
 **Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
 
 ## Recent Changes (April 2026)
+- **Comprehensive Security Hardening (`security.py`):**
+  All 13 security requirements implemented:
+  1. ✅ Rate Limiting (slowapi): Subscribe 3/hr, Search 30/min, Login 5/15min, Default 60/min
+  2. ✅ Input Sanitization: HTML/JS stripping, MongoDB injection prevention, phone validation
+  3. ✅ Security Headers: CSP, X-Frame-Options DENY, HSTS, nosniff, Permissions-Policy
+  4. ✅ CORS Lockdown: Only allowed origins, 403 for others
+  5. ✅ MongoDB Security: Parameterized queries, $ and . injection blocking
+  6. ✅ WhatsApp Webhook Verification: X-Hub-Signature-256 validation with WHATSAPP_APP_SECRET
+  7. ✅ Admin Protection: Rate-limited login, brute force (5 fails = 1hr block), IP allowlist ready
+  8. ✅ DDoS Protection: 10KB body limit, 100 concurrent connections/IP
+  9. ✅ Response Sanitization: Strips _id, sensitive fields, masks phone numbers (xxxxxx1234)
+  10. ✅ Dependency Security: `safety` check on startup, CVE warnings
+  11. ✅ Intrusion Detection: Auth failures, rate limits logged to `security_logs` (30-day TTL)
+  12. ✅ Frontend Security: CSP meta tags, iframe detection, XSS sanitization utilities
+  13. ✅ Secrets Rotation: 90-day JWT secret reminder with WhatsApp alert
+  
+  New Endpoints:
+  - `GET /api/admin/security/logs` - View security events, blocked IPs
+  - `POST /api/admin/security/unblock-ip` - Manually unblock IPs
+  
+  Collections: `security_logs` (30-day TTL), `system_config`
+
 - **FULL LLM-Powered Self-Healing Scraper Agent (`scraper_agent.py`):**
   - Complete implementation per spec with all 10 requirements:
     1. ✅ `backend/scraper_agent.py` - The brain of the scraper system

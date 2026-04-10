@@ -15,6 +15,31 @@ from enum import Enum
 import base64
 import openai
 
+# Security imports
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from security import (
+    limiter,
+    get_client_ip,
+    SecurityHeadersMiddleware,
+    RequestValidationMiddleware,
+    CORSLockdownMiddleware,
+    security_tracker,
+    init_security,
+    rate_limit_exceeded_handler,
+    sanitize_string,
+    sanitize_search_query,
+    validate_phone_number,
+    validate_object_id,
+    check_mongo_injection,
+    sanitize_request_body,
+    sanitize_response,
+    verify_whatsapp_signature,
+    check_admin_ip,
+    admin_brute_force_check,
+    RATE_LIMITS,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -35,6 +60,12 @@ openai.api_key = OPENAI_API_KEY
 app = FastAPI(title="Drops Curated API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
+
+# Add rate limiter to app
+app.state.limiter = limiter
+
+# Add rate limit exception handler
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # ============ ENUMS ============
 class Category(str, Enum):
@@ -128,9 +159,15 @@ async def signup(user_data: UserSignup):
     return {'token': token, 'user': User(**{k: v for k, v in user_doc.items() if k != 'password_hash'})}
 
 @api_router.post('/auth/login')
-async def login(login_data: UserLogin):
+@limiter.limit("5/15minutes")
+async def login(request: Request, login_data: UserLogin):
+    ip = get_client_ip(request)
+    
     user = await db.users.find_one({'email': login_data.email})
     if not user or not verify_password(login_data.password, user['password_hash']):
+        # Record failed attempt
+        security_tracker.record_failed_login(ip, "/api/auth/login")
+        await security_tracker.log_auth_failure(ip, "/api/auth/login", "invalid_credentials")
         raise HTTPException(status_code=401, detail='Invalid credentials')
     
     token = create_jwt_token(user['id'], user['email'])
@@ -293,7 +330,9 @@ async def get_public_stats():
 
 # ============ SEARCH SUGGESTIONS (Dynamic Autocomplete) ============
 @api_router.get('/search/suggestions')
+@limiter.limit("30/minute")
 async def get_search_suggestions(
+    request: Request,
     q: str = Query(..., min_length=1, description='Search query'),
     limit: int = Query(10, ge=1, le=20)
 ):
@@ -301,7 +340,11 @@ async def get_search_suggestions(
     Get search suggestions for autocomplete.
     Returns matching brands, categories, and product names.
     """
-    search_term = q.strip().lower()
+    # Sanitize search query
+    search_term = sanitize_search_query(q)
+    
+    if len(search_term) < 1:
+        return {'suggestions': []}
     
     if len(search_term) < 1:
         return {'suggestions': []}
@@ -399,7 +442,9 @@ async def get_search_suggestions(
 
 # ============ SEARCH & PRODUCTS ============
 @api_router.get('/search')
+@limiter.limit("30/minute")
 async def search_products(
+    request: Request,
     q: str = Query(''),
     category: Optional[str] = None,
     brand: Optional[str] = None,
@@ -412,7 +457,8 @@ async def search_products(
     import random as rnd
     
     query = {}
-    search_term = q.strip()
+    # Sanitize search query
+    search_term = sanitize_search_query(q)
     
     # Store filter - filter by store/brand key (e.g., CREPDOG_CREW)
     if store:
@@ -1000,9 +1046,14 @@ async def verify_otp(data: OTPVerify):
     return {'message': 'OTP verified', 'verified': True}
 
 @api_router.post('/payment/create-order')
-async def create_payment_order(data: CreateOrderRequest):
+@limiter.limit("3/hour")
+async def create_payment_order(request: Request, data: CreateOrderRequest):
     """Create a Razorpay order for subscription"""
+    # Validate phone number
     phone = data.phone.strip()
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number. Must be 10 digits starting with 6-9.')
+    
     stored = otp_store.get(phone)
     if not stored or not stored.get('verified'):
         raise HTTPException(status_code=400, detail='Phone not verified. Complete OTP first.')
@@ -2471,11 +2522,26 @@ async def whatsapp_webhook(request: Request):
     Handle incoming WhatsApp messages (STOP/UNSUBSCRIBE requests)
     
     This endpoint processes opt-out requests to maintain Meta Quality Rating.
+    Verifies Meta webhook signature for security.
     """
     from whatsapp import handle_stop_request, IS_CONFIGURED
     
-    try:
+    # Verify Meta webhook signature
+    app_secret = os.getenv('WHATSAPP_APP_SECRET', '')
+    signature = request.headers.get('X-Hub-Signature-256', '')
+    
+    if app_secret:  # Only verify if secret is configured
+        body_bytes = await request.body()
+        if not verify_whatsapp_signature(body_bytes, signature, app_secret):
+            logger.warning(f"[WhatsApp Webhook] Invalid signature from {get_client_ip(request)}")
+            raise HTTPException(status_code=401, detail='Invalid webhook signature')
         body = await request.json()
+    else:
+        # Development mode - skip verification but log warning
+        logger.warning("[WhatsApp Webhook] WHATSAPP_APP_SECRET not set - signature verification disabled")
+        body = await request.json()
+    
+    try:
         logger.info(f"[WhatsApp Webhook] Received: {body}")
         
         # Parse the webhook payload (Meta format)
@@ -2969,14 +3035,15 @@ Example: shoes|Nike|black|sneakers athletic sporty|men"""
 # Include router
 app.include_router(api_router)
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Security Middlewares (order matters - first added = last executed)
+# 1. Security Headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 2. Request Validation (body size, blocked IPs, DDoS)
+app.add_middleware(RequestValidationMiddleware)
+
+# 3. CORS Lockdown - replaced permissive CORS
+app.add_middleware(CORSLockdownMiddleware)
 
 # Logging
 logging.basicConfig(
@@ -2993,6 +3060,10 @@ async def shutdown_db_client():
 async def startup_scheduler():
     from scheduler import init_scheduler
     from auth import init_admin_routes, admin_router, seed_admin_user
+    
+    # Initialize security module
+    await init_security(app, db)
+    logger.info("Security module initialized")
     
     # Initialize scheduler
     init_scheduler(db)

@@ -3,6 +3,7 @@ Admin Authentication and Routes
 - JWT-based admin authentication
 - Admin dashboard API endpoints
 - Subscriber management, revenue stats, scrape controls
+- Security: Rate limiting, brute force protection, IP allowlisting
 """
 import os
 import jwt
@@ -12,6 +13,15 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
+
+from security import (
+    limiter,
+    get_client_ip,
+    security_tracker,
+    check_admin_ip,
+    admin_brute_force_check,
+    sanitize_response,
+)
 
 # Admin router
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -97,9 +107,20 @@ async def seed_admin_user():
 
 # ============ AUTH ENDPOINTS ============
 @admin_router.post('/login')
-async def admin_login(data: AdminLogin):
-    """Admin login endpoint"""
+@limiter.limit("5/15minutes")
+async def admin_login(request: Request, data: AdminLogin):
+    """Admin login endpoint with brute force protection"""
     global _db
+    
+    ip = get_client_ip(request)
+    
+    # Check if IP is blocked
+    if security_tracker.is_blocked(ip):
+        remaining = security_tracker.get_block_remaining(ip)
+        raise HTTPException(
+            status_code=403, 
+            detail=f'Account locked due to too many failed attempts. Try again in {remaining} seconds.'
+        )
     
     # Check database for admin
     admin = await _db.admins.find_one({'email': data.email})
@@ -111,10 +132,17 @@ async def admin_login(data: AdminLogin):
             await seed_admin_user()
             admin = await _db.admins.find_one({'email': data.email})
         else:
+            # Record failed attempt
+            await admin_brute_force_check(ip, success=False, db=_db)
             raise HTTPException(status_code=401, detail='Invalid credentials')
     
     if not verify_password(data.password, admin['password_hash']):
+        # Record failed attempt
+        await admin_brute_force_check(ip, success=False, db=_db)
         raise HTTPException(status_code=401, detail='Invalid credentials')
+    
+    # Success - clear failed attempts
+    await admin_brute_force_check(ip, success=True, db=_db)
     
     token = create_admin_token(admin['id'], admin['email'], admin.get('role', 'admin'))
     
@@ -452,3 +480,68 @@ async def get_alert_logs(
         'page': page,
         'pages': (total + limit - 1) // limit
     }
+
+
+# ============ SECURITY LOGS ============
+@admin_router.get('/security/logs')
+async def get_security_logs(
+    request: Request,
+    event_type: Optional[str] = None,
+    ip: Optional[str] = None,
+    page: int = 1,
+    limit: int = 50,
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Get security logs - authentication failures, rate limits, blocked IPs.
+    Auto-deleted after 30 days via TTL index.
+    """
+    global _db
+    
+    query = {}
+    if event_type:
+        query['event_type'] = event_type
+    if ip:
+        query['ip'] = ip
+    
+    total = await _db.security_logs.count_documents(query)
+    logs = await _db.security_logs.find(
+        query, 
+        {'_id': 0}
+    ).sort('timestamp', -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    
+    # Get summary stats
+    auth_failures = await _db.security_logs.count_documents({'event_type': 'auth_failure'})
+    rate_limits = await _db.security_logs.count_documents({'event_type': 'rate_limit'})
+    ip_blocks = await _db.security_logs.count_documents({'event_type': 'ip_blocked'})
+    
+    # Get currently blocked IPs
+    blocked_ips = [
+        {'ip': ip, 'expires': exp.isoformat()} 
+        for ip, exp in security_tracker.blocked_ips.items()
+    ]
+    
+    return {
+        'logs': logs,
+        'total': total,
+        'page': page,
+        'pages': (total + limit - 1) // limit,
+        'summary': {
+            'auth_failures': auth_failures,
+            'rate_limit_hits': rate_limits,
+            'ip_blocks': ip_blocks,
+            'currently_blocked': blocked_ips
+        }
+    }
+
+@admin_router.post('/security/unblock-ip')
+async def unblock_ip(
+    request: Request,
+    ip: str,
+    admin: dict = Depends(get_current_admin)
+):
+    """Manually unblock an IP address"""
+    if ip in security_tracker.blocked_ips:
+        del security_tracker.blocked_ips[ip]
+        return {'message': f'IP {ip} unblocked', 'success': True}
+    return {'message': f'IP {ip} was not blocked', 'success': False}
