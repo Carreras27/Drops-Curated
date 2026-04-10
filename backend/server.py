@@ -455,6 +455,17 @@ async def search_products(
     skip: int = Query(0, ge=0)
 ):
     import random as rnd
+    from security_advanced import scraping_detector
+    from security import get_client_ip
+    
+    # Check for scraping attempts
+    ip = get_client_ip(request)
+    scrape_check = scraping_detector.is_scraping(ip, page, "/api/search")
+    if scrape_check["is_scraping"]:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=scrape_check["reason"]
+        )
     
     query = {}
     # Sanitize search query

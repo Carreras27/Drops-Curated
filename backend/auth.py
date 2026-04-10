@@ -545,3 +545,14 @@ async def unblock_ip(
         del security_tracker.blocked_ips[ip]
         return {'message': f'IP {ip} unblocked', 'success': True}
     return {'message': f'IP {ip} was not blocked', 'success': False}
+
+
+
+@admin_router.get('/security/scraping-stats')
+async def get_scraping_stats(
+    request: Request,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get scraping detection statistics"""
+    from security_advanced import scraping_detector
+    return scraping_detector.get_stats()

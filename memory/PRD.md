@@ -6,6 +6,36 @@
 **Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
 
 ## Recent Changes (April 2026)
+- **Multi-Layer Security Architecture (`security_advanced.py`):**
+  Complete defense-in-depth as requested:
+  ```
+  Cloudflare (DDoS + known bots)
+         ↓
+  Cloudflare Turnstile CAPTCHA (bot forms)
+         ↓
+  API Key validation (stops direct API access)
+         ↓
+  Rate limiting (stops abuse)
+         ↓
+  Pagination detection (stops data theft)
+         ↓
+  OTP verification (proves real human)
+         ↓
+  Admin 2FA — CAPTCHA + OTP + IP allowlist
+  ```
+  
+  New files:
+  - `backend/security_advanced.py` - Turnstile, API keys, scraping detection, Admin 2FA
+  - `frontend/src/components/TurnstileCaptcha.js` - React Turnstile wrapper
+  
+  Environment variables (configure in Cloudflare dashboard):
+  - `TURNSTILE_SECRET_KEY` - Cloudflare Turnstile secret
+  - `WHATSAPP_APP_SECRET` - Meta webhook signature verification
+  - `ADMIN_IP_ALLOWLIST` - Comma-separated admin IPs
+  - `FRONTEND_API_KEY` - Prevents direct API access
+  
+  **Tested:** Pagination scraping blocked after 10 sequential pages ✅
+
 - **Comprehensive Security Hardening (`security.py`):**
   All 13 security requirements implemented:
   1. ✅ Rate Limiting (slowapi): Subscribe 3/hr, Search 30/min, Login 5/15min, Default 60/min
