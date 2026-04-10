@@ -54,6 +54,7 @@ export function WishlistProvider({ children }) {
       category: product.aiCategory || product.category,
       store: product.store,
       inStock: product.inStock !== false,
+      selectedSize: product.selectedSize || null, // Store selected size
       addedAt: new Date().toISOString()
     };
 

@@ -252,6 +252,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
           {/* Added price */}
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
             Added at {fmt(addedPrice)} · {item.store || item.category || 'Streetwear'}
+            {item.selectedSize && <span style={{ color: "#c9a84c" }}> · Size {item.selectedSize}</span>}
           </div>
         </div>
       </div>

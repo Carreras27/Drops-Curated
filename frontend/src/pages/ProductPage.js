@@ -14,6 +14,8 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null);
   const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [sizeError, setSizeError] = useState(false);
   
   // Wishlist hook must be called before any early returns
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -36,12 +38,35 @@ export default function ProductPage() {
   
   const handleWishlistClick = () => {
     if (!product) return;
-    const added = toggleWishlist(product);
+    
+    // Check if product has sizes and none is selected
+    const hasSizes = product.attributes?.sizes?.length > 0;
+    if (hasSizes && !selectedSize) {
+      setSizeError(true);
+      toast.error('Please select a size first');
+      // Scroll to sizes section
+      document.getElementById('sizes-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    
+    // Add size info to product when adding to wishlist
+    const productWithSize = {
+      ...product,
+      selectedSize: selectedSize,
+    };
+    
+    const added = toggleWishlist(productWithSize);
     if (added) {
-      toast.success('Added to Wishlist');
+      toast.success(`Added to Wishlist${selectedSize ? ` (Size: ${selectedSize})` : ''}`);
     } else {
       toast('Removed from Wishlist');
     }
+    setSizeError(false);
+  };
+  
+  const handleSizeSelect = (size) => {
+    setSelectedSize(size);
+    setSizeError(false);
   };
 
   if (loading) {
@@ -171,15 +196,35 @@ export default function ProductPage() {
                 </button>
               </div>
 
-              {/* Attributes */}
+              {/* Attributes - Sizes */}
               {product.attributes && product.attributes.sizes?.length > 0 && (
-                <div className="mb-8">
-                  <p className="text-xs text-primary/40 uppercase tracking-widest mb-3">Available Sizes</p>
+                <div className="mb-8" id="sizes-section">
+                  <p className={`text-xs uppercase tracking-widest mb-3 ${sizeError ? 'text-red-500 font-semibold' : 'text-primary/40'}`}>
+                    {sizeError ? '⚠ Please Select a Size' : 'Available Sizes'}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {product.attributes.sizes.map((s, i) => (
-                      <span key={i} className="text-xs border border-primary/10 px-3 py-1.5 text-primary/60">{s}</span>
+                      <button
+                        key={i}
+                        onClick={() => handleSizeSelect(s)}
+                        className={`text-xs px-4 py-2.5 transition-all duration-200 cursor-pointer ${
+                          selectedSize === s
+                            ? 'bg-accent text-background border-accent font-semibold'
+                            : sizeError
+                              ? 'border-red-500/50 text-red-400 hover:border-red-500 hover:bg-red-500/10'
+                              : 'border border-primary/20 text-primary/70 hover:border-accent hover:text-accent hover:bg-accent/5'
+                        }`}
+                        data-testid={`size-${s}`}
+                      >
+                        {s}
+                      </button>
                     ))}
                   </div>
+                  {selectedSize && (
+                    <p className="text-xs text-accent mt-2">
+                      Selected: <span className="font-semibold">{selectedSize}</span>
+                    </p>
+                  )}
                 </div>
               )}
 
