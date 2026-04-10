@@ -191,9 +191,9 @@ const StarBurst = ({ className }) => (
 const NAV_LINKS = [
   { label: 'Drops', to: '/browse' },
   { label: 'Raffles', to: '/raffles' },
-  { label: 'Partners', to: '/partners' },
   { label: 'About', to: '/about' },
   { label: 'FAQ', to: '/faq' },
+  { label: 'Contact', to: '/contact' },
 ];
 
 export const Header = ({ transparent = false }) => (
@@ -318,6 +318,7 @@ export const Footer = () => {
               <div className="flex flex-col gap-2.5">
                 <Link to="/about" className="text-xs text-primary/50 hover:text-primary transition-colors">About Us</Link>
                 <Link to="/faq" className="text-xs text-primary/50 hover:text-primary transition-colors">FAQ</Link>
+                <Link to="/contact" className="text-xs text-primary/50 hover:text-primary transition-colors">Contact Us</Link>
                 <Link to="/partners" className="text-xs text-primary/50 hover:text-primary transition-colors">Partner With Us</Link>
               </div>
             </div>

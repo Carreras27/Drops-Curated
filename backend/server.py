@@ -70,6 +70,15 @@ class User(BaseModel):
     name: str
     createdAt: str
 
+# Contact Form Model
+class ContactForm(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
+    subject: Optional[str] = None
+    category: str = 'general'
+    message: str
+
 # ============ AUTH HELPERS ============
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -130,6 +139,120 @@ async def login(login_data: UserLogin):
 @api_router.get('/auth/me', response_model=User)
 async def get_me(current_user: dict = Depends(get_current_user)):
     return User(**current_user)
+
+# ============ CONTACT FORM ============
+@api_router.post('/contact')
+async def submit_contact_form(form: ContactForm):
+    """
+    Handle contact form submission.
+    Stores in database and sends email notification.
+    Email address is kept on backend only (discreet).
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    
+    # Target email (kept discreet - not exposed to frontend)
+    TARGET_EMAIL = "dropscurated@gmail.com"
+    
+    try:
+        # Store in database for record keeping
+        contact_doc = {
+            'id': f"contact_{datetime.now(timezone.utc).timestamp()}",
+            'name': form.name,
+            'email': form.email,
+            'phone': form.phone,
+            'subject': form.subject or 'No Subject',
+            'category': form.category,
+            'message': form.message,
+            'status': 'new',
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        await db.contact_submissions.insert_one(contact_doc)
+        
+        # Prepare email content
+        category_labels = {
+            'general': 'General Inquiry',
+            'support': 'Support / Help',
+            'billing': 'Billing / Subscription',
+            'partnership': 'Partnership / Business',
+            'feedback': 'Feedback / Suggestion',
+            'bug': 'Bug Report',
+            'other': 'Other'
+        }
+        
+        email_subject = f"[Drops Curated] {category_labels.get(form.category, 'Contact')} - {form.subject or form.name}"
+        
+        email_body = f"""
+New Contact Form Submission
+============================
+
+From: {form.name}
+Email: {form.email}
+Phone: {form.phone or 'Not provided'}
+Category: {category_labels.get(form.category, form.category)}
+Subject: {form.subject or 'Not provided'}
+
+Message:
+---------
+{form.message}
+
+============================
+Submitted at: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
+        """
+        
+        # Try to send email via SMTP (Gmail)
+        # Note: For Gmail, you need App Password if 2FA is enabled
+        SMTP_EMAIL = os.getenv('SMTP_EMAIL', '')
+        SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+        
+        if SMTP_EMAIL and SMTP_PASSWORD:
+            try:
+                msg = MIMEMultipart()
+                msg['From'] = SMTP_EMAIL
+                msg['To'] = TARGET_EMAIL
+                msg['Subject'] = email_subject
+                msg['Reply-To'] = form.email  # Allow easy reply to customer
+                
+                msg.attach(MIMEText(email_body, 'plain'))
+                
+                with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                    server.starttls()
+                    server.login(SMTP_EMAIL, SMTP_PASSWORD)
+                    server.send_message(msg)
+                
+                # Update status to sent
+                await db.contact_submissions.update_one(
+                    {'id': contact_doc['id']},
+                    {'$set': {'status': 'email_sent'}}
+                )
+                
+                logger.info(f"Contact form email sent: {form.email} -> {TARGET_EMAIL}")
+                
+            except Exception as email_error:
+                logger.warning(f"Failed to send email (stored in DB): {email_error}")
+                # Email failed but submission is stored
+                await db.contact_submissions.update_one(
+                    {'id': contact_doc['id']},
+                    {'$set': {'status': 'email_failed', 'email_error': str(email_error)}}
+                )
+        else:
+            # No SMTP configured - just store in database
+            logger.info(f"Contact form stored (no SMTP): {form.email}")
+            await db.contact_submissions.update_one(
+                {'id': contact_doc['id']},
+                {'$set': {'status': 'stored_no_smtp'}}
+            )
+        
+        return {
+            'success': True,
+            'message': 'Thank you! Your message has been received. We\'ll get back to you soon.'
+        }
+        
+    except Exception as e:
+        logger.error(f"Contact form error: {e}")
+        raise HTTPException(status_code=500, detail='Failed to submit contact form')
+
 
 # ============ HEALTH CHECK ============
 @api_router.get('/health')

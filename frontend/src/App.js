@@ -13,6 +13,7 @@ import BrandsPage, { BrandPage } from './pages/BrandsPage';
 import AdminPanel from './pages/AdminPanel';
 import AboutPage from './pages/AboutPage';
 import FAQPage from './pages/FAQPage';
+import ContactPage from './pages/ContactPage';
 
 // Error Boundary Component (Fix #9)
 class ErrorBoundary extends React.Component {
@@ -84,6 +85,7 @@ function App() {
             <Route path="/raffles" element={<RafflesPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/faq" element={<FAQPage />} />
+            <Route path="/contact" element={<ContactPage />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
