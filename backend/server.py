@@ -2090,6 +2090,96 @@ async def classify_single_product(product_id: str):
         }
     }
 
+
+@api_router.post('/classification/high-demand')
+async def classify_high_demand_products(
+    limit: int = Query(500, description='Max products to classify'),
+    batch_size: int = Query(20, description='Products per API call')
+):
+    """
+    Classify HIGH DEMAND products first:
+    - Sneakers/Shoes (Nike, Jordan, Yeezy, ON, etc.)
+    - Limited editions
+    - Popular streetwear brands
+    """
+    import asyncio
+    import uuid
+    
+    batch_size = min(20, max(1, batch_size))
+    job_id = str(uuid.uuid4())[:8]
+    
+    # High demand query - prioritize shoes and popular brands
+    high_demand_query = {
+        'aiGender': {'$exists': False},
+        '$or': [
+            # Shoes/Sneakers keywords
+            {'name': {'$regex': 'dunk|jordan|yeezy|air max|air force|cloudnova|gel-|990|550|574|slide|foam', '$options': 'i'}},
+            # Popular brands
+            {'name': {'$regex': 'nike|adidas|new balance|amiri|off-white|supreme|stussy|palace', '$options': 'i'}},
+            {'brand': {'$regex': 'nike|jordan|on|amiri|yeezy', '$options': 'i'}},
+            # Limited editions
+            {'name': {'$regex': 'limited|exclusive|only.*india|collab', '$options': 'i'}},
+            {'isLimited': True}
+        ]
+    }
+    
+    classification_jobs[job_id] = {
+        'status': 'running',
+        'started_at': datetime.now(timezone.utc).isoformat(),
+        'limit': limit,
+        'batch_size': batch_size,
+        'method': 'gemini-2.5-flash-batch',
+        'priority': 'high-demand'
+    }
+    
+    async def run_high_demand_job():
+        try:
+            from classifier import classify_products_batch, update_products_bulk
+            
+            # Get high-demand unclassified products
+            products = await db.products.find(
+                high_demand_query, 
+                {'_id': 0}
+            ).limit(limit).to_list(limit)
+            
+            if not products:
+                classification_jobs[job_id].update({
+                    'status': 'completed',
+                    'completed_at': datetime.now(timezone.utc).isoformat(),
+                    'total': 0,
+                    'message': 'No high-demand products to classify'
+                })
+                return
+            
+            # Classify
+            classified = await classify_products_batch(products, batch_size=batch_size)
+            result = await update_products_bulk(db, classified)
+            
+            classification_jobs[job_id].update({
+                'status': 'completed',
+                'completed_at': datetime.now(timezone.utc).isoformat(),
+                'total': len(products),
+                'classified': result.get('updated', 0),
+                'errors': result.get('errors', 0)
+            })
+        except Exception as e:
+            classification_jobs[job_id].update({
+                'status': 'failed',
+                'error': str(e),
+                'completed_at': datetime.now(timezone.utc).isoformat()
+            })
+    
+    asyncio.create_task(run_high_demand_job())
+    
+    return {
+        'message': 'High-demand classification job started',
+        'job_id': job_id,
+        'priority': 'high-demand (sneakers, popular brands, limited editions)',
+        'limit': limit,
+        'batch_size': batch_size
+    }
+
+
 # ============ ALERT LOG ============
 @api_router.get('/alerts/recent')
 async def recent_alerts():
