@@ -790,33 +790,267 @@ function ScraperHealthDashboard() {
         })}
       </div>
 
-      {/* Healing Stats */}
-      {health.healing.stats.total_brands_tracked > 0 && (
+      {/* Agent Stats */}
+      {health.agent && (
         <div className="bg-gray-800 p-6 rounded-lg">
           <h3 className="text-white font-medium mb-4 flex items-center gap-2">
             <Brain className="w-5 h-5 text-amber-500" />
-            Self-Healing Statistics
+            Self-Healing Agent Statistics
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <div className="text-gray-500">Brands with History</div>
-              <div className="text-white text-lg font-bold">{health.healing.stats.total_brands_tracked}</div>
+              <div className="text-gray-500">Total Attempts</div>
+              <div className="text-white text-lg font-bold">{health.agent.total_attempts || 0}</div>
             </div>
-            {Object.entries(health.healing.stats.success_history || {}).slice(0, 3).map(([brand, strategies]) => (
-              <div key={brand}>
-                <div className="text-gray-500 truncate">{brand}</div>
-                <div className="text-amber-400 text-xs">
-                  {Object.entries(strategies).map(([s, c]) => `${s}: ${c}`).join(', ')}
-                </div>
-              </div>
-            ))}
+            <div>
+              <div className="text-gray-500">Successful Heals</div>
+              <div className="text-green-400 text-lg font-bold">{health.agent.successful_heals || 0}</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Success Rate</div>
+              <div className="text-amber-400 text-lg font-bold">{health.agent.success_rate || 0}%</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Currently Healing</div>
+              <div className="text-blue-400 text-lg font-bold">{health.agent.brands_currently_healing?.length || 0}</div>
+            </div>
           </div>
+          
+          {/* Top Strategies */}
+          {health.agent.top_strategies?.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <div className="text-gray-400 text-sm mb-2">Top Working Strategies:</div>
+              <div className="flex flex-wrap gap-2">
+                {health.agent.top_strategies.map((s, i) => (
+                  <span key={i} className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">
+                    {s.strategy}: {s.successes} wins
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Recent Activity */}
+          {health.agent.recent_activity?.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <div className="text-gray-400 text-sm mb-2">Recent Activity:</div>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {health.agent.recent_activity.slice(0, 5).map((a, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-400">{a.brand_key}</span>
+                    <span className={a.success ? 'text-green-400' : 'text-red-400'}>
+                      {a.strategy} {a.success ? '✓' : '✗'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Last Updated */}
       <div className="text-center text-gray-600 text-xs">
         Last updated: {new Date(health.timestamp).toLocaleString()} • Auto-refreshes every 30s
+      </div>
+    </div>
+  );
+}
+
+// ============ AGENT LOGS VIEWER ============
+function AgentLogsViewer() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedBrand, setSelectedBrand] = useState('');
+
+  useEffect(() => {
+    fetchLogs();
+  }, [selectedBrand]);
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: 100 });
+      if (selectedBrand) params.append('brand_key', selectedBrand);
+      
+      const resp = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}/api/admin/agent-logs?${params}`
+      );
+      setData(resp.data);
+    } catch (err) {
+      console.error('Failed to fetch agent logs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
+
+  if (!data) return <div className="text-gray-500">Failed to load agent logs</div>;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Brain className="w-6 h-6 text-amber-500" />
+            Agent Logs & Strategies
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">What the LLM agent tried, learned, and remembered</p>
+        </div>
+        <button
+          onClick={fetchLogs}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 text-sm"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-white">{data.summary?.total_attempts || 0}</div>
+          <div className="text-gray-500 text-sm">Total Attempts</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-green-400">{data.summary?.successful_heals || 0}</div>
+          <div className="text-gray-500 text-sm">Successful Heals</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className="text-3xl font-bold text-amber-400">{data.summary?.success_rate || 0}%</div>
+          <div className="text-gray-500 text-sm">Success Rate</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <div className={`text-3xl font-bold ${data.summary?.llm_enabled ? 'text-green-400' : 'text-red-400'}`}>
+            {data.summary?.llm_enabled ? 'ON' : 'OFF'}
+          </div>
+          <div className="text-gray-500 text-sm">LLM Status</div>
+        </div>
+      </div>
+
+      {/* Proactive Warnings */}
+      {data.proactive_warnings?.length > 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-lg">
+          <h3 className="text-yellow-400 font-medium flex items-center gap-2 mb-2">
+            <AlertCircle className="w-5 h-5" />
+            Proactive Warnings (Response Time Degradation)
+          </h3>
+          <div className="space-y-2">
+            {data.proactive_warnings.map((w, i) => (
+              <div key={i} className="flex items-center justify-between text-sm">
+                <span className="text-white">{w.brand_key}</span>
+                <span className="text-yellow-400">
+                  {w.early_avg_ms}ms → {w.recent_avg_ms}ms ({w.warning})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Brand Strategies (Confidence Scores) */}
+      <div className="bg-gray-800 p-6 rounded-lg">
+        <h3 className="text-white font-medium mb-4">Learned Strategies (Memory System)</h3>
+        {data.brand_strategies?.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.brand_strategies.map((s, i) => (
+              <div key={i} className="bg-gray-700 p-3 rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">{s.brand_key}</span>
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    s.confidence_score >= 70 ? 'bg-green-500/20 text-green-400' :
+                    s.confidence_score >= 40 ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-red-500/20 text-red-400'
+                  }`}>
+                    {s.confidence_score?.toFixed(0)}% confidence
+                  </span>
+                </div>
+                <div className="text-sm text-gray-400">
+                  Strategy: <span className="text-amber-400">{s.strategy}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {s.success_count} wins / {s.failure_count} losses
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-500 text-center py-4">No strategies learned yet</div>
+        )}
+      </div>
+
+      {/* Filter */}
+      <div className="flex items-center gap-4">
+        <select
+          value={selectedBrand}
+          onChange={(e) => setSelectedBrand(e.target.value)}
+          className="px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+        >
+          <option value="">All Brands</option>
+          {[...new Set(data.logs?.map(l => l.brand_key) || [])].map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Logs Table */}
+      <div className="bg-gray-800 rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-700">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs text-gray-400 uppercase">Time</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-400 uppercase">Brand</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-400 uppercase">Strategy</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-400 uppercase">Result</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-400 uppercase">Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.logs?.length > 0 ? (
+              data.logs.slice(0, 50).map((log, i) => (
+                <tr key={i} className="border-t border-gray-700 hover:bg-gray-700/50">
+                  <td className="px-4 py-3 text-gray-400 text-xs">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-white text-sm">{log.brand_key}</td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-1 bg-gray-600 text-gray-300 text-xs rounded">
+                      {log.strategy}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {log.success ? (
+                      <span className="flex items-center gap-1 text-green-400 text-sm">
+                        <CheckCircle className="w-4 h-4" /> Success
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-red-400 text-sm">
+                        <XCircle className="w-4 h-4" /> Failed
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate">
+                    {log.message}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  No logs yet. Logs appear when scrapers fail and the agent tries to heal them.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -869,7 +1103,8 @@ export default function AdminPanel() {
     { id: 'subscribers', label: 'Subscribers', icon: Users },
     { id: 'brands', label: 'Brands', icon: Package },
     { id: 'scraper-health', label: 'Scraper Health', icon: Shield },
-    { id: 'classification', label: 'AI Classification', icon: Brain },
+    { id: 'agent-logs', label: 'Agent Logs', icon: Brain },
+    { id: 'classification', label: 'AI Classification', icon: Zap },
   ];
 
   return (
@@ -916,6 +1151,7 @@ export default function AdminPanel() {
         {activeTab === 'subscribers' && <SubscribersList />}
         {activeTab === 'brands' && <BrandsManager />}
         {activeTab === 'scraper-health' && <ScraperHealthDashboard />}
+        {activeTab === 'agent-logs' && <AgentLogsViewer />}
         {activeTab === 'classification' && <ClassificationStats />}
       </div>
     </div>

@@ -2056,7 +2056,7 @@ async def check_entry_status(raffle_id: str, phone: str):
 
 # ============ SCHEDULER STATUS ============
 from scheduler import get_scheduler_status, scrape_all_brands as run_full_scrape, get_scraper_health, get_health_status
-from scraper_healer import scraper_healer
+from scraper_agent import scraper_agent
 
 @api_router.get('/scheduler/status')
 async def scheduler_status():
@@ -2077,7 +2077,9 @@ async def scraper_health_dashboard():
     """
     scraper_health = get_scraper_health()
     system_health = get_health_status()
-    healing_stats = scraper_healer.get_healing_stats()
+    
+    # Get agent summary
+    agent_summary = await scraper_agent.get_agent_summary()
     
     # Calculate summary stats
     total_brands = len(scraper_health)
@@ -2098,10 +2100,28 @@ async def scraper_health_dashboard():
         },
         'scrapers': scraper_health,
         'system_health': system_health,
-        'healing': {
-            'llm_enabled': scraper_healer._llm is not None,
-            'stats': healing_stats,
-        },
+        'agent': agent_summary,
+        'timestamp': datetime.now(timezone.utc).isoformat()
+    }
+
+@api_router.get('/admin/agent-logs')
+async def get_agent_logs(limit: int = 100, brand_key: str = None):
+    """
+    Get detailed logs of everything the agent tried.
+    Shows what worked, what failed, and current winning strategies.
+    """
+    logs = await scraper_agent.get_agent_logs(limit=limit, brand_key=brand_key)
+    strategies = await scraper_agent.get_brand_strategies()
+    summary = await scraper_agent.get_agent_summary()
+    
+    # Check for response time warnings
+    warnings = await scraper_agent.proactive_check_all_brands()
+    
+    return {
+        'logs': logs,
+        'brand_strategies': strategies,
+        'summary': summary,
+        'proactive_warnings': warnings,
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
 

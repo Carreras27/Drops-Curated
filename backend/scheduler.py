@@ -14,7 +14,9 @@ ANTI-BLOCKING FEATURES:
 import asyncio
 import logging
 import random
+import time
 from datetime import datetime, timezone, timedelta
+from typing import List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from scrapers import SCRAPERS, SHOPIFY_BRANDS
@@ -28,7 +30,7 @@ from scrapers.scraper_utils import (
 from alerts import detect_changes, send_alerts
 from classifier import classify_product, clean_product_title
 from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplicate_stats
-from scraper_healer import scraper_healer, ScraperError, init_healer
+from scraper_agent import scraper_agent, ErrorContext, init_scraper_agent
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +66,8 @@ def init_scheduler(db):
     # Load fingerprint cache from database
     asyncio.create_task(_init_fingerprint_cache(db))
     
-    # Initialize LLM-powered self-healing system
-    asyncio.create_task(init_healer(db))
+    # Initialize LLM-powered self-healing scraper agent
+    asyncio.create_task(init_scraper_agent(db))
 
     # Auto-scrape job every 15 minutes
     scheduler.add_job(
@@ -118,6 +120,22 @@ async def _init_fingerprint_cache(db):
         await fingerprint_cache.load_from_db(db)
     except Exception as e:
         logger.error(f"[Scheduler] Failed to load fingerprint cache: {e}")
+
+
+async def _get_last_errors(brand_key: str, limit: int = 3) -> List[str]:
+    """Get last N error messages for a brand from agent logs."""
+    global _db
+    if not _db:
+        return []
+    
+    try:
+        logs = await _db.scraper_agent_logs.find(
+            {"brand_key": brand_key, "success": False},
+            {"_id": 0, "message": 1}
+        ).sort("timestamp", -1).limit(limit).to_list(limit)
+        return [log.get("message", "Unknown error") for log in logs]
+    except:
+        return []
 
 
 async def scrape_all_brands():
@@ -202,56 +220,79 @@ async def scrape_all_brands():
         except BlockedError as e:
             logger.error(f"[Scheduler] BLOCKED scraping {key}: {e}")
             
-            # Trigger LLM Self-Healing System
+            # Get last 3 errors for context
+            last_errors = await _get_last_errors(key, 3)
+            
+            # Trigger LLM Self-Healing Agent
             scraper = scraper_factory()
-            error = ScraperError(
+            error_context = ErrorContext(
                 brand_key=key,
                 brand_name=scraper.brand_name,
+                scraper_name=type(scraper).__name__,
                 error_type="BlockedError",
                 error_message=str(e),
-                status_code=getattr(e, 'status_code', None),
+                http_status=getattr(e, 'status_code', None),
                 url=scraper.base_url,
+                last_3_errors=last_errors,
+                response_snippet=getattr(e, 'response_snippet', '')
             )
             
-            healing_result = await scraper_healer.analyze_and_fix(scraper_factory, error)
+            healing_result = await scraper_agent.handle_scraper_failure(scraper_factory, error_context)
             
-            if healing_result.success:
-                logger.info(f"[Scheduler] Self-healed {key} with strategy: {healing_result.strategy_used.value}")
+            if healing_result.get("success"):
+                logger.info(f"[Scheduler] Agent healed {key} with strategy: {healing_result.get('strategy')}")
                 _run_results[key] = {
                     "status": "healed",
-                    "scraped": healing_result.products_scraped,
-                    "strategy": healing_result.strategy_used.value
+                    "scraped": healing_result.get("products", 0),
+                    "strategy": healing_result.get("strategy"),
+                    "strategies_tried": healing_result.get("strategies_tried", 0)
                 }
                 brands_succeeded += 1
             else:
-                _run_results[key] = {"status": "blocked", "error": str(e), "healing_attempted": True}
+                _run_results[key] = {
+                    "status": "blocked", 
+                    "error": str(e), 
+                    "agent_attempted": True,
+                    "exhausted": healing_result.get("exhausted", False)
+                }
                 brands_failed += 1
             
         except Exception as e:
             logger.error(f"[Scheduler] Error scraping {key}: {e}")
             
-            # Trigger LLM Self-Healing System for general errors too
+            # Get last 3 errors for context
+            last_errors = await _get_last_errors(key, 3)
+            
+            # Trigger LLM Self-Healing Agent
             scraper = scraper_factory()
-            error = ScraperError(
+            error_context = ErrorContext(
                 brand_key=key,
                 brand_name=scraper.brand_name,
+                scraper_name=type(scraper).__name__,
                 error_type=type(e).__name__,
                 error_message=str(e),
                 url=scraper.base_url,
+                last_3_errors=last_errors
             )
             
-            healing_result = await scraper_healer.analyze_and_fix(scraper_factory, error)
+            healing_result = await scraper_agent.handle_scraper_failure(scraper_factory, error_context)
             
-            if healing_result.success:
-                logger.info(f"[Scheduler] Self-healed {key} with strategy: {healing_result.strategy_used.value}")
+            if healing_result.get("success"):
+                logger.info(f"[Scheduler] Agent healed {key} with strategy: {healing_result.get('strategy')}")
                 _run_results[key] = {
                     "status": "healed",
-                    "scraped": healing_result.products_scraped,
-                    "strategy": healing_result.strategy_used.value
+                    "scraped": healing_result.get("products", 0),
+                    "strategy": healing_result.get("strategy"),
+                    "strategies_tried": healing_result.get("strategies_tried", 0)
                 }
                 brands_succeeded += 1
             else:
-                _run_results[key] = {"status": "error", "error": str(e), "healing_attempted": True}
+                _run_results[key] = {
+                    "status": "error", 
+                    "error": str(e), 
+                    "agent_attempted": True,
+                    "exhausted": healing_result.get("exhausted", False)
+                }
                 brands_failed += 1
 
     # Update success tracking

@@ -6,14 +6,20 @@
 **Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
 
 ## Recent Changes (April 2026)
-- **LLM-Powered Self-Healing Scraper System:**
-  - Implemented intelligent error recovery using Gemini 2.0 Flash
-  - Flow: Scraper fails → Error captured → LLM analyzes → Picks fix strategy → Retry → Success/Fail → Alert if exhausted
-  - 10 available fix strategies: proxy rotation, UA rotation, timeout increase, delays, JSON API switch, Playwright, mobile UA, etc.
-  - Email alerts to admin every 5 minutes if all strategies fail
-  - Success history tracking to prioritize strategies that worked before
-  - New endpoint: `/api/admin/scraper-health` with full dashboard data
-  - Created `/app/backend/scraper_healer.py` module
+- **FULL LLM-Powered Self-Healing Scraper Agent (`scraper_agent.py`):**
+  - Complete implementation per spec with all 10 requirements:
+    1. ✅ `backend/scraper_agent.py` - The brain of the scraper system
+    2. ✅ Error context includes scraper name, error, HTTP status, response snippet, last 3 errors
+    3. ✅ Gemini diagnoses and picks from 10 strategies: JSON API, proxy, UA, delays, Playwright, URL patterns, sitemap, wait/retry, selector rewrite, mobile UA
+    4. ✅ 60 second gap between strategy attempts, logged to `scraper_agent_logs` collection
+    5. ✅ Success stored in `scraper_strategies` with winning strategy for next time
+    6. ✅ Gemini analyzes new HTML and rewrites CSS selectors when structure changes
+    7. ✅ WhatsApp alert only after 3 hours of failed healing attempts
+    8. ✅ Memory system with confidence scores: +5 on success, -10 on failure
+    9. ✅ `/api/admin/agent-logs` endpoint shows all attempts, strategies, warnings
+    10. ✅ Proactive monitoring: detects response time >10s as early warning
+  - Admin Panel: New "Agent Logs" tab showing everything the agent tried and learned
+  - Collections: `scraper_agent_logs`, `scraper_strategies`
 
 - **Scraper Anti-Blocking Infrastructure:**
   - User-Agent rotation (12+ desktop/mobile UAs)
