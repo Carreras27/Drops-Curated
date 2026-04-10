@@ -117,11 +117,11 @@ function SizeDots({ sizes }) {
         }}>
           <div style={{
             width: 8, height: 8, borderRadius: "50%",
-            background: s.available ? "#00e676" : "#ff1744",
-            boxShadow: s.available ? "0 0 6px #00e676" : "0 0 6px #ff1744",
+            background: s.available ? "#16a34a" : "#dc2626",
+            boxShadow: s.available ? "0 0 6px #16a34a" : "0 0 6px #dc2626",
             transition: "all 0.3s"
           }} />
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>{s.size}</span>
+          <span style={{ fontSize: 9, color: "#64748b", fontFamily: "monospace" }}>{s.size}</span>
         </div>
       ))}
     </div>
@@ -220,7 +220,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
             {item.brand?.toUpperCase() || 'DROPS CURATED'}
           </div>
           <div style={{
-            fontSize: 13, fontWeight: 700, color: "#fff",
+            fontSize: 13, fontWeight: 700, color: "#1a1a2e",
             lineHeight: 1.3, marginBottom: 6,
             overflow: "hidden", textOverflow: "ellipsis",
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical"
@@ -231,7 +231,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
           {/* Price */}
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
             <span style={{
-              fontSize: 20, fontWeight: 900, color: "#fff",
+              fontSize: 20, fontWeight: 900, color: "#1a1a2e",
               fontFamily: "monospace",
               transition: "color 0.3s",
               textShadow: flash === "up" ? "0 0 20px rgba(0,230,118,0.8)" : flash === "down" ? "0 0 20px rgba(255,23,68,0.8)" : "none"
@@ -241,7 +241,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
             {!isFlat && (
               <span style={{
                 fontSize: 12, fontWeight: 700,
-                color: up ? "#ff1744" : "#00e676",
+                color: up ? "#dc2626" : "#16a34a",
                 display: "flex", alignItems: "center", gap: 2
               }}>
                 {up ? "▲" : "▼"} {fmt(Math.abs(diff))} ({up ? "+" : ""}{pctVal}%)
@@ -250,7 +250,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
           </div>
 
           {/* Added price */}
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>
             Added at {fmt(addedPrice)} · {item.store || item.category || 'Streetwear'}
             {item.selectedSize && <span style={{ color: "#c9a84c" }}> · Size {item.selectedSize}</span>}
           </div>
@@ -330,13 +330,13 @@ function PortfolioHeader({ items, livePrices }) {
         pointerEvents: "none"
       }} />
 
-      <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(201,168,76,0.6)", letterSpacing: 3, marginBottom: 8, fontFamily: "monospace" }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(201,168,76,0.9)", letterSpacing: 3, marginBottom: 8, fontFamily: "monospace" }}>
         MY PORTFOLIO
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", fontFamily: "monospace", lineHeight: 1 }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color: "#1a1a2e", fontFamily: "monospace", lineHeight: 1 }}>
             <AnimatedNumber value={total} />
           </div>
           <div style={{
@@ -344,21 +344,21 @@ function PortfolioHeader({ items, livePrices }) {
           }}>
             <span style={{
               fontSize: 14, fontWeight: 700,
-              color: up ? "#ff1744" : "#00e676",
+              color: up ? "#dc2626" : "#16a34a",
               display: "flex", alignItems: "center", gap: 4
             }}>
               {up ? "▲" : "▼"} {fmt(Math.abs(diff))}
             </span>
             <span style={{
               fontSize: 12,
-              background: up ? "rgba(255,23,68,0.15)" : "rgba(0,230,118,0.15)",
-              color: up ? "#ff1744" : "#00e676",
+              background: up ? "rgba(220,38,38,0.15)" : "rgba(22,163,74,0.15)",
+              color: up ? "#dc2626" : "#16a34a",
               padding: "2px 8px", borderRadius: 20, fontWeight: 700
             }}>
               {up ? "+" : ""}{pctTotal}%
             </span>
           </div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
             since items added · {inStockCount}/{items.length} in stock
           </div>
         </div>
@@ -397,10 +397,10 @@ function PortfolioHeader({ items, livePrices }) {
           { label: "PRICE ALERTS", value: items.filter(i => Math.abs(parseFloat(pct(livePrices[i.id] || i.lowestPrice, i.addedPrice || i.lowestPrice))) > 5).length }
         ].map(stat => (
           <div key={stat.label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", fontFamily: "monospace" }}>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#1a1a2e", fontFamily: "monospace" }}>
               {stat.value}
             </div>
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: 2, marginTop: 2 }}>
+            <div style={{ fontSize: 9, color: "#64748b", letterSpacing: 2, marginTop: 2 }}>
               {stat.label}
             </div>
           </div>
@@ -444,7 +444,7 @@ function LiveTicker({ items, livePrices }) {
         transform: `translateX(${offset % 800}px)`,
         whiteSpace: "nowrap", transition: "none"
       }}>
-        <span style={{ fontSize: 10, color: "#c9a84c", fontFamily: "monospace", fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: "#92400e", fontFamily: "monospace", fontWeight: 700 }}>
           {text} · {text} · {text}
         </span>
       </div>
@@ -455,15 +455,17 @@ function LiveTicker({ items, livePrices }) {
 // ── Empty State ───────────────────────────────────────────────────────────────
 function EmptyState() {
   return (
-    <div style={{ textAlign: "center", padding: "60px 20px" }}>
+    <div style={{
+      textAlign: "center", padding: "60px 20px"
+    }}>
       <div style={{
         fontSize: 64, marginBottom: 16,
         animation: "float 3s ease-in-out infinite"
       }}>👟</div>
-      <h3 style={{ color: "#fff", fontWeight: 900, fontSize: 20, margin: "0 0 8px" }}>
+      <h3 style={{ color: "#1a1a2e", fontWeight: 900, fontSize: 20, margin: "0 0 8px" }}>
         Your portfolio is empty
       </h3>
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, margin: "0 0 24px" }}>
+      <p style={{ color: "#64748b", fontSize: 14, margin: "0 0 24px" }}>
         Start adding drops to track prices like a pro
       </p>
       <Link 
@@ -571,10 +573,10 @@ export default function WishlistPage() {
                 </div>
                 <h1 style={{
                   margin: "4px 0 0",
-                  fontSize: 26, fontWeight: 900, color: "#fff",
+                  fontSize: 26, fontWeight: 900, color: "#1a1a2e",
                   letterSpacing: -0.5
                 }}>
-                  Wishlist <span style={{ color: "#c9a84c" }}>Portfolio</span>
+                  <span style={{ color: "#1a1a2e" }}>Wishlist</span> <span style={{ color: "#c9a84c" }}>Portfolio</span>
                 </h1>
               </div>
               <div style={{
@@ -620,17 +622,17 @@ export default function WishlistPage() {
           {items.length > 0 && (
             <div style={{
               marginTop: 24, padding: 16,
-              background: "rgba(255,255,255,0.02)",
-              borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)"
+              background: "rgba(201,168,76,0.08)",
+              borderRadius: 16, border: "1px solid rgba(201,168,76,0.2)"
             }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: 2, marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "#92400e", letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>
                 LEGEND
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {[
-                  { dot: "#00e676", label: "Price down (save!)" },
-                  { dot: "#ff1744", label: "Price up" },
-                  { dot: "#ff6d00", label: "Low stock" },
+                  { dot: "#16a34a", label: "Price down (save!)" },
+                  { dot: "#dc2626", label: "Price up" },
+                  { dot: "#ea580c", label: "Low stock" },
                   { dot: "#c9a84c", label: "Your tracked items" },
                 ].map(l => (
                   <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -639,7 +641,7 @@ export default function WishlistPage() {
                       background: l.dot, boxShadow: `0 0 4px ${l.dot}`,
                       flexShrink: 0
                     }} />
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{l.label}</span>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>{l.label}</span>
                   </div>
                 ))}
               </div>
