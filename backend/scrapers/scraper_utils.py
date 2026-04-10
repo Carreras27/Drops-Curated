@@ -184,7 +184,7 @@ class FingerprintCache:
     
     async def bulk_update(self, products: List[Dict]):
         """Bulk update fingerprints for multiple products."""
-        if not self._db or not products:
+        if self._db is None or not products:
             return
         
         from pymongo import UpdateOne

@@ -22,6 +22,8 @@ Premium VIP subscription platform (₹399/month) for Indian luxury streetwear ma
 ### April 10, 2026
 - [x] **Shipping Data Removal**: Cleaned 1,093 products, updated all scrapers with filtering methods
 - [x] **Wishlist Portfolio Calculation Bug Fix**: Fixed `addedPrice` override bug in `WishlistPage.js` line 542
+- [x] **Added Mids and Lows scraper**: Shopify-based, 201 products scraped
+- [ ] **Footlocker India scraper**: Created but blocked by Akamai anti-bot (needs residential proxies)
 
 ### Previous Session
 - [x] LLM-powered Self-Healing Scraper Agent (Gemini 2.5 Flash)
