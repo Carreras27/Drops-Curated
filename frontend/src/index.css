@@ -138,3 +138,17 @@ img {
   height: 40px;
   border-radius: 4px;
 }
+
+
+/* Hide Emergent badge */
+[class*="emergent"],
+[id*="emergent"],
+[data-emergent],
+iframe[src*="emergent"],
+div[style*="Made with Emergent"],
+a[href*="emergentagent.com"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
