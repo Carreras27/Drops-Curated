@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity } from 'lucide-react';
+import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart } from 'lucide-react';
 import axios from 'axios';
 import { HomepageSchemas, BreadcrumbSchema } from '../components/SEOSchema';
+import { useWishlist } from '../context/WishlistContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -196,30 +197,57 @@ const NAV_LINKS = [
   { label: 'Contact', to: '/contact' },
 ];
 
-export const Header = ({ transparent = false }) => (
-  <header className={`fixed top-0 left-0 right-0 z-50 ${transparent ? 'bg-background/90 backdrop-blur-xl' : 'bg-background'} border-b border-primary/[0.06]`}>
-    <nav className="max-w-7xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
-      <Link to="/" className="font-serif text-xl tracking-tight" data-testid="logo-link">
-        Drops <span className="text-accent">Curated</span>
-      </Link>
-      <div className="flex items-center gap-6 md:gap-8">
-        {NAV_LINKS.map(l => (
-          <Link key={l.to} to={l.to} className="text-xs md:text-sm font-medium text-primary/60 hover:text-primary transition-colors duration-200" data-testid={`nav-${l.label.toLowerCase()}`}>
-            {l.label}
-          </Link>
-        ))}
-        <Link
-          to="/subscribe"
-          className="hidden md:inline-flex items-center gap-2 bg-primary text-background text-xs font-medium px-5 py-2.5 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
-          data-testid="nav-subscribe-cta"
-        >
-          <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />
-          Get Alerts
+export const Header = ({ transparent = false }) => {
+  // Try to use wishlist context, fallback if not available
+  let wishlistCount = 0;
+  try {
+    const wishlistContext = useWishlist();
+    wishlistCount = wishlistContext?.wishlistCount || 0;
+  } catch (e) {
+    // Context not available
+  }
+  
+  return (
+    <header className={`fixed top-0 left-0 right-0 z-50 ${transparent ? 'bg-background/90 backdrop-blur-xl' : 'bg-background'} border-b border-primary/[0.06]`}>
+      <nav className="max-w-7xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
+        <Link to="/" className="font-serif text-xl tracking-tight" data-testid="logo-link">
+          Drops <span className="text-accent">Curated</span>
         </Link>
-      </div>
-    </nav>
-  </header>
-);
+        <div className="flex items-center gap-4 md:gap-6">
+          {NAV_LINKS.map(l => (
+            <Link key={l.to} to={l.to} className="hidden md:inline text-xs md:text-sm font-medium text-primary/60 hover:text-primary transition-colors duration-200" data-testid={`nav-${l.label.toLowerCase()}`}>
+              {l.label}
+            </Link>
+          ))}
+          
+          {/* Wishlist Icon */}
+          <Link
+            to="/wishlist"
+            className="relative p-2 text-primary/60 hover:text-primary transition-colors"
+            data-testid="nav-wishlist"
+            title="My Wishlist"
+          >
+            <Heart className="w-5 h-5" strokeWidth={1.5} />
+            {wishlistCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-accent text-primary text-[10px] font-bold flex items-center justify-center rounded-full">
+                {wishlistCount > 9 ? '9+' : wishlistCount}
+              </span>
+            )}
+          </Link>
+          
+          <Link
+            to="/subscribe"
+            className="hidden md:inline-flex items-center gap-2 bg-primary text-background text-xs font-medium px-5 py-2.5 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+            data-testid="nav-subscribe-cta"
+          >
+            <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />
+            Get Alerts
+          </Link>
+        </div>
+      </nav>
+    </header>
+  );
+};
 
 export const Footer = () => {
   const [brands, setBrands] = useState([]);

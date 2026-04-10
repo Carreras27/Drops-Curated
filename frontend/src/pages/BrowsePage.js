@@ -14,6 +14,7 @@ import {
   LimitedEditionSchema,
   AllDropsSchema
 } from '../components/SEOSchema';
+import { WishlistButtonOverlay } from '../components/WishlistButton';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -378,51 +379,55 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
   const altText = generateProductAlt(product);
 
   return (
-    <Link
-      to={`/product/${product.id}`}
-      className="group animate-fade-up"
+    <div
+      className="group animate-fade-up relative"
       style={{ animationDelay: `${Math.min(idx * 0.04, 0.5)}s` }}
       data-testid={`product-card-${product.id}`}
     >
-      <div className="aspect-square overflow-hidden mb-3 bg-surface relative">
-        <img
-          src={product.imageUrl}
-          alt={altText}
-          title={`${product.brand} ${product.name} - View price comparison`}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-          loading="lazy"
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
-        {/* Limited Edition Badge */}
-        {showStock && product.isLimited && (
-          <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
-            {product.stockLimit ? `Only ${product.stockLimit} in India` : 'Limited'}
-          </div>
-        )}
-        {/* Date Badge */}
-        {showDate && product.createdAt && (
-          <div className="absolute bottom-2 right-2 bg-primary/80 text-background px-2 py-1 text-[9px] font-medium">
-            {formatDate(product.createdAt)}
-          </div>
-        )}
-      </div>
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-accent mb-1">{product.brand}</p>
-        <h3 className="text-sm font-medium leading-snug line-clamp-2 mb-2 group-hover:text-accent transition-colors duration-200">{product.name}</h3>
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-medium">
-            {product.lowestPrice > 0 ? `₹${product.lowestPrice?.toLocaleString('en-IN')}` : '—'}
-          </span>
-          {product.highestPrice > 0 && product.highestPrice !== product.lowestPrice && (
-            <span className="text-xs text-primary/30 line-through">₹{product.highestPrice?.toLocaleString('en-IN')}</span>
+      {/* Wishlist Button */}
+      <WishlistButtonOverlay product={product} />
+      
+      <Link to={`/product/${product.id}`}>
+        <div className="aspect-square overflow-hidden mb-3 bg-surface relative">
+          <img
+            src={product.imageUrl}
+            alt={altText}
+            title={`${product.brand} ${product.name} - View price comparison`}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+            loading="lazy"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          {/* Limited Edition Badge */}
+          {showStock && product.isLimited && (
+            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              {product.stockLimit ? `Only ${product.stockLimit} in India` : 'Limited'}
+            </div>
           )}
+          {/* Date Badge */}
+          {showDate && product.createdAt && (
+            <div className="absolute bottom-2 right-2 bg-primary/80 text-background px-2 py-1 text-[9px] font-medium">
+              {formatDate(product.createdAt)}
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-accent mb-1">{product.brand}</p>
+          <h3 className="text-sm font-medium leading-snug line-clamp-2 mb-2 group-hover:text-accent transition-colors duration-200">{product.name}</h3>
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium">
+              {product.lowestPrice > 0 ? `₹${product.lowestPrice?.toLocaleString('en-IN')}` : '—'}
+            </span>
+            {product.highestPrice > 0 && product.highestPrice !== product.lowestPrice && (
+              <span className="text-xs text-primary/30 line-through">₹${product.highestPrice?.toLocaleString('en-IN')}</span>
+            )}
         </div>
         {product.store && (
           <p className="text-[10px] text-primary/30 mt-1">{product.store.replace(/_/g, ' ')}</p>
         )}
       </div>
-    </Link>
+      </Link>
+    </div>
   );
 };
 

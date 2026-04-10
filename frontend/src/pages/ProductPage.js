@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Bell, Share2, Check } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Bell, Share2, Check, Heart } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { generateProductAlt, ProductSchema, BreadcrumbSchema, OrganizationSchema } from '../components/SEOSchema';
+import { useWishlist } from '../context/WishlistContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -13,6 +14,9 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null);
   const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Wishlist hook must be called before any early returns
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   useEffect(() => {
     fetchProduct();
@@ -27,6 +31,16 @@ export default function ProductPage() {
       toast.error('Product not found');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const handleWishlistClick = () => {
+    if (!product) return;
+    const added = toggleWishlist(product);
+    if (added) {
+      toast.success('Added to Wishlist');
+    } else {
+      toast('Removed from Wishlist');
     }
   };
 
@@ -56,6 +70,9 @@ export default function ProductPage() {
   
   // Generate SEO-friendly alt text
   const productAltText = generateProductAlt(product);
+  
+  // Check if product is in wishlist
+  const isWishlisted = isInWishlist(product?.id);
 
   return (
     <div className="bg-background min-h-screen" data-testid="product-page">
@@ -133,6 +150,18 @@ export default function ProductPage() {
                   <Bell className="w-4 h-4" strokeWidth={1.5} />
                   Get Price Alerts
                 </Link>
+                <button
+                  onClick={handleWishlistClick}
+                  className={`px-4 py-3.5 border transition-all ${
+                    isWishlisted 
+                      ? 'bg-red-500 border-red-500 text-white' 
+                      : 'border-primary/10 hover:border-accent hover:text-accent'
+                  }`}
+                  data-testid="wishlist-btn"
+                  title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                >
+                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} strokeWidth={1.5} />
+                </button>
                 <button
                   onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied!'); }}
                   className="border border-primary/10 px-4 hover:border-accent transition-colors"
