@@ -4,13 +4,27 @@ Detects changes (price drops, new products) and triggers WhatsApp alerts.
 Also handles daily digest notifications at 8 PM IST.
 Includes AI classification for new products.
 Includes health checks and dead-man's switch.
+
+ANTI-BLOCKING FEATURES:
+- Staggered brand scraping (15-35s random gaps)
+- Fingerprint caching to skip unchanged products
+- Health tracking per brand
+- Automatic retry with exponential backoff
 """
 import asyncio
 import logging
+import random
 from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from scrapers import SCRAPERS
+from scrapers import SCRAPERS, SHOPIFY_BRANDS
+from scrapers.scraper_utils import (
+    stagger_delay, 
+    brand_delay, 
+    fingerprint_cache, 
+    health_tracker,
+    BlockedError
+)
 from alerts import detect_changes, send_alerts
 from classifier import classify_product, clean_product_title
 from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplicate_stats
@@ -37,6 +51,17 @@ def init_scheduler(db):
     """Initialize the scheduler with database reference."""
     global _db
     _db = db
+
+    # Initialize health tracker with all brands
+    all_brands = SHOPIFY_BRANDS + [
+        {"key": "veg_non_veg", "name": "VegNonVeg"},
+        {"key": "culture_circle", "name": "Culture Circle"},
+        {"key": "hiyest", "name": "Hiyest"},
+    ]
+    health_tracker.init(db, all_brands)
+    
+    # Load fingerprint cache from database
+    asyncio.create_task(_init_fingerprint_cache(db))
 
     # Auto-scrape job every 15 minutes
     scheduler.add_job(
@@ -80,15 +105,28 @@ def init_scheduler(db):
     )
     
     scheduler.start()
-    logger.info("[Scheduler] Started — scraping every 15 minutes, health check every 5 minutes")
+    logger.info("[Scheduler] Started — scraping every 15 minutes with staggered brand delays")
+
+
+async def _init_fingerprint_cache(db):
+    """Initialize fingerprint cache from database."""
+    try:
+        await fingerprint_cache.load_from_db(db)
+    except Exception as e:
+        logger.error(f"[Scheduler] Failed to load fingerprint cache: {e}")
 
 
 async def scrape_all_brands():
-    """Scrape all brands, detect changes, send alerts."""
+    """
+    Scrape all brands with STAGGERED execution.
+    Each brand is scraped with random delays to avoid detection.
+    """
     global _is_running, _last_run, _last_success, _run_results, _consecutive_failures
+    
     if _is_running:
         logger.warning("[Scheduler] Scrape already running, skipping")
         return
+    
     _is_running = True
     _last_run = datetime.now(timezone.utc).isoformat()
     _run_results = {}
@@ -99,14 +137,26 @@ async def scrape_all_brands():
     brands_succeeded = 0
     brands_failed = 0
 
-    logger.info("[Scheduler] === Auto-scrape cycle starting ===")
+    logger.info("[Scheduler] === Auto-scrape cycle starting (staggered) ===")
 
-    for key, scraper_factory in SCRAPERS.items():
+    # Randomize brand order to appear more natural
+    brand_keys = list(SCRAPERS.keys())
+    random.shuffle(brand_keys)
+    
+    for i, key in enumerate(brand_keys):
+        scraper_factory = SCRAPERS[key]
+        
+        # Add stagger delay between brands (15-35 seconds)
+        if i > 0:
+            delay = await stagger_delay()
+            logger.info(f"[Scheduler] Waiting {delay:.1f}s before next brand...")
+        
         try:
             scraper = scraper_factory()
-            logger.info(f"[Scheduler] Scraping {scraper.brand_name}...")
+            logger.info(f"[Scheduler] [{i+1}/{len(brand_keys)}] Scraping {scraper.brand_name}...")
 
             scraped = await scraper.scrape_products(max_pages=5)
+            
             if not scraped:
                 _run_results[key] = {"status": "empty", "scraped": 0}
                 continue
@@ -143,8 +193,15 @@ async def scrape_all_brands():
             total_alerts += alert_result["sent"]
             brands_succeeded += 1
 
-            logger.info(f"[Scheduler] {scraper.brand_name}: {len(scraped)} products ({len(duplicates)} duplicates), {new_count} new, {drops_count} price drops, {alert_result['sent']} alerts")
+            logger.info(f"[Scheduler] {scraper.brand_name}: {len(scraped)} products ({len(duplicates)} duplicates), {new_count} new, {drops_count} price drops")
 
+        except BlockedError as e:
+            logger.error(f"[Scheduler] BLOCKED scraping {key}: {e}")
+            _run_results[key] = {"status": "blocked", "error": str(e)}
+            brands_failed += 1
+            # Add extra delay after being blocked
+            await asyncio.sleep(random.uniform(30, 60))
+            
         except Exception as e:
             logger.error(f"[Scheduler] Error scraping {key}: {e}")
             _run_results[key] = {"status": "error", "error": str(e)}
@@ -157,7 +214,12 @@ async def scrape_all_brands():
     else:
         _consecutive_failures += 1
     
-    logger.info(f"[Scheduler] === Cycle complete: {total_new} new, {total_drops} drops, {total_duplicates} duplicates filtered, {total_alerts} alerts sent ===")
+    # Log blocked brands
+    blocked = health_tracker.get_blocked_brands()
+    if blocked:
+        logger.warning(f"[Scheduler] Currently blocked brands: {blocked}")
+    
+    logger.info(f"[Scheduler] === Cycle complete: {brands_succeeded}/{len(brand_keys)} succeeded, {total_new} new, {total_drops} drops, {total_alerts} alerts ===")
     _is_running = False
 
 
@@ -169,14 +231,21 @@ async def _store_products(db, scraped_products: list[dict], brand_key: str) -> d
 
     for item in scraped_products:
         slug = item["name"].lower().replace(" ", "-").replace("'", "")[:80]
-        product_id = f"prod_{item['store']}_{hash(item['name']) % 100000}"
+        
+        # Use product ID from scraper if available, otherwise generate
+        product_id = item.get("id") or f"prod_{item['store']}_{hash(item['name']) % 100000}"
 
         existing = await db.products.find_one({"name": item["name"], "store": item["store"]})
 
         if existing:
             await db.products.update_one(
                 {"_id": existing["_id"]},
-                {"$set": {"imageUrl": item["image_url"], "isActive": True, "updatedAt": item["scraped_at"]}}
+                {"$set": {
+                    "imageUrl": item["image_url"], 
+                    "isActive": True, 
+                    "updatedAt": item["scraped_at"],
+                    "isLimited": item.get("is_limited", False),
+                }}
             )
             product_id = existing["id"]
             updated += 1
@@ -196,6 +265,7 @@ async def _store_products(db, scraped_products: list[dict], brand_key: str) -> d
                 "store": item["store"],
                 "isActive": True,
                 "isTrending": False,
+                "isLimited": item.get("is_limited", False),
                 "createdAt": item["scraped_at"],
             }
             
@@ -255,7 +325,7 @@ async def _store_products(db, scraped_products: list[dict], brand_key: str) -> d
             upsert=True,
         )
 
-    return {"added": added, "updated": updated}
+    return {"added": added, "updated": updated, "classified": classified}
 
 
 def get_scheduler_status():
@@ -263,12 +333,20 @@ def get_scheduler_status():
     return {
         "is_running": _is_running,
         "last_run": _last_run,
+        "last_success": _last_success,
         "results": _run_results,
         "next_scrape": str(scheduler.get_job('auto_scrape').next_run_time) if scheduler.get_job('auto_scrape') else None,
         "next_digest": str(scheduler.get_job('daily_digest').next_run_time) if scheduler.get_job('daily_digest') else None,
         "interval_minutes": 15,
         "digest_time": "8:00 PM IST",
+        "consecutive_failures": _consecutive_failures,
+        "blocked_brands": health_tracker.get_blocked_brands(),
     }
+
+
+def get_scraper_health():
+    """Get health status for all scrapers."""
+    return health_tracker.get_dashboard_data()
 
 
 async def send_daily_digest_notifications():
@@ -278,148 +356,187 @@ async def send_daily_digest_notifications():
     from whatsapp import whatsapp_client, IS_CONFIGURED
     
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    logger.info(f"[Daily Digest] Starting digest send for {today}")
     
-    digests = await _db.daily_digest.find({'date': today, 'sent': {'$ne': True}}).to_list(1000)
+    if not IS_CONFIGURED:
+        logger.warning("[Digest] WhatsApp not configured, skipping digest")
+        return {"sent": 0, "error": "WhatsApp not configured"}
     
-    sent_count = 0
-    
-    for digest in digests:
-        phone = digest.get('phone', '')
-        alerts = digest.get('alerts', [])
+    try:
+        # Find subscribers who haven't received digest today
+        subscribers = await _db.subscribers.find({
+            "isActive": True,
+            "lastDigestSent": {"$ne": today}
+        }, {"_id": 0}).to_list(1000)
         
-        if not alerts:
-            continue
+        if not subscribers:
+            logger.info("[Digest] No pending digests to send")
+            return {"sent": 0}
         
-        # Group alerts by type
-        new_drops = [a for a in alerts if a.get('type') == 'new_release']
-        price_drops = [a for a in alerts if a.get('type') == 'price_drop']
-        restocks = [a for a in alerts if a.get('type') == 'restock']
+        logger.info(f"[Digest] Sending digest to {len(subscribers)} subscribers")
         
-        # Build digest message
-        message = "🌙 *Your Daily Drops Digest*\n\n"
-        message += f"_{today}_\n\n"
+        sent = 0
+        for sub in subscribers:
+            phone = sub.get("phone")
+            if not phone:
+                continue
+            
+            # Get new products from last 24 hours matching preferences
+            prefs = sub.get("preferences", {})
+            brand_prefs = prefs.get("brands", [])
+            
+            query = {
+                "createdAt": {"$gte": (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()}
+            }
+            if brand_prefs:
+                query["brand"] = {"$in": brand_prefs}
+            
+            new_products = await _db.products.find(query, {"_id": 0}).limit(10).to_list(10)
+            
+            if not new_products:
+                continue
+            
+            # Build digest message
+            message = f"🛍️ *Daily Drops Digest*\n\n"
+            message += f"*{len(new_products)} new drops* in the last 24 hours:\n\n"
+            
+            for p in new_products[:5]:
+                price = p.get("lowestPrice") or p.get("price", 0)
+                price_str = f"₹{price:,.0f}" if price else "Price TBD"
+                message += f"• {p.get('brand', 'Brand')} - {p.get('name', 'Product')[:40]}\n  {price_str}\n\n"
+            
+            if len(new_products) > 5:
+                message += f"... and {len(new_products) - 5} more!\n\n"
+            
+            message += "Visit dropscurated.com to see all drops"
+            
+            try:
+                await whatsapp_client.send_message(phone, message)
+                await _db.subscribers.update_one(
+                    {"phone": phone},
+                    {"$set": {"lastDigestSent": today}}
+                )
+                sent += 1
+            except Exception as e:
+                logger.error(f"[Digest] Failed to send to {phone}: {e}")
         
-        if new_drops:
-            message += f"🆕 *{len(new_drops)} New Arrivals*\n"
-            for nd in new_drops[:3]:
-                data = nd.get('data', {})
-                message += f"  • {data.get('name', 'Product')[:40]} - ₹{data.get('price', 0):,.0f}\n"
-            if len(new_drops) > 3:
-                message += f"  _...and {len(new_drops) - 3} more_\n"
-            message += "\n"
+        logger.info(f"[Digest] Sent {sent} digest messages")
+        return {"sent": sent}
         
-        if price_drops:
-            message += f"💰 *{len(price_drops)} Price Drops*\n"
-            for pd in price_drops[:3]:
-                data = pd.get('data', {})
-                message += f"  • {data.get('name', 'Product')[:40]} - ₹{data.get('new_price', 0):,.0f} (was ₹{data.get('old_price', 0):,.0f})\n"
-            if len(price_drops) > 3:
-                message += f"  _...and {len(price_drops) - 3} more_\n"
-            message += "\n"
-        
-        if restocks:
-            message += f"📦 *{len(restocks)} Back in Stock*\n"
-            for rs in restocks[:3]:
-                data = rs.get('data', {})
-                message += f"  • {data.get('name', 'Product')[:40]}\n"
-            message += "\n"
-        
-        message += "👉 Browse all drops on Drops Curated!"
-        
-        # Send the digest
-        if IS_CONFIGURED:
-            success, result = whatsapp_client.send_text_message(phone, message)
-        else:
-            success = True  # Sandbox mode
-            logger.info(f"[Sandbox] Daily digest to {phone}: {len(alerts)} alerts")
-        
-        if success:
-            sent_count += 1
-            await _db.daily_digest.update_one(
-                {'_id': digest['_id']},
-                {'$set': {'sent': True, 'sentAt': datetime.now(timezone.utc).isoformat()}}
-            )
-    
-    logger.info(f"[Daily Digest] Completed: {sent_count} digests sent")
+    except Exception as e:
+        logger.error(f"[Digest] Error: {e}")
+        return {"sent": 0, "error": str(e)}
 
-
-
-# ============ HEALTH CHECKS ============
 
 async def run_health_check():
-    """Run periodic health checks on all systems"""
+    """Run health check on all system components."""
     global _health_status, _db
     
-    now = datetime.now(timezone.utc)
-    _health_status['last_check'] = now.isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+    _health_status['last_check'] = now
     
-    # Check database connectivity
+    # Check database
     try:
-        await _db.products.find_one({})
+        await _db.products.count_documents({})
         _health_status['db_healthy'] = True
     except Exception as e:
-        _health_status['db_healthy'] = False
         logger.error(f"[HealthCheck] Database unhealthy: {e}")
+        _health_status['db_healthy'] = False
     
-    # Check if scraper has run recently
+    # Check scraper (based on last success)
     if _last_success:
-        last_success_time = datetime.fromisoformat(_last_success)
-        time_since_success = now - last_success_time
-        _health_status['scraper_healthy'] = time_since_success < timedelta(hours=1)
+        try:
+            last_success_time = datetime.fromisoformat(_last_success.replace('Z', '+00:00'))
+            age_minutes = (datetime.now(timezone.utc) - last_success_time).total_seconds() / 60
+            _health_status['scraper_healthy'] = age_minutes < 60  # Healthy if success in last hour
+        except:
+            _health_status['scraper_healthy'] = False
     else:
-        _health_status['scraper_healthy'] = _last_run is None  # OK if never run yet
+        _health_status['scraper_healthy'] = True  # Assume healthy on first run
+    
+    # Check alerts
+    from whatsapp import IS_CONFIGURED
+    _health_status['alerts_healthy'] = IS_CONFIGURED
     
     # Overall status
     if _health_status['db_healthy'] and _health_status['scraper_healthy']:
         _health_status['status'] = 'healthy'
-    elif not _health_status['db_healthy']:
-        _health_status['status'] = 'critical'
-    else:
+    elif _health_status['db_healthy']:
         _health_status['status'] = 'degraded'
+    else:
+        _health_status['status'] = 'unhealthy'
+    
+    # Check for blocked brands
+    blocked = health_tracker.get_blocked_brands()
+    if blocked:
+        _health_status['status'] = 'degraded'
+        _health_status['blocked_brands'] = blocked
     
     logger.debug(f"[HealthCheck] Status: {_health_status['status']}")
 
 
 async def check_dead_mans_switch():
-    """
-    Dead-man's switch: If scraper hasn't succeeded in 1 hour, trigger alert.
-    This prevents silent failures where the scraper stops working.
-    """
-    global _last_success, _consecutive_failures, _db
+    """Check if scraper has been stuck for too long and alert."""
+    global _consecutive_failures, _last_success
     
-    if not _last_success:
-        return  # Never run yet, skip
+    # If no successful scrape in 2 hours, alert
+    if _last_success:
+        try:
+            last_success_time = datetime.fromisoformat(_last_success.replace('Z', '+00:00'))
+            age_hours = (datetime.now(timezone.utc) - last_success_time).total_seconds() / 3600
+            
+            if age_hours > 2:
+                logger.warning(f"[DeadMansSwitch] No successful scrape in {age_hours:.1f} hours!")
+                
+                # Send alert
+                try:
+                    from whatsapp import send_admin_alert
+                    await send_admin_alert(
+                        f"⚠️ SCRAPER ALERT\n\n"
+                        f"No successful scrape in {age_hours:.1f} hours.\n"
+                        f"Consecutive failures: {_consecutive_failures}\n"
+                        f"Blocked brands: {health_tracker.get_blocked_brands()}"
+                    )
+                except Exception as e:
+                    logger.error(f"[DeadMansSwitch] Failed to send alert: {e}")
+        except Exception as e:
+            logger.error(f"[DeadMansSwitch] Error: {e}")
     
-    now = datetime.now(timezone.utc)
-    last_success_time = datetime.fromisoformat(_last_success)
-    time_since_success = now - last_success_time
-    
-    # If no successful scrape in 1 hour, something is wrong
-    if time_since_success > timedelta(hours=1):
-        logger.warning(f"[DeadMansSwitch] No successful scrape in {time_since_success}. Consecutive failures: {_consecutive_failures}")
-        
-        # Log the issue
-        await _db.system_alerts.insert_one({
-            'type': 'dead_mans_switch',
-            'message': f'Scraper has not succeeded in {time_since_success}',
-            'consecutive_failures': _consecutive_failures,
-            'last_success': _last_success,
-            'created_at': now.isoformat()
-        })
-        
-        # If 3+ consecutive failures, mark as critical
-        if _consecutive_failures >= 3:
-            _health_status['status'] = 'critical'
-            _health_status['scraper_healthy'] = False
+    # If too many consecutive failures, alert
+    if _consecutive_failures >= 3:
+        logger.warning(f"[DeadMansSwitch] {_consecutive_failures} consecutive scrape failures!")
 
 
 def get_health_status():
-    """Get current health status"""
-    return {
-        **_health_status,
-        'last_run': _last_run,
-        'last_success': _last_success,
-        'consecutive_failures': _consecutive_failures,
-        'is_running': _is_running
-    }
+    """Get current health status."""
+    return _health_status
+
+
+# Manual scrape trigger for admin
+async def manual_scrape(brand_key: str = None):
+    """Manually trigger a scrape for one or all brands."""
+    global _db
+    
+    if brand_key:
+        if brand_key not in SCRAPERS:
+            return {"error": f"Unknown brand: {brand_key}"}
+        
+        try:
+            scraper = SCRAPERS[brand_key]()
+            products = await scraper.scrape_products(max_pages=5)
+            
+            if products:
+                unique, dupes = await filter_duplicates(_db, products)
+                await _store_products(_db, unique, brand_key)
+                return {
+                    "brand": brand_key,
+                    "scraped": len(products),
+                    "unique": len(unique),
+                    "duplicates": len(dupes)
+                }
+            return {"brand": brand_key, "scraped": 0}
+        except Exception as e:
+            return {"brand": brand_key, "error": str(e)}
+    else:
+        # Scrape all brands
+        await scrape_all_brands()
+        return get_scheduler_status()
