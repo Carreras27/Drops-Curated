@@ -621,6 +621,44 @@ async def brand_search(
         'store': store
     }
 
+# Batch price lookup for wishlist
+class ProductIdsRequest(BaseModel):
+    ids: List[str]
+
+@api_router.post('/products/prices')
+async def get_product_prices(request: Request, data: ProductIdsRequest):
+    """
+    Get current prices for multiple products by ID.
+    Used by wishlist portfolio to show live prices.
+    """
+    if not data.ids or len(data.ids) == 0:
+        return {'prices': {}}
+    
+    # Limit to 50 products max
+    product_ids = data.ids[:50]
+    
+    prices = {}
+    for product_id in product_ids:
+        # Get latest price from prices collection
+        price_doc = await db.prices.find_one(
+            {'productId': product_id},
+            {'_id': 0, 'currentPrice': 1},
+            sort=[('lastScrapedAt', -1)]
+        )
+        
+        if price_doc:
+            prices[product_id] = price_doc['currentPrice']
+        else:
+            # Fallback to product's price field
+            product = await db.products.find_one(
+                {'id': product_id},
+                {'_id': 0, 'price': 1, 'lowestPrice': 1}
+            )
+            if product:
+                prices[product_id] = product.get('lowestPrice') or product.get('price', 0)
+    
+    return {'prices': prices}
+
 # NOTE: This route MUST come BEFORE /products/{product_id} to avoid route conflicts
 @api_router.get('/products/classified')
 async def get_classified_products(

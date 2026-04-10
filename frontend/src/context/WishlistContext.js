@@ -49,8 +49,11 @@ export function WishlistProvider({ children }) {
       name: product.name,
       brand: product.brand,
       imageUrl: product.imageUrl,
-      lowestPrice: product.lowestPrice,
+      lowestPrice: product.lowestPrice || product.price || 0,
+      addedPrice: product.lowestPrice || product.price || 0, // Price when added
       category: product.aiCategory || product.category,
+      store: product.store,
+      inStock: product.inStock !== false,
       addedAt: new Date().toISOString()
     };
 
