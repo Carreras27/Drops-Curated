@@ -28,6 +28,7 @@ from scrapers.scraper_utils import (
 from alerts import detect_changes, send_alerts
 from classifier import classify_product, clean_product_title
 from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplicate_stats
+from scraper_healer import scraper_healer, ScraperError, init_healer
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,9 @@ def init_scheduler(db):
     
     # Load fingerprint cache from database
     asyncio.create_task(_init_fingerprint_cache(db))
+    
+    # Initialize LLM-powered self-healing system
+    asyncio.create_task(init_healer(db))
 
     # Auto-scrape job every 15 minutes
     scheduler.add_job(
@@ -197,15 +201,58 @@ async def scrape_all_brands():
 
         except BlockedError as e:
             logger.error(f"[Scheduler] BLOCKED scraping {key}: {e}")
-            _run_results[key] = {"status": "blocked", "error": str(e)}
-            brands_failed += 1
-            # Add extra delay after being blocked
-            await asyncio.sleep(random.uniform(30, 60))
+            
+            # Trigger LLM Self-Healing System
+            scraper = scraper_factory()
+            error = ScraperError(
+                brand_key=key,
+                brand_name=scraper.brand_name,
+                error_type="BlockedError",
+                error_message=str(e),
+                status_code=getattr(e, 'status_code', None),
+                url=scraper.base_url,
+            )
+            
+            healing_result = await scraper_healer.analyze_and_fix(scraper_factory, error)
+            
+            if healing_result.success:
+                logger.info(f"[Scheduler] Self-healed {key} with strategy: {healing_result.strategy_used.value}")
+                _run_results[key] = {
+                    "status": "healed",
+                    "scraped": healing_result.products_scraped,
+                    "strategy": healing_result.strategy_used.value
+                }
+                brands_succeeded += 1
+            else:
+                _run_results[key] = {"status": "blocked", "error": str(e), "healing_attempted": True}
+                brands_failed += 1
             
         except Exception as e:
             logger.error(f"[Scheduler] Error scraping {key}: {e}")
-            _run_results[key] = {"status": "error", "error": str(e)}
-            brands_failed += 1
+            
+            # Trigger LLM Self-Healing System for general errors too
+            scraper = scraper_factory()
+            error = ScraperError(
+                brand_key=key,
+                brand_name=scraper.brand_name,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                url=scraper.base_url,
+            )
+            
+            healing_result = await scraper_healer.analyze_and_fix(scraper_factory, error)
+            
+            if healing_result.success:
+                logger.info(f"[Scheduler] Self-healed {key} with strategy: {healing_result.strategy_used.value}")
+                _run_results[key] = {
+                    "status": "healed",
+                    "scraped": healing_result.products_scraped,
+                    "strategy": healing_result.strategy_used.value
+                }
+                brands_succeeded += 1
+            else:
+                _run_results[key] = {"status": "error", "error": str(e), "healing_attempted": True}
+                brands_failed += 1
 
     # Update success tracking
     if brands_succeeded > 0:

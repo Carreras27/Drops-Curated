@@ -1,9 +1,28 @@
 # Drops Curated - Product Requirements Document
 
-**Last Updated:** April 2025
+**Last Updated:** April 2026
 
 ## Overview
 **Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
+
+## Recent Changes (April 2026)
+- **LLM-Powered Self-Healing Scraper System:**
+  - Implemented intelligent error recovery using Gemini 2.0 Flash
+  - Flow: Scraper fails → Error captured → LLM analyzes → Picks fix strategy → Retry → Success/Fail → Alert if exhausted
+  - 10 available fix strategies: proxy rotation, UA rotation, timeout increase, delays, JSON API switch, Playwright, mobile UA, etc.
+  - Email alerts to admin every 5 minutes if all strategies fail
+  - Success history tracking to prioritize strategies that worked before
+  - New endpoint: `/api/admin/scraper-health` with full dashboard data
+  - Created `/app/backend/scraper_healer.py` module
+
+- **Scraper Anti-Blocking Infrastructure:**
+  - User-Agent rotation (12+ desktop/mobile UAs)
+  - Proxy manager support (Brightdata/Smartproxy)
+  - Fingerprint caching to skip unchanged products
+  - Staggered brand scraping (15-35s random gaps)
+  - Exponential backoff retries
+  - Health tracking per brand
+  - Created `/app/backend/scrapers/scraper_utils.py`
 
 ## Recent Changes (April 2025)
 - **Comprehensive SEO Implementation:**

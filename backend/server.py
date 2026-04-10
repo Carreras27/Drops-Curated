@@ -2055,7 +2055,8 @@ async def check_entry_status(raffle_id: str, phone: str):
     }
 
 # ============ SCHEDULER STATUS ============
-from scheduler import get_scheduler_status, scrape_all_brands as run_full_scrape
+from scheduler import get_scheduler_status, scrape_all_brands as run_full_scrape, get_scraper_health, get_health_status
+from scraper_healer import scraper_healer
 
 @api_router.get('/scheduler/status')
 async def scheduler_status():
@@ -2067,6 +2068,42 @@ async def trigger_scrape():
     import asyncio
     asyncio.create_task(run_full_scrape())
     return {'message': 'Scrape cycle triggered', 'status': 'running'}
+
+@api_router.get('/admin/scraper-health')
+async def scraper_health_dashboard():
+    """
+    Get detailed health status for all scrapers.
+    Shows success rates, blocked brands, last errors, and healing stats.
+    """
+    scraper_health = get_scraper_health()
+    system_health = get_health_status()
+    healing_stats = scraper_healer.get_healing_stats()
+    
+    # Calculate summary stats
+    total_brands = len(scraper_health)
+    healthy_brands = sum(1 for s in scraper_health if not s.get('is_blocked') and s.get('consecutive_failures', 0) == 0)
+    blocked_brands = sum(1 for s in scraper_health if s.get('is_blocked'))
+    degraded_brands = sum(1 for s in scraper_health if s.get('consecutive_failures', 0) > 0 and not s.get('is_blocked'))
+    
+    avg_success_rate = sum(s.get('success_rate', 0) for s in scraper_health) / max(total_brands, 1)
+    
+    return {
+        'summary': {
+            'total_brands': total_brands,
+            'healthy': healthy_brands,
+            'blocked': blocked_brands,
+            'degraded': degraded_brands,
+            'average_success_rate': round(avg_success_rate, 1),
+            'system_status': system_health.get('status', 'unknown'),
+        },
+        'scrapers': scraper_health,
+        'system_health': system_health,
+        'healing': {
+            'llm_enabled': scraper_healer._llm is not None,
+            'stats': healing_stats,
+        },
+        'timestamp': datetime.now(timezone.utc).isoformat()
+    }
 
 # ============ AI PRODUCT CLASSIFICATION ============
 from classifier import (
