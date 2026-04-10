@@ -132,7 +132,7 @@ function SizeDots({ sizes }) {
 function WishlistCard({ item, index, onRemove, livePrice }) {
   const currentPrice = livePrice || item.lowestPrice || item.addedPrice;
   const addedPrice = item.addedPrice || item.lowestPrice || currentPrice;
-  const up = isUp(currentPrice, addedPrice);
+  const priceIncreased = currentPrice > addedPrice; // True = bad for buyer (red)
   const diff = currentPrice - addedPrice;
   const pctVal = pct(currentPrice, addedPrice);
   const [visible, setVisible] = useState(false);
@@ -145,11 +145,11 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
 
   useEffect(() => {
     if (livePrice && livePrice !== addedPrice) {
-      setFlash(up ? "up" : "down");
+      setFlash(priceIncreased ? "up" : "down");
       const t = setTimeout(() => setFlash(null), 800);
       return () => clearTimeout(t);
     }
-  }, [livePrice, addedPrice, up]);
+  }, [livePrice, addedPrice, priceIncreased]);
 
   const isFlat = Math.abs(diff) < 1;
   const inStock = item.inStock !== false;
@@ -160,7 +160,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
       background: inStock
         ? "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)"
         : "rgba(255,255,255,0.02)",
-      border: `1px solid ${flash === "up" ? "rgba(0,230,118,0.5)" : flash === "down" ? "rgba(255,23,68,0.5)" : "rgba(255,255,255,0.07)"}`,
+      border: `1px solid ${flash === "up" ? "rgba(255,23,68,0.5)" : flash === "down" ? "rgba(0,230,118,0.5)" : "rgba(255,255,255,0.07)"}`,
       borderRadius: 20,
       padding: "20px",
       opacity: visible ? (inStock ? 1 : 0.5) : 0,
@@ -234,17 +234,17 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
               fontSize: 20, fontWeight: 900, color: "#1a1a2e",
               fontFamily: "monospace",
               transition: "color 0.3s",
-              textShadow: flash === "up" ? "0 0 20px rgba(0,230,118,0.8)" : flash === "down" ? "0 0 20px rgba(255,23,68,0.8)" : "none"
+              textShadow: flash === "up" ? "0 0 20px rgba(255,23,68,0.8)" : flash === "down" ? "0 0 20px rgba(0,230,118,0.8)" : "none"
             }}>
               {fmt(currentPrice)}
             </span>
             {!isFlat && (
               <span style={{
                 fontSize: 12, fontWeight: 700,
-                color: up ? "#dc2626" : "#16a34a",
+                color: priceIncreased ? "#dc2626" : "#16a34a",
                 display: "flex", alignItems: "center", gap: 2
               }}>
-                {up ? "▲" : "▼"} {fmt(Math.abs(diff))} ({up ? "+" : ""}{pctVal}%)
+                {priceIncreased ? "▲" : "▼"} {fmt(Math.abs(diff))} ({priceIncreased ? "+" : ""}{pctVal}%)
               </span>
             )}
           </div>
@@ -258,7 +258,7 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
       </div>
 
       {/* Graph */}
-      <PriceGraph history={item.history} addedPrice={addedPrice} up={!up} />
+      <PriceGraph history={item.history} addedPrice={addedPrice} up={!priceIncreased} />
 
       {/* Sizes */}
       <SizeDots sizes={item.sizes} />
@@ -302,10 +302,20 @@ function WishlistCard({ item, index, onRemove, livePrice }) {
 
 // ── Portfolio Header ──────────────────────────────────────────────────────────
 function PortfolioHeader({ items, livePrices }) {
-  const total = items.reduce((s, i) => s + (livePrices[i.id] || i.lowestPrice || 0), 0);
-  const added = items.reduce((s, i) => s + (i.addedPrice || i.lowestPrice || 0), 0);
+  // Calculate total current value (use live price if available, else use the stored price)
+  const total = items.reduce((sum, item) => {
+    const currentPrice = livePrices[item.id] || item.currentPrice || item.lowestPrice || 0;
+    return sum + currentPrice;
+  }, 0);
+  
+  // Calculate total value at time items were added
+  const added = items.reduce((sum, item) => {
+    return sum + (item.addedPrice || item.lowestPrice || 0);
+  }, 0);
+  
+  // Difference: positive means prices went UP (bad for buyer), negative means prices went DOWN (good)
   const diff = total - added;
-  const up = diff >= 0;
+  const priceIncreased = diff > 0; // True if current prices are HIGHER than when added
   const pctTotal = added > 0 ? ((diff / added) * 100).toFixed(1) : "0.0";
   const inStockCount = items.filter(i => i.inStock !== false).length;
 
@@ -342,24 +352,31 @@ function PortfolioHeader({ items, livePrices }) {
           <div style={{
             display: "flex", alignItems: "center", gap: 6, marginTop: 6
           }}>
-            <span style={{
-              fontSize: 14, fontWeight: 700,
-              color: up ? "#dc2626" : "#16a34a",
-              display: "flex", alignItems: "center", gap: 4
-            }}>
-              {up ? "▲" : "▼"} {fmt(Math.abs(diff))}
-            </span>
-            <span style={{
-              fontSize: 12,
-              background: up ? "rgba(220,38,38,0.15)" : "rgba(22,163,74,0.15)",
-              color: up ? "#dc2626" : "#16a34a",
-              padding: "2px 8px", borderRadius: 20, fontWeight: 700
-            }}>
-              {up ? "+" : ""}{pctTotal}%
-            </span>
+            {diff !== 0 && (
+              <>
+                <span style={{
+                  fontSize: 14, fontWeight: 700,
+                  color: priceIncreased ? "#dc2626" : "#16a34a",
+                  display: "flex", alignItems: "center", gap: 4
+                }}>
+                  {priceIncreased ? "▲" : "▼"} {fmt(Math.abs(diff))}
+                </span>
+                <span style={{
+                  fontSize: 12,
+                  background: priceIncreased ? "rgba(220,38,38,0.15)" : "rgba(22,163,74,0.15)",
+                  color: priceIncreased ? "#dc2626" : "#16a34a",
+                  padding: "2px 8px", borderRadius: 20, fontWeight: 700
+                }}>
+                  {priceIncreased ? "+" : ""}{pctTotal}%
+                </span>
+              </>
+            )}
+            {diff === 0 && (
+              <span style={{ fontSize: 12, color: "#64748b" }}>No change</span>
+            )}
           </div>
           <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-            since items added · {inStockCount}/{items.length} in stock
+            {diff !== 0 ? (priceIncreased ? "prices increased" : "you're saving!") : "since items added"} · {inStockCount}/{items.length} in stock
           </div>
         </div>
 
@@ -394,7 +411,11 @@ function PortfolioHeader({ items, livePrices }) {
         {[
           { label: "ITEMS", value: items.length },
           { label: "IN STOCK", value: inStockCount },
-          { label: "PRICE ALERTS", value: items.filter(i => Math.abs(parseFloat(pct(livePrices[i.id] || i.lowestPrice, i.addedPrice || i.lowestPrice))) > 5).length }
+          { label: "PRICE ALERTS", value: items.filter(i => {
+            const curPrice = livePrices[i.id] || i.currentPrice || i.lowestPrice || 0;
+            const addPrice = i.addedPrice || i.lowestPrice || 0;
+            return Math.abs(parseFloat(pct(curPrice, addPrice))) > 5;
+          }).length }
         ].map(stat => (
           <div key={stat.label} style={{ textAlign: "center" }}>
             <div style={{ fontSize: 20, fontWeight: 900, color: "#1a1a2e", fontFamily: "monospace" }}>
@@ -422,11 +443,11 @@ function LiveTicker({ items, livePrices }) {
   }, []);
 
   const text = items.slice(0, 5).map(i => {
-    const cur = livePrices[i.id] || i.lowestPrice || 0;
+    const cur = livePrices[i.id] || i.currentPrice || i.lowestPrice || 0;
     const add = i.addedPrice || i.lowestPrice || cur;
-    const up = isUp(cur, add);
+    const priceUp = cur > add;
     const p = pct(cur, add);
-    return `${i.brand?.toUpperCase() || 'DROP'} ${fmt(cur)} ${up ? "▲" : "▼"}${Math.abs(parseFloat(p))}%`;
+    return `${i.brand?.toUpperCase() || 'DROP'} ${fmt(cur)} ${priceUp ? "▲" : "▼"}${Math.abs(parseFloat(p))}%`;
   }).join("   ·   ");
 
   if (!text) return null;
@@ -518,7 +539,7 @@ export default function WishlistPage() {
   // Prepare items with added price (price when added to wishlist)
   const items = wishlist.map(item => ({
     ...item,
-    addedPrice: item.lowestPrice || 0,
+    addedPrice: item.addedPrice || item.lowestPrice || 0,  // Keep original addedPrice
     currentPrice: livePrices[item.id] || item.lowestPrice || 0,
   }));
 

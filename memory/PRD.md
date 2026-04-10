@@ -19,9 +19,9 @@ Premium VIP subscription platform (₹399/month) for Indian luxury streetwear ma
 
 ## Completed Features
 
-### April 2026
-- [x] Removed shipping-related data from database (1,093 products cleaned)
-- [x] Updated all scrapers to filter shipping tags/sizes
+### April 10, 2026
+- [x] **Shipping Data Removal**: Cleaned 1,093 products, updated all scrapers with filtering methods
+- [x] **Wishlist Portfolio Calculation Bug Fix**: Fixed `addedPrice` override bug in `WishlistPage.js` line 542
 
 ### Previous Session
 - [x] LLM-powered Self-Healing Scraper Agent (Gemini 2.5 Flash)
