@@ -1,6 +1,6 @@
 """
-Product Classification Service using Gemini LLM
-Normalizes product titles and classifies them by Gender, Category, and Brand
+Product Classification Service using Gemini Flash LLM
+Batch API approach - classifies multiple products in single API calls for efficiency
 """
 import re
 import os
@@ -138,84 +138,6 @@ SUBCATEGORY_TYPES = [
 ]
 
 
-async def classify_product_with_llm(
-    title: str, 
-    description: str = "", 
-    existing_brand: str = "",
-    existing_category: str = ""
-) -> Dict:
-    """
-    Use Gemini LLM to classify a product.
-    Returns: {gender, category, subcategory, brand, confidence}
-    """
-    try:
-        # Initialize Gemini chat
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"classify_{hash(title) % 100000}",
-            system_message="""You are a streetwear product classifier. Given a product title and optional description, 
-classify it accurately. Be concise and respond ONLY with valid JSON."""
-        ).with_model("gemini", "gemini-2.5-flash")
-        
-        # Build the prompt
-        prompt = f"""Classify this streetwear product:
-
-Title: {title}
-{f'Description: {description}' if description else ''}
-{f'Store Brand: {existing_brand}' if existing_brand else ''}
-
-Respond with ONLY this JSON format (no markdown, no explanation):
-{{
-    "gender": "Men" or "Women" or "Unisex",
-    "category": "SHOES" or "CLOTHES" or "ACCESSORIES" or "COLLECTABLES",
-    "subcategory": one of [{', '.join(SUBCATEGORY_TYPES)}],
-    "brand": "detected brand name or '{existing_brand}' if unclear",
-    "confidence": 0.0 to 1.0
-}}
-
-Rules:
-- If title contains (W) or Women's or female sizing, gender is "Women"
-- If title contains (M) or Men's, gender is "Men"
-- If unclear, default to "Unisex"
-- Detect brand from title first, fallback to store brand
-- Match subcategory to the most specific type"""
-
-        # Send to LLM
-        message = UserMessage(text=prompt)
-        response = await chat.send_message(message)
-        
-        # Parse JSON response
-        response_text = response.strip()
-        
-        # Clean up response if it has markdown code blocks
-        if response_text.startswith('```'):
-            response_text = re.sub(r'^```json?\n?', '', response_text)
-            response_text = re.sub(r'\n?```$', '', response_text)
-        
-        result = json.loads(response_text)
-        
-        # Validate and normalize
-        result['gender'] = result.get('gender', 'Unisex')
-        if result['gender'] not in ['Men', 'Women', 'Unisex']:
-            result['gender'] = 'Unisex'
-            
-        result['category'] = result.get('category', existing_category or 'CLOTHES')
-        if result['category'] not in ['SHOES', 'CLOTHES', 'ACCESSORIES', 'COLLECTABLES']:
-            result['category'] = existing_category or 'CLOTHES'
-            
-        result['brand'] = result.get('brand', existing_brand) or existing_brand
-        result['confidence'] = min(1.0, max(0.0, float(result.get('confidence', 0.7))))
-        
-        return result
-        
-    except json.JSONDecodeError as e:
-        logger.warning(f"JSON parse error for '{title}': {e}")
-        return fallback_classification(title, existing_brand, existing_category)
-    except Exception as e:
-        logger.error(f"LLM classification error for '{title}': {e}")
-        return fallback_classification(title, existing_brand, existing_category)
-
-
 def fallback_classification(title: str, existing_brand: str = "", existing_category: str = "") -> Dict:
     """
     Fallback rule-based classification when LLM fails.
@@ -254,6 +176,198 @@ def fallback_classification(title: str, existing_brand: str = "", existing_categ
     }
 
 
+# ============ BATCH API CLASSIFICATION ============
+
+async def classify_batch_with_gemini(products: List[Dict]) -> List[Dict]:
+    """
+    Classify multiple products in a SINGLE API call using Gemini Flash.
+    This is the batch approach - sends up to 20 products at once.
+    
+    Returns list of classification results in same order as input.
+    """
+    if not products:
+        return []
+    
+    try:
+        # Initialize Gemini chat with batch-optimized settings
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"batch_classify_{datetime.now().timestamp()}",
+            system_message="""You are a streetwear product classifier. You will receive a batch of products and must classify ALL of them.
+Respond with a JSON array containing classification for each product in the EXACT same order as received.
+Be concise. Respond ONLY with valid JSON array, no markdown, no explanation."""
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        # Build batch items for the prompt
+        batch_items = []
+        for i, p in enumerate(products):
+            batch_items.append({
+                "idx": i,
+                "title": p.get('name', ''),
+                "brand": p.get('brand', ''),
+                "category": p.get('category', '')
+            })
+        
+        # Build the prompt
+        prompt = f"""Classify these {len(products)} streetwear products. Return a JSON array with one object per product.
+
+Products to classify:
+{json.dumps(batch_items, indent=2)}
+
+For EACH product, return this exact format in the array:
+{{
+    "idx": <same index as input>,
+    "gender": "Men" or "Women" or "Unisex",
+    "category": "SHOES" or "CLOTHES" or "ACCESSORIES" or "COLLECTABLES",
+    "subcategory": one of [{', '.join(SUBCATEGORY_TYPES[:10])}...],
+    "brand": "detected brand or use provided brand",
+    "confidence": 0.0 to 1.0
+}}
+
+Classification Rules:
+- (W) or Women's or wmns = "Women"
+- (M) or Men's = "Men"  
+- Otherwise = "Unisex"
+- sneakers/shoes/slides/boots = "SHOES"
+- hoodie/tee/jacket/pants = "CLOTHES"
+- cap/bag/wallet/socks = "ACCESSORIES"
+- bearbrick/figure/lego = "COLLECTABLES"
+
+Return ONLY the JSON array, nothing else."""
+
+        # Send to LLM
+        message = UserMessage(text=prompt)
+        response = await chat.send_message(message)
+        
+        # Parse JSON response
+        response_text = response.strip()
+        
+        # Clean up response if it has markdown code blocks
+        if response_text.startswith('```'):
+            response_text = re.sub(r'^```json?\n?', '', response_text)
+            response_text = re.sub(r'\n?```$', '', response_text)
+        
+        results = json.loads(response_text)
+        
+        # Validate it's an array
+        if not isinstance(results, list):
+            raise ValueError("Response is not an array")
+        
+        # Create a map by index for quick lookup
+        results_map = {r.get('idx', i): r for i, r in enumerate(results)}
+        
+        # Map results back to products in correct order
+        classified = []
+        for i, product in enumerate(products):
+            result = results_map.get(i, {})
+            
+            # Validate and normalize
+            gender = result.get('gender', 'Unisex')
+            if gender not in ['Men', 'Women', 'Unisex']:
+                gender = 'Unisex'
+                
+            category = result.get('category', product.get('category', 'CLOTHES'))
+            if category not in ['SHOES', 'CLOTHES', 'ACCESSORIES', 'COLLECTABLES']:
+                category = product.get('category', 'CLOTHES')
+            
+            classified.append({
+                'gender': gender,
+                'category': category,
+                'subcategory': result.get('subcategory', 'Other'),
+                'brand': result.get('brand', product.get('brand', '')),
+                'confidence': min(1.0, max(0.0, float(result.get('confidence', 0.8))))
+            })
+        
+        logger.info(f"[Batch API] Successfully classified {len(products)} products in single call")
+        return classified
+        
+    except json.JSONDecodeError as e:
+        logger.warning(f"[Batch API] JSON parse error: {e}")
+        # Fall back to rule-based for all products
+        return [fallback_classification(p.get('name', ''), p.get('brand', ''), p.get('category', '')) for p in products]
+    except Exception as e:
+        logger.error(f"[Batch API] Error: {e}")
+        # Fall back to rule-based for all products
+        return [fallback_classification(p.get('name', ''), p.get('brand', ''), p.get('category', '')) for p in products]
+
+
+async def classify_product_with_llm(
+    title: str, 
+    description: str = "", 
+    existing_brand: str = "",
+    existing_category: str = ""
+) -> Dict:
+    """
+    Classify a SINGLE product with Gemini Flash (for real-time new product classification).
+    For batch processing, use classify_batch_with_gemini instead.
+    """
+    try:
+        # Initialize Gemini chat
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"classify_{hash(title) % 100000}",
+            system_message="""You are a streetwear product classifier. Given a product title, classify it accurately. 
+Be concise and respond ONLY with valid JSON."""
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        # Build the prompt
+        prompt = f"""Classify this streetwear product:
+
+Title: {title}
+{f'Description: {description}' if description else ''}
+{f'Store Brand: {existing_brand}' if existing_brand else ''}
+
+Respond with ONLY this JSON format (no markdown, no explanation):
+{{
+    "gender": "Men" or "Women" or "Unisex",
+    "category": "SHOES" or "CLOTHES" or "ACCESSORIES" or "COLLECTABLES",
+    "subcategory": one of [{', '.join(SUBCATEGORY_TYPES)}],
+    "brand": "detected brand name or '{existing_brand}' if unclear",
+    "confidence": 0.0 to 1.0
+}}
+
+Rules:
+- If title contains (W) or Women's or female sizing, gender is "Women"
+- If title contains (M) or Men's, gender is "Men"
+- If unclear, default to "Unisex"
+- Detect brand from title first, fallback to store brand"""
+
+        # Send to LLM
+        message = UserMessage(text=prompt)
+        response = await chat.send_message(message)
+        
+        # Parse JSON response
+        response_text = response.strip()
+        
+        # Clean up response if it has markdown code blocks
+        if response_text.startswith('```'):
+            response_text = re.sub(r'^```json?\n?', '', response_text)
+            response_text = re.sub(r'\n?```$', '', response_text)
+        
+        result = json.loads(response_text)
+        
+        # Validate and normalize
+        result['gender'] = result.get('gender', 'Unisex')
+        if result['gender'] not in ['Men', 'Women', 'Unisex']:
+            result['gender'] = 'Unisex'
+            
+        result['category'] = result.get('category', existing_category or 'CLOTHES')
+        if result['category'] not in ['SHOES', 'CLOTHES', 'ACCESSORIES', 'COLLECTABLES']:
+            result['category'] = existing_category or 'CLOTHES'
+            
+        result['brand'] = result.get('brand', existing_brand) or existing_brand
+        result['confidence'] = min(1.0, max(0.0, float(result.get('confidence', 0.7))))
+        
+        return result
+        
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSON parse error for '{title}': {e}")
+        return fallback_classification(title, existing_brand, existing_category)
+    except Exception as e:
+        logger.error(f"LLM classification error for '{title}': {e}")
+        return fallback_classification(title, existing_brand, existing_category)
+
+
 async def classify_product(product: Dict) -> Dict:
     """
     Main classification function for a single product.
@@ -285,44 +399,58 @@ async def classify_product(product: Dict) -> Dict:
     }
 
 
-# ============ BATCH PROCESSING ============
+# ============ EFFICIENT BATCH PROCESSING ============
 
-async def classify_products_batch(products: List[Dict], batch_size: int = 10) -> List[Dict]:
+async def classify_products_batch(products: List[Dict], batch_size: int = 15) -> List[Dict]:
     """
-    Classify multiple products in batches with rate limiting.
+    Classify multiple products using BATCH API approach.
+    
+    - Sends up to `batch_size` products in a SINGLE API call
+    - Much more efficient than 1-by-1 API calls
+    - Automatically falls back to rule-based if API fails
+    
+    Args:
+        products: List of products to classify
+        batch_size: Products per API call (max 20 recommended for Gemini)
+        
+    Returns:
+        List of classified products with AI fields added
     """
     classified = []
     total = len(products)
     
+    logger.info(f"[Batch Processing] Starting classification of {total} products with batch_size={batch_size}")
+    
     for i in range(0, total, batch_size):
         batch = products[i:i + batch_size]
-        logger.info(f"Processing batch {i // batch_size + 1}/{(total + batch_size - 1) // batch_size}")
+        batch_num = (i // batch_size) + 1
+        total_batches = (total + batch_size - 1) // batch_size
         
-        # Process batch concurrently
-        tasks = [classify_product(p) for p in batch]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        logger.info(f"[Batch {batch_num}/{total_batches}] Processing {len(batch)} products...")
         
-        for j, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"Error classifying product: {result}")
-                # Use fallback for failed products
-                classified.append({
-                    **batch[j],
-                    'normalizedTitle': clean_product_title(batch[j].get('name', '')),
-                    'aiGender': 'Unisex',
-                    'aiCategory': batch[j].get('category', 'CLOTHES'),
-                    'aiSubcategory': 'Other',
-                    'aiBrand': batch[j].get('brand', ''),
-                    'aiConfidence': 0.0,
-                    'classifiedAt': datetime.now(timezone.utc).isoformat()
-                })
-            else:
-                classified.append(result)
+        # Get batch classifications in SINGLE API call
+        classifications = await classify_batch_with_gemini(batch)
         
-        # Rate limiting: wait between batches
+        # Combine products with their classifications
+        for j, (product, classification) in enumerate(zip(batch, classifications)):
+            normalized_title = clean_product_title(product.get('name', ''))
+            
+            classified.append({
+                **product,
+                'normalizedTitle': normalized_title,
+                'aiGender': classification['gender'],
+                'aiCategory': classification['category'],
+                'aiSubcategory': classification.get('subcategory', 'Other'),
+                'aiBrand': classification['brand'],
+                'aiConfidence': classification['confidence'],
+                'classifiedAt': datetime.now(timezone.utc).isoformat()
+            })
+        
+        # Small delay between batches to respect rate limits
         if i + batch_size < total:
-            await asyncio.sleep(1)  # 1 second between batches
+            await asyncio.sleep(0.5)  # 500ms between batches
     
+    logger.info(f"[Batch Processing] Complete! Classified {len(classified)} products")
     return classified
 
 
@@ -351,10 +479,61 @@ async def update_product_classification(db, product_id: str, classification: Dic
         return False
 
 
-async def run_batch_classification(db, limit: int = None, skip_classified: bool = True) -> Dict:
+async def update_products_bulk(db, classified_products: List[Dict]) -> Dict:
+    """
+    Bulk update multiple products in MongoDB using bulk_write for efficiency.
+    """
+    from pymongo import UpdateOne
+    
+    if not classified_products:
+        return {'updated': 0, 'errors': 0}
+    
+    operations = []
+    for product in classified_products:
+        operations.append(
+            UpdateOne(
+                {'id': product['id']},
+                {'$set': {
+                    'normalizedTitle': product.get('normalizedTitle'),
+                    'aiGender': product.get('aiGender'),
+                    'aiCategory': product.get('aiCategory'),
+                    'aiSubcategory': product.get('aiSubcategory'),
+                    'aiBrand': product.get('aiBrand'),
+                    'aiConfidence': product.get('aiConfidence'),
+                    'classifiedAt': product.get('classifiedAt')
+                }}
+            )
+        )
+    
+    try:
+        result = await db.products.bulk_write(operations, ordered=False)
+        return {
+            'updated': result.modified_count,
+            'matched': result.matched_count,
+            'errors': len(classified_products) - result.matched_count
+        }
+    except Exception as e:
+        logger.error(f"Bulk update error: {e}")
+        return {'updated': 0, 'errors': len(classified_products), 'error_msg': str(e)}
+
+
+async def run_batch_classification(db, limit: int = None, skip_classified: bool = True, batch_size: int = 15) -> Dict:
     """
     Run batch classification on all products in the database.
-    Returns statistics about the classification run.
+    
+    Uses efficient batch API approach:
+    - Sends multiple products per API call
+    - Bulk writes to MongoDB
+    - Progress tracking
+    
+    Args:
+        db: Database instance
+        limit: Max products to process (None = all)
+        skip_classified: Skip already classified products
+        batch_size: Products per API call (default 15)
+        
+    Returns:
+        Statistics about the classification run
     """
     # Build query
     query = {}
@@ -372,29 +551,46 @@ async def run_batch_classification(db, limit: int = None, skip_classified: bool 
     if total == 0:
         return {'total': 0, 'classified': 0, 'errors': 0, 'message': 'No products to classify'}
     
-    logger.info(f"Starting classification of {total} products...")
+    logger.info(f"[Run Batch] Starting classification of {total} products with batch_size={batch_size}")
+    start_time = datetime.now()
     
-    # Classify in batches
-    classified_products = await classify_products_batch(products, batch_size=5)
+    # Process in mega-batches for database writes (100 products at a time for DB)
+    db_batch_size = 100
+    total_success = 0
+    total_errors = 0
     
-    # Update database
-    success_count = 0
-    error_count = 0
+    for i in range(0, total, db_batch_size):
+        mega_batch = products[i:i + db_batch_size]
+        
+        # Classify this mega-batch (will internally use API batch_size)
+        classified_products = await classify_products_batch(mega_batch, batch_size=batch_size)
+        
+        # Bulk write to database
+        result = await update_products_bulk(db, classified_products)
+        total_success += result.get('updated', 0)
+        total_errors += result.get('errors', 0)
+        
+        # Progress update
+        processed = min(i + db_batch_size, total)
+        elapsed = (datetime.now() - start_time).total_seconds()
+        rate = processed / elapsed if elapsed > 0 else 0
+        eta = (total - processed) / rate if rate > 0 else 0
+        
+        logger.info(f"[Progress] {processed}/{total} ({processed/total*100:.1f}%) | Rate: {rate:.1f}/s | ETA: {eta:.0f}s")
     
-    for product in classified_products:
-        if await update_product_classification(db, product['id'], product):
-            success_count += 1
-        else:
-            error_count += 1
+    elapsed = (datetime.now() - start_time).total_seconds()
     
     stats = {
         'total': total,
-        'classified': success_count,
-        'errors': error_count,
+        'classified': total_success,
+        'errors': total_errors,
+        'elapsed_seconds': round(elapsed, 2),
+        'products_per_second': round(total / elapsed, 2) if elapsed > 0 else 0,
+        'batch_size': batch_size,
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
     
-    logger.info(f"Classification complete: {stats}")
+    logger.info(f"[Complete] Classification finished: {stats}")
     return stats
 
 
@@ -417,6 +613,22 @@ async def classify_new_product(db, product: Dict) -> Dict:
     return classified
 
 
+async def classify_new_products_batch(db, products: List[Dict]) -> List[Dict]:
+    """
+    Classify multiple newly scraped products using batch API.
+    More efficient than classifying one-by-one.
+    """
+    if not products:
+        return []
+    
+    # Classify using batch API
+    classified = await classify_products_batch(products, batch_size=min(15, len(products)))
+    
+    # Bulk update to database
+    await update_products_bulk(db, classified)
+    
+    return classified
+
 
 # ============ CLASSIFIER FEEDBACK LOOP ============
 
@@ -430,16 +642,6 @@ async def record_classification_feedback(
     """
     Record user feedback on AI classification.
     This allows the system to learn from corrections.
-    
-    Args:
-        db: Database instance
-        product_id: Product ID
-        feedback_type: Type of feedback
-        correct_value: The correct value if classification was wrong
-        user_id: Optional user who provided feedback
-        
-    Returns:
-        Success status
     """
     try:
         feedback_doc = {
@@ -484,15 +686,11 @@ async def record_classification_feedback(
 async def get_classification_accuracy(db) -> Dict:
     """
     Calculate classification accuracy based on feedback.
-    
-    Returns:
-        Accuracy statistics
     """
     try:
         total_feedback = await db.classification_feedback.count_documents({})
         correct_count = await db.classification_feedback.count_documents({'feedback_type': 'correct'})
         
-        # Get breakdown by feedback type
         pipeline = [
             {'$group': {'_id': '$feedback_type', 'count': {'$sum': 1}}}
         ]
@@ -514,16 +712,8 @@ async def get_classification_accuracy(db) -> Dict:
 async def get_products_needing_review(db, limit: int = 20) -> List[Dict]:
     """
     Get products with low confidence that need human review.
-    
-    Args:
-        db: Database instance
-        limit: Max products to return
-        
-    Returns:
-        List of products needing review
     """
     try:
-        # Find products with confidence < 0.7 that haven't been corrected
         query = {
             'aiConfidence': {'$lt': 0.7, '$exists': True},
             'humanCorrected': {'$ne': True}
@@ -538,3 +728,39 @@ async def get_products_needing_review(db, limit: int = 20) -> List[Dict]:
     except Exception as e:
         logger.error(f"[Feedback] Error getting products for review: {e}")
         return []
+
+
+async def get_classification_stats(db) -> Dict:
+    """
+    Get statistics about product classifications.
+    """
+    try:
+        total_products = await db.products.count_documents({})
+        classified = await db.products.count_documents({'aiGender': {'$exists': True}})
+        unclassified = total_products - classified
+        
+        # Get category breakdown
+        category_pipeline = [
+            {'$match': {'aiCategory': {'$exists': True}}},
+            {'$group': {'_id': '$aiCategory', 'count': {'$sum': 1}}}
+        ]
+        categories = await db.products.aggregate(category_pipeline).to_list(10)
+        
+        # Get gender breakdown
+        gender_pipeline = [
+            {'$match': {'aiGender': {'$exists': True}}},
+            {'$group': {'_id': '$aiGender', 'count': {'$sum': 1}}}
+        ]
+        genders = await db.products.aggregate(gender_pipeline).to_list(5)
+        
+        return {
+            'total_products': total_products,
+            'classified': classified,
+            'unclassified': unclassified,
+            'percentage_classified': round(classified / total_products * 100, 2) if total_products > 0 else 0,
+            'by_category': {item['_id']: item['count'] for item in categories},
+            'by_gender': {item['_id']: item['count'] for item in genders}
+        }
+    except Exception as e:
+        logger.error(f"Error getting classification stats: {e}")
+        return {'error': str(e)}

@@ -1951,7 +1951,9 @@ from classifier import (
     classify_products_batch, 
     run_batch_classification,
     clean_product_title,
-    update_product_classification
+    update_product_classification,
+    get_classification_stats,
+    classify_new_products_batch
 )
 
 # Track ongoing classification jobs
@@ -1996,31 +1998,46 @@ async def classification_status():
 @api_router.post('/classification/run')
 async def trigger_classification(
     limit: int = Query(100, description='Max products to classify'),
-    skip_classified: bool = Query(True, description='Skip already classified products')
+    skip_classified: bool = Query(True, description='Skip already classified products'),
+    batch_size: int = Query(15, description='Products per API call (max 20)')
 ):
     """
-    Trigger batch classification of products using Gemini LLM.
-    This runs in the background and classifies products with:
-    - normalizedTitle: Cleaned product title
-    - aiGender: Men/Women/Unisex
-    - aiCategory: SHOES/CLOTHES/ACCESSORIES/COLLECTABLES
-    - aiSubcategory: Specific type (Sneakers, Hoodie, etc.)
-    - aiBrand: Detected brand name
+    Trigger BATCH classification of products using Gemini Flash.
+    
+    Uses efficient batch API approach:
+    - Sends multiple products per API call (batch_size)
+    - Much faster than 1-by-1 processing
+    - Bulk writes to MongoDB
+    
+    Args:
+        limit: Max products to classify
+        skip_classified: Skip products that already have AI tags
+        batch_size: Products per Gemini API call (default 15, max 20)
     """
     import asyncio
     import uuid
+    
+    # Validate batch_size
+    batch_size = min(20, max(1, batch_size))
     
     job_id = str(uuid.uuid4())[:8]
     classification_jobs[job_id] = {
         'status': 'running',
         'started_at': datetime.now(timezone.utc).isoformat(),
         'limit': limit,
-        'skip_classified': skip_classified
+        'skip_classified': skip_classified,
+        'batch_size': batch_size,
+        'method': 'gemini-2.5-flash-batch'
     }
     
     async def run_job():
         try:
-            stats = await run_batch_classification(db, limit=limit, skip_classified=skip_classified)
+            stats = await run_batch_classification(
+                db, 
+                limit=limit, 
+                skip_classified=skip_classified,
+                batch_size=batch_size
+            )
             classification_jobs[job_id].update({
                 'status': 'completed',
                 'completed_at': datetime.now(timezone.utc).isoformat(),
@@ -2036,10 +2053,12 @@ async def trigger_classification(
     asyncio.create_task(run_job())
     
     return {
-        'message': f'Classification job started',
+        'message': f'Batch classification job started with Gemini Flash',
         'job_id': job_id,
         'limit': limit,
-        'skip_classified': skip_classified
+        'skip_classified': skip_classified,
+        'batch_size': batch_size,
+        'method': 'gemini-2.5-flash-batch'
     }
 
 @api_router.get('/classification/job/{job_id}')
