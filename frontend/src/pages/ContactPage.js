@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Header, Footer } from './LandingPage';
 import { Send, CheckCircle, User, Mail, Phone, MessageSquare, HelpCircle, AlertCircle } from 'lucide-react';
 import axios from 'axios';
+import TurnstileCaptcha from '../components/TurnstileCaptcha';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -18,6 +19,8 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,8 +48,18 @@ export default function ContactPage() {
       return;
     }
 
+    // CAPTCHA validation
+    if (!turnstileToken) {
+      setError('Please complete the CAPTCHA verification');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      const response = await axios.post(`${API_URL}/contact`, formData);
+      const response = await axios.post(`${API_URL}/contact`, {
+        ...formData,
+        turnstile_token: turnstileToken
+      });
       
       if (response.data.success) {
         setIsSubmitted(true);
@@ -63,7 +76,10 @@ export default function ContactPage() {
       }
     } catch (err) {
       console.error('Contact form error:', err);
-      setError('Failed to send message. Please try again later.');
+      setError(err.response?.data?.detail || 'Failed to send message. Please try again later.');
+      // Reset CAPTCHA on error
+      turnstileRef.current?.reset();
+      setTurnstileToken('');
     } finally {
       setIsSubmitting(false);
     }
@@ -256,11 +272,22 @@ export default function ContactPage() {
               </div>
             </div>
             
+            {/* Turnstile CAPTCHA */}
+            <div className="flex justify-center">
+              <TurnstileCaptcha
+                ref={turnstileRef}
+                onVerify={(token) => setTurnstileToken(token)}
+                onError={() => setError('CAPTCHA verification failed. Please try again.')}
+                onExpire={() => setTurnstileToken('')}
+                theme="dark"
+              />
+            </div>
+            
             {/* Submit Button */}
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !turnstileToken}
                 className="w-full flex items-center justify-center gap-2 bg-primary text-background py-4 font-medium text-sm hover:-translate-y-0.5 hover:shadow-lift transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 data-testid="contact-submit"
               >

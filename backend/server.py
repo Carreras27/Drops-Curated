@@ -109,6 +109,7 @@ class ContactForm(BaseModel):
     subject: Optional[str] = None
     category: str = 'general'
     message: str
+    turnstile_token: Optional[str] = None
 
 # ============ AUTH HELPERS ============
 def hash_password(password: str) -> str:
@@ -179,7 +180,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 # ============ CONTACT FORM ============
 @api_router.post('/contact')
-async def submit_contact_form(form: ContactForm):
+@limiter.limit("5/minute")
+async def submit_contact_form(request: Request, form: ContactForm):
     """
     Handle contact form submission.
     Stores in database and sends email notification.
@@ -188,6 +190,13 @@ async def submit_contact_form(form: ContactForm):
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
+    from security_advanced import verify_turnstile_token
+    from security import get_client_ip
+    
+    # Verify Turnstile CAPTCHA first
+    if form.turnstile_token:
+        ip = get_client_ip(request)
+        await verify_turnstile_token(form.turnstile_token, ip)
     
     # Target email (kept discreet - not exposed to frontend)
     TARGET_EMAIL = "dropscurated@gmail.com"
@@ -999,10 +1008,22 @@ class VerifyPaymentRequest(BaseModel):
     signature: str = ""
     consent: Optional[ConsentData] = None
 
+class OTPRequestWithCaptcha(BaseModel):
+    phone: str
+    turnstile_token: Optional[str] = None
+
 @api_router.post('/otp/send')
-async def send_otp_endpoint(data: OTPRequest):
+@limiter.limit("5/15minutes")
+async def send_otp_endpoint(request: Request, data: OTPRequestWithCaptcha):
     """Send OTP via WhatsApp using Meta Cloud API"""
     from whatsapp import send_otp as whatsapp_send_otp, IS_CONFIGURED
+    from security_advanced import verify_turnstile_token
+    from security import get_client_ip
+    
+    # Verify Turnstile CAPTCHA first
+    if data.turnstile_token:
+        ip = get_client_ip(request)
+        await verify_turnstile_token(data.turnstile_token, ip)
     
     phone = data.phone.strip()
     if len(phone) != 10 or phone[0] not in '6789':

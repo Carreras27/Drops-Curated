@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet, FlaskConical, Loader2, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
+import TurnstileCaptcha from '../components/TurnstileCaptcha';
 
 // Test Preferences Modal Component
 const TestPreferencesModal = ({ isOpen, onClose, simulationData, isLoading }) => {
@@ -346,6 +347,9 @@ export default function SubscribePage() {
   const [sandboxOtp, setSandboxOtp] = useState('');
   const [membership, setMembership] = useState(null);
   const [orderId, setOrderId] = useState('');
+  // CAPTCHA state
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileRef = useRef(null);
   // Preferences
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [alertTypes, setAlertTypes] = useState(['price_drop', 'new_release']);
@@ -448,10 +452,20 @@ export default function SubscribePage() {
       setPhoneError(validation.error);
       return;
     }
+    
+    // Require CAPTCHA before sending OTP
+    if (!turnstileToken) {
+      toast.error('Please complete the CAPTCHA verification');
+      return;
+    }
+    
     setLoading(true);
     setPhoneError('');
     try {
-      const resp = await axios.post(`${API_URL}/otp/send`, { phone: validation.phone });
+      const resp = await axios.post(`${API_URL}/otp/send`, { 
+        phone: validation.phone,
+        turnstile_token: turnstileToken
+      });
       if (resp.data.sandbox_otp) {
         setSandboxOtp(resp.data.sandbox_otp);
         setOtp(resp.data.sandbox_otp);
@@ -462,9 +476,12 @@ export default function SubscribePage() {
     } catch (err) {
       const errorMsg = err.response?.data?.detail || 'Failed to send OTP';
       toast.error(errorMsg);
-      if (errorMsg.includes('Rate limit')) {
-        setPhoneError('Too many attempts. Please try again later.');
+      if (errorMsg.includes('Rate limit') || errorMsg.includes('CAPTCHA')) {
+        setPhoneError(errorMsg);
       }
+      // Reset CAPTCHA on error
+      turnstileRef.current?.reset();
+      setTurnstileToken('');
     } finally {
       setLoading(false);
     }
@@ -687,11 +704,25 @@ export default function SubscribePage() {
                         <span className="flex items-center px-4 bg-primary/[0.03] border border-primary/10 border-r-0 text-sm text-primary/50 font-medium">+91</span>
                         <input type="tel" value={phone} onChange={handlePhoneChange} placeholder="9876543210"
                           className={`flex-1 px-4 py-3.5 bg-surface border text-sm placeholder:text-primary/20 focus:outline-none transition-colors ${phoneError ? 'border-red-500 focus:border-red-500' : 'border-primary/10 focus:border-accent'}`} data-testid="phone-input" />
-                        {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
                       </div>
+                      {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
                     </div>
+                    
+                    {/* Turnstile CAPTCHA - show before OTP */}
+                    {!sandboxOtp && (
+                      <div className="flex justify-center py-2">
+                        <TurnstileCaptcha
+                          ref={turnstileRef}
+                          onVerify={(token) => setTurnstileToken(token)}
+                          onError={() => toast.error('CAPTCHA failed. Please refresh and try again.')}
+                          onExpire={() => setTurnstileToken('')}
+                          theme="dark"
+                        />
+                      </div>
+                    )}
+                    
                     {!sandboxOtp ? (
-                      <button onClick={sendOtp} disabled={loading || phone.length !== 10}
+                      <button onClick={sendOtp} disabled={loading || phone.length !== 10 || !turnstileToken}
                         className="w-full bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="send-otp-btn">
                         {loading ? 'Sending...' : 'Send OTP via WhatsApp'}
                         <MessageCircle className="w-4 h-4" strokeWidth={1.5} />

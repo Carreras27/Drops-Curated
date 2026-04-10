@@ -5,7 +5,7 @@
  * and unified token handling.
  */
 
-import React, { useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Turnstile as TurnstileWidget } from '@marsidev/react-turnstile';
 
 const SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
@@ -38,15 +38,16 @@ const TurnstileCaptcha = forwardRef(({
     execute: () => turnstileRef.current?.execute(),
   }));
 
-  // Don't render if no site key (development mode)
+  // Handle dev mode (no site key)
+  useEffect(() => {
+    if (!SITE_KEY && onVerify) {
+      console.warn('[Turnstile] No site key configured - CAPTCHA disabled');
+      onVerify('dev_mode_skip_captcha');
+    }
+  }, [onVerify]);
+
+  // Don't render widget if no site key (development mode)
   if (!SITE_KEY) {
-    console.warn('[Turnstile] No site key configured - CAPTCHA disabled');
-    // Call onVerify with a dummy token for development
-    React.useEffect(() => {
-      if (onVerify) {
-        onVerify('dev_mode_skip_captcha');
-      }
-    }, [onVerify]);
     return null;
   }
 
