@@ -203,3 +203,32 @@ class BaseScraper:
             is_blocked=self._is_blocked,
             retry_count=self._retry_count
         )
+    
+    def _filter_shipping_tags(self, tags: list) -> list:
+        """Remove shipping-related tags from product tags."""
+        shipping_keywords = [
+            'ship', 'shipping', 'delivery', 'dispatch', 'express', 'days',
+            'instantship', 'dunkship', 'hyship', 'bearship', 'funkoship',
+            'readyship', 'free-delivery', 'freeshipping', 'fast shipping',
+            'lead time', 'ships in', 'dispatch in'
+        ]
+        filtered = []
+        for tag in tags:
+            tag_lower = str(tag).lower()
+            if not any(kw in tag_lower for kw in shipping_keywords):
+                filtered.append(tag)
+        return filtered
+    
+    def _filter_shipping_sizes(self, sizes: list) -> list:
+        """Remove shipping-related strings from sizes array."""
+        shipping_keywords = [
+            'ship', 'shipping', 'delivery', 'dispatch', 'days', 'week',
+            'lead time', 'ships in', 'dispatch in', 'express', 'standard',
+            'free', 'business'
+        ]
+        filtered = []
+        for size in sizes:
+            size_lower = str(size).lower()
+            if not any(kw in size_lower for kw in shipping_keywords):
+                filtered.append(size)
+        return filtered

@@ -152,6 +152,12 @@ class ShopifyScraper(BaseScraper):
         # Check for limited edition indicators
         is_limited = self._check_limited_edition(title, tags)
 
+        # Filter out shipping-related tags
+        filtered_tags = self._filter_shipping_tags([str(t).lower() for t in tags[:15]])
+        
+        # Filter out shipping-related sizes
+        filtered_sizes = self._filter_shipping_sizes(available_sizes[:20])
+
         return {
             "id": f"prod_{self.store_key}_{product_id}",
             "shopify_id": product_id,
@@ -164,8 +170,8 @@ class ShopifyScraper(BaseScraper):
             "product_url": f"{self.base_url}/products/{handle}",
             "store": self.store_key,
             "in_stock": any(v.get("available") for v in variants),
-            "available_sizes": available_sizes[:20],
-            "tags": [str(t).lower() for t in tags[:10]],
+            "available_sizes": filtered_sizes,
+            "tags": filtered_tags[:10],
             "is_limited": is_limited,
             "updated_at": updated_at,
             "scraped_at": self.now_iso(),
@@ -203,6 +209,35 @@ class ShopifyScraper(BaseScraper):
         limited_kw = ["limited", "exclusive", "collab", "special edition", "only in india",
                       "numbered", "1 of", "drop", "rare", "sold out"]
         return any(k in combined for k in limited_kw)
+    
+    def _filter_shipping_tags(self, tags: list) -> list:
+        """Remove shipping-related tags from product tags."""
+        shipping_keywords = [
+            'ship', 'shipping', 'delivery', 'dispatch', 'express', 'days',
+            'instantship', 'dunkship', 'hyship', 'bearship', 'funkoship',
+            'readyship', 'free-delivery', 'freeshipping', 'fast shipping',
+            'lead time', 'ships in', 'dispatch in'
+        ]
+        filtered = []
+        for tag in tags:
+            tag_lower = tag.lower()
+            if not any(kw in tag_lower for kw in shipping_keywords):
+                filtered.append(tag)
+        return filtered
+    
+    def _filter_shipping_sizes(self, sizes: list) -> list:
+        """Remove shipping-related strings from sizes array."""
+        shipping_keywords = [
+            'ship', 'shipping', 'delivery', 'dispatch', 'days', 'week',
+            'lead time', 'ships in', 'dispatch in', 'express', 'standard',
+            'free', 'business'
+        ]
+        filtered = []
+        for size in sizes:
+            size_lower = str(size).lower()
+            if not any(kw in size_lower for kw in shipping_keywords):
+                filtered.append(size)
+        return filtered
 
 
 # For backwards compatibility

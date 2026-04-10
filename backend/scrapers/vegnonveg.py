@@ -107,7 +107,7 @@ class VegNonVegScraper(BaseScraper):
                     "store": self.store_key,
                     "in_stock": True,
                     "available_sizes": [],
-                    "tags": [c.lower() for c in categories],
+                    "tags": self._filter_shipping_tags([c.lower() for c in categories]),
                     "scraped_at": self.now_iso(),
                 })
             except Exception as e:

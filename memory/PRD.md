@@ -1,305 +1,105 @@
 # Drops Curated - Product Requirements Document
 
-**Last Updated:** April 2026
-
 ## Overview
-**Drops Curated** is a premium paid discovery platform for Indian luxury streetwear. ₹399/month for WhatsApp alerts on price drops and new collections, delivered in under 10 seconds.
-
-## Recent Changes (April 2026)
-- **Multi-Layer Security Architecture (`security_advanced.py`):**
-  Complete defense-in-depth as requested:
-  ```
-  Cloudflare (DDoS + known bots)
-         ↓
-  Cloudflare Turnstile CAPTCHA (bot forms)
-         ↓
-  API Key validation (stops direct API access)
-         ↓
-  Rate limiting (stops abuse)
-         ↓
-  Pagination detection (stops data theft)
-         ↓
-  OTP verification (proves real human)
-         ↓
-  Admin 2FA — CAPTCHA + OTP + IP allowlist
-  ```
-  
-  New files:
-  - `backend/security_advanced.py` - Turnstile, API keys, scraping detection, Admin 2FA
-  - `frontend/src/components/TurnstileCaptcha.js` - React Turnstile wrapper
-  
-  Environment variables (configure in Cloudflare dashboard):
-  - `TURNSTILE_SECRET_KEY` - Cloudflare Turnstile secret
-  - `WHATSAPP_APP_SECRET` - Meta webhook signature verification
-  - `ADMIN_IP_ALLOWLIST` - Comma-separated admin IPs
-  - `FRONTEND_API_KEY` - Prevents direct API access
-  
-  **Tested:** Pagination scraping blocked after 10 sequential pages ✅
-
-- **Comprehensive Security Hardening (`security.py`):**
-  All 13 security requirements implemented:
-  1. ✅ Rate Limiting (slowapi): Subscribe 3/hr, Search 30/min, Login 5/15min, Default 60/min
-  2. ✅ Input Sanitization: HTML/JS stripping, MongoDB injection prevention, phone validation
-  3. ✅ Security Headers: CSP, X-Frame-Options DENY, HSTS, nosniff, Permissions-Policy
-  4. ✅ CORS Lockdown: Only allowed origins, 403 for others
-  5. ✅ MongoDB Security: Parameterized queries, $ and . injection blocking
-  6. ✅ WhatsApp Webhook Verification: X-Hub-Signature-256 validation with WHATSAPP_APP_SECRET
-  7. ✅ Admin Protection: Rate-limited login, brute force (5 fails = 1hr block), IP allowlist ready
-  8. ✅ DDoS Protection: 10KB body limit, 100 concurrent connections/IP
-  9. ✅ Response Sanitization: Strips _id, sensitive fields, masks phone numbers (xxxxxx1234)
-  10. ✅ Dependency Security: `safety` check on startup, CVE warnings
-  11. ✅ Intrusion Detection: Auth failures, rate limits logged to `security_logs` (30-day TTL)
-  12. ✅ Frontend Security: CSP meta tags, iframe detection, XSS sanitization utilities
-  13. ✅ Secrets Rotation: 90-day JWT secret reminder with WhatsApp alert
-  
-  New Endpoints:
-  - `GET /api/admin/security/logs` - View security events, blocked IPs
-  - `POST /api/admin/security/unblock-ip` - Manually unblock IPs
-  
-  Collections: `security_logs` (30-day TTL), `system_config`
-
-- **FULL LLM-Powered Self-Healing Scraper Agent (`scraper_agent.py`):**
-  - Complete implementation per spec with all 10 requirements:
-    1. ✅ `backend/scraper_agent.py` - The brain of the scraper system
-    2. ✅ Error context includes scraper name, error, HTTP status, response snippet, last 3 errors
-    3. ✅ Gemini diagnoses and picks from 10 strategies: JSON API, proxy, UA, delays, Playwright, URL patterns, sitemap, wait/retry, selector rewrite, mobile UA
-    4. ✅ 60 second gap between strategy attempts, logged to `scraper_agent_logs` collection
-    5. ✅ Success stored in `scraper_strategies` with winning strategy for next time
-    6. ✅ Gemini analyzes new HTML and rewrites CSS selectors when structure changes
-    7. ✅ WhatsApp alert only after 3 hours of failed healing attempts
-    8. ✅ Memory system with confidence scores: +5 on success, -10 on failure
-    9. ✅ `/api/admin/agent-logs` endpoint shows all attempts, strategies, warnings
-    10. ✅ Proactive monitoring: detects response time >10s as early warning
-  - Admin Panel: New "Agent Logs" tab showing everything the agent tried and learned
-  - Collections: `scraper_agent_logs`, `scraper_strategies`
-
-- **Scraper Anti-Blocking Infrastructure:**
-  - User-Agent rotation (12+ desktop/mobile UAs)
-  - Proxy manager support (Brightdata/Smartproxy)
-  - Fingerprint caching to skip unchanged products
-  - Staggered brand scraping (15-35s random gaps)
-  - Exponential backoff retries
-  - Health tracking per brand
-  - Created `/app/backend/scrapers/scraper_utils.py`
-
-## Recent Changes (April 2025)
-- **Comprehensive SEO Implementation:**
-  - Updated homepage `<title>` and `<meta description>` with optimized copy
-  - Added Open Graph tags for social sharing (og:title, og:description, og:type, og:url, og:site_name, og:locale)
-  - Added Twitter Card meta tags
-  - Added keywords meta tag with relevant streetwear terms
-  - Added canonical URL
-  - Implemented JSON-LD structured data schemas:
-    - Organization schema (company info)
-    - WebSite schema with SearchAction
-    - FAQPage schema for rich snippets
-    - Product schema on product pages (name, brand, price, availability)
-    - ItemList schema for product sections
-    - BreadcrumbList schema for navigation
-  - All product images now have descriptive alt texts (e.g., "Nike Dunk High AMBUSH – Limited streetwear drop from Crep Dog Crew")
-  - Created reusable `/app/frontend/src/components/SEOSchema.js` component
-
-## Recent Changes (December 2025)
-- **Search Fix:** Short search terms (≤3 chars like "On") now use strict brand-only matching to prevent false positives from product names containing prepositions
-- **Brand-Specific Search:** Added in-store search functionality on brand pages - users can now search within a specific brand's products (e.g., search "hoodie" within Crep Dog Crew)
-- **Item Type Filters:** Added new filter section on Browse page with T-Shirts, Shirts, Hoodies, Collectables, Jackets, and Pants filters for quick product type filtering
-- **AI Product Classification (Phase 1):** 
-  - Built Gemini LLM-powered classification system for products
-  - Auto-classifies: Gender (Men/Women/Unisex), Category (SHOES/CLOTHES/ACCESSORIES/COLLECTABLES), Subcategory, Brand
-  - Normalizes product titles (removes noise, punctuation, lowercases)
-  - New products are auto-classified when scraped
-  - Batch classification API for existing products
-  - API Endpoints: `/api/classification/status`, `/api/classification/run`, `/api/products/classified`
-
-## Architectural Fixes Implemented (December 2025)
-- **Fix #1 — Admin Panel + JWT Auth:** Full admin dashboard at `/admin` with subscriber management, brand controls, classification stats, and quick actions
-- **Fix #3 — Health Check + Dead-Man's Switch:** `/api/health` endpoint, scheduler monitoring, auto-alerts for stuck scrapers
-- **Fix #4 — WhatsApp Rate Limiting + Opt-out:** Rate limits per user (10 instant/day, 5 OTP/day), opt-out tracking
-- **Fix #6 — Classifier Feedback Loop:** API for recording feedback on AI classifications, accuracy tracking
-- **Fix #7 — Duplicate Detection:** Prevents duplicate products (same name + brand) from being added
-- **Fix #8 — Phone Validation:** Real-time Indian mobile validation with error feedback
-- **Fix #9 — ErrorBoundary + 404:** React error catching, proper 404 page
-- **Fix #10 — Live Stats Social Proof:** Real-time stats on landing page (members, products, brands, alerts)
-- **Fix #12 — Skeleton Loaders:** Shimmer loading states for better perceived performance
-
-## Business Model
-- ₹399/month subscription via UPI (Razorpay)
-- WhatsApp OTP registration (prevents spam)
-- Digital membership card (Apple/Google Wallet)
-- Brand partnerships: showcase collections + bulk memberships for VIP customers
-- 0% commission on purchases
+Premium VIP subscription platform (₹399/month) for Indian luxury streetwear market. Core value: Real-time WhatsApp alerts for new drops and price reductions within 10 seconds.
 
 ## Tech Stack
-- Frontend: React, Tailwind CSS, Lucide React
-- Backend: Python FastAPI, MongoDB
-- Payments: Razorpay (SANDBOX)
-- WhatsApp: Meta WhatsApp Cloud API (SANDBOX - pending template approval)
-- Scraping: Generic Shopify scraper + WooCommerce + httpx/BeautifulSoup + Playwright
-- Scheduler: APScheduler (every 15 minutes + daily digest at 8 PM IST)
-- **AI Classification: Gemini 2.5 Flash via Emergent LLM Key**
+- **Frontend**: React, Tailwind CSS, Recharts
+- **Backend**: FastAPI, Python, APScheduler, slowapi
+- **Database**: MongoDB (indiashop_db)
+- **AI**: Gemini 2.5 Flash (Data Classification + Scraper Auto-healing)
+- **Integrations**: Twilio (WhatsApp), Razorpay (Payments), Cloudflare Turnstile (CAPTCHA)
 
-## Live Brands (23 total, 11,000+ products)
-| Brand | Platform | Volume |
-|-------|----------|--------|
-| Crep Dog Crew | Shopify | High |
-| Capsul | Shopify | High |
-| Urban Monkey | Shopify | High |
-| Huemn | Shopify | High |
-| Superkicks | Shopify | High |
-| Mainstreet Marketplace | Shopify | High |
-| Bluorng | Shopify | Medium |
-| House of Koala | Shopify | Medium |
-| Farak | Shopify | Medium |
-| Evemen | Shopify | Medium |
-| Void Worldwide | Shopify | Medium |
-| Almost Gods | Shopify | Low (Exclusive) |
-| Jaywalking | Shopify | Low (Exclusive) |
-| Code Brown | Shopify | Low (Exclusive) |
-| Noughtone | Shopify | Low (Exclusive) |
-| Hiyest | WooCommerce | Low (Exclusive) |
-| Veg Non Veg | HTML parse | Low (Exclusive) |
-| Culture Circle | Playwright | Low (Exclusive) |
-| Toffle | Shopify | Low (Exclusive) |
-| Leave The Rest | Shopify | Low (Exclusive) |
-| Deadbear | Shopify | Low (Exclusive) |
-| Natty Garb | Shopify | Low (Exclusive) |
-| Bomaachi | Shopify | Low (Exclusive) |
+## Current Status
+- **Products**: 11,411 tracked
+- **Brands**: 23 premium streetwear brands
+- **Mode**: Sandbox/Test (Twilio & Razorpay)
 
-## Core System Architecture
-1. **Auto-Scraper** (every 15 min): Scrapes all 23 brands, detects price changes + new products + restocks
-2. **Alert Engine**: Compares prices, sends targeted WhatsApp alerts based on user preferences
-3. **Daily Digest** (8 PM IST): Summarizes all drops for users who prefer batched notifications
-4. **Preference Funnel System**: Users can customize alerts with:
+---
 
-### Preference Funnel (NEW - April 2026)
-**Section A - Brand Selection ("Follow" List)**
-   - Top 5 / Top 10 / Unlimited brand limits
-   - Volume indicators (High Vol, Medium, Exclusive)
-   - Pro tip about low-volume brands for fewer alerts
+## Completed Features
 
-**Section B - Trigger-Based Filtering**
-   - New Drops Only: When a brand launches new collection
-   - Price Drops Only: When product price decreases (with configurable threshold 5-30%)
-   - Restock Alerts: When "Sold Out" items come back in stock
+### April 2026
+- [x] Removed shipping-related data from database (1,093 products cleaned)
+- [x] Updated all scrapers to filter shipping tags/sizes
 
-**Section C - Specificity (Best Cost Saver)**
-   - Category Filter: Garments / Sneakers / Accessories
-   - "My Size" Filter: Only alert if product drops in user's size (XS-XXL, UK6-UK12, Free Size)
+### Previous Session
+- [x] LLM-powered Self-Healing Scraper Agent (Gemini 2.5 Flash)
+- [x] Scraper Health Dashboard & Agent Logs UI
+- [x] Multi-layer Security Architecture (Turnstile, Rate Limiting, Sanitization)
+- [x] Cloudflare DNS activation for dropscurated.com
+- [x] Recharts Wishlist Portfolio dashboard
+- [x] Size selection enforcement on ProductPage
+- [x] Fixed low-contrast text on WishlistPage
 
-**Section D - Notification Frequency**
-   - Instant: Real-time alerts within 10 seconds
-   - Daily Digest (RECOMMENDED): Single message at 8 PM summarizing all drops
+### Earlier Sessions
+- [x] Complete project pivot to "Drops Curated"
+- [x] Luxury Warm Minimalist UI design
+- [x] WhatsApp OTP auth via Twilio (Sandbox)
+- [x] Razorpay subscription payment flow (Sandbox)
+- [x] 23 custom brand scrapers (Shopify, WooCommerce, Playwright)
+- [x] 15-minute background auto-scraping via APScheduler
+- [x] WhatsApp alert dispatch logic for price drops
 
-**Optional Filters**
-   - Budget Range: Min/Max price filter
-   - Keywords: Match specific product terms (Jordan, Yeezy, Dunk, etc.)
+---
 
-## Pages
-1. **Landing** (`/`) — Hero, 3 pillars, stats, partners, CTA
-2. **Browse** (`/browse`) — Grid with search/brand/category filters, infinite scroll
-3. **Product** (`/product/:id`) — Price comparison, buy links
-4. **Subscribe** (`/subscribe`) — 5-step: OTP → Details → Payment → Preference Funnel → Card
-5. **Partners** (`/partners`) — Brand partnership + contact form
-6. **Brands** (`/brands`) — All tracked brands with links to filtered views
+## Pending Issues
 
-## What's Implemented (April 2026)
-- [x] VIP luxury UI with funky Gen Z design elements
-- [x] 23 brand scrapers (11,000+ real products)
-- [x] **Auto-scraping every 15 minutes** (APScheduler)
-- [x] Price drop detection + new product detection + restock detection
-- [x] WhatsApp alert engine via Meta Cloud API (SANDBOX)
-- [x] **Comprehensive Preference Funnel** (4 sections: A, B, C, D)
-- [x] Brand limit enforcement (Top 5/10/Unlimited)
-- [x] Trigger-based filtering (New Drops, Price Drops, Restock)
-- [x] Category and Size specificity filters
-- [x] Notification frequency (Instant vs Daily Digest at 8 PM)
-- [x] Budget range and keyword filters
-- [x] **"Test My Preferences" Simulation** (NEW)
-  - Shows matching products count
-  - Estimated daily alerts with breakdown
-  - Sample daily digest preview
-  - Contextual optimization tips
-- [x] Size Guide modal with garments/sneakers sizing tables
-- [x] WhatsApp OTP registration (SANDBOX)
-- [x] Razorpay UPI payment (SANDBOX)
-- [x] Digital membership card (UI)
-- [x] Apple/Google Wallet API endpoints (requires certificates to activate)
-- [x] Brand partnership page
-- [x] Real-Time Raffle & Entry Management with EQL-like bot-blocking
-- [x] Infinite scroll Browse page
-- [x] Celebrity Style section (Travis Scott, Kanye West, Ranveer Singh, etc.)
-- [x] Dynamic "Brands Listed" footer with auto-scroll marquee
-- [x] Dedicated `/brands` page
-- [x] Excel generator for brand analytics
-- [x] All tests: 100% pass (10 iterations)
+### P0 - Critical
+- [ ] **Wishlist Portfolio Calculation Bug** - User reported wrong Total/Difference/Percentage values
 
-## Upcoming Tasks
-- [ ] **P0**: Meta WhatsApp template approval (real message delivery)
-- [ ] **P0**: Razorpay production keys (live UPI)
-- [ ] **P0**: Apple/Google Wallet certificates setup
-- [ ] **P1**: WhatsApp bot for preference management
-- [ ] **P1**: Price history charts on product pages
-- [ ] **P1**: Drop Calendar UI (upcoming releases)
-- [ ] **P2**: Visual search (image upload)
-- [ ] **P2**: Brand partner self-serve dashboard
-- [ ] **P3**: Instagram drop tracking
+### P1 - High Priority
+- [ ] Scraper extracting invalid size data (some brands)
+- [ ] Cloudflare 405 error on dropscurated.com (needs origin server routing)
 
-## API Endpoints
+### P2 - Medium Priority
+- [ ] SubscribePage Indian phone validation + success UI
+- [ ] BrowsePage UI overhaul (sort options, empty state, feedback button)
+- [ ] server.py refactoring (>3,100 lines - extract to routes/)
 
-### Authentication
-- `POST /api/otp/send` - Send WhatsApp OTP
-- `POST /api/otp/verify` - Verify OTP
+---
 
-### Payments
-- `POST /api/payment/create-order` - Create Razorpay order
-- `POST /api/payment/verify` - Verify payment
+## Backlog / Future Features
 
-### Preferences (Preference Funnel)
-- `POST /api/preferences` - Save/update user preferences
-  - `phone`: string
-  - `brands`: string[] (empty = all brands)
-  - `brand_limit`: 5 | 10 | 0 (unlimited)
-  - `alert_types`: ("price_drop" | "new_release" | "restock")[]
-  - `categories`: ("garments" | "sneakers" | "accessories")[]
-  - `sizes`: string[]
-  - `price_range`: {min?: number, max?: number}
-  - `keywords`: string[]
-  - `drop_threshold`: number (5-30%)
-  - `alert_frequency`: "instant" | "daily"
-- `GET /api/preferences/{phone}` - Get user preferences
-- `POST /api/preferences/simulate` - **Test My Preferences** simulation
-  - Returns: total_matching_products, estimated_daily_alerts, sample_daily_digest, filters_applied, new_drops/price_drops/restocks sections with sample products
+### P1
+- [ ] Apple/Google Wallet .pkpass integration
+- [ ] Production keys migration (Twilio, Razorpay)
 
-### Alerts
-- `GET /api/alerts/recent` - Get recent alert logs
-- `GET /api/alerts/digest/{phone}` - Get pending daily digest
-- `POST /api/alerts/send-digests` - Trigger daily digest send (called by scheduler)
+### P2
+- [ ] Drop Calendar UI
+- [ ] Brand Partner Dashboard
 
-### Scheduler
-- `GET /api/scheduler/status` - Get scheduler status (auto_scrape + daily_digest jobs)
-- `POST /api/scheduler/trigger` - Manually trigger scrape cycle
+---
 
-### Products & Brands
-- `GET /api/search` - Search products
-- `GET /api/products/{id}` - Get product details
-- `GET /api/brands` - Get all brands
-- `GET /api/brands/report` - Generate Excel analytics
+## Architecture
 
-## Wallet Integration Requirements (for activation)
-
-### Apple Wallet
-Environment variables needed:
 ```
-APPLE_PASS_TYPE_ID=pass.com.yourorg.dropscurated
-APPLE_TEAM_ID=YOUR_TEAM_ID
-APPLE_CERT_PATH=/path/to/certificate.pem
-APPLE_KEY_PATH=/path/to/private.key
-APPLE_WWDR_PATH=/path/to/wwdr.pem
+/app/
+├── backend/
+│   ├── scrapers/          # 23 brand scrapers with shipping filters
+│   ├── server.py          # FastAPI (needs refactoring)
+│   ├── security.py        # Rate limiting, sanitization
+│   ├── security_advanced.py # Turnstile, pagination detection
+│   ├── scraper_agent.py   # LLM Self-Healing
+│   └── scheduler.py       # APScheduler
+├── frontend/
+│   └── src/
+│       ├── components/    # TurnstileCaptcha, etc.
+│       ├── context/       # WishlistContext
+│       └── pages/         # Landing, Browse, Product, Subscribe, Wishlist, Admin
+└── memory/
+    └── PRD.md
 ```
 
-### Google Wallet
-Environment variables needed:
-```
-GOOGLE_WALLET_ISSUER_ID=YOUR_ISSUER_ID
-GOOGLE_WALLET_SERVICE_ACCOUNT_JSON=/path/to/service-account.json
-```
+## Key API Endpoints
+- `POST /api/auth/otp/send` - WhatsApp OTP (requires Turnstile)
+- `POST /api/auth/otp/verify` - Verify OTP
+- `POST /api/subscribe/order` - Create Razorpay order
+- `POST /api/subscribe/verify` - Verify payment
+- `GET /api/admin/agent-logs` - Scraper AI healing logs
+- `GET /api/admin/security-stats` - Security metrics
+
+## Test Credentials
+- Phone: Any 10-digit Indian number (6-9 prefix)
+- OTP: Check backend console logs
+- Admin: See /app/memory/test_credentials.md

@@ -67,6 +67,10 @@ class CrepDogCrewScraper(BaseScraper):
                 if size:
                     available_sizes.append(size)
 
+        # Filter out shipping-related tags and sizes
+        filtered_tags = self._filter_shipping_tags([t.lower() for t in tags[:15]])
+        filtered_sizes = self._filter_shipping_sizes(available_sizes)
+
         return {
             "name": title,
             "brand": vendor or self._extract_brand(title),
@@ -77,8 +81,8 @@ class CrepDogCrewScraper(BaseScraper):
             "product_url": f"{self.base_url}/products/{handle}",
             "store": self.store_key,
             "in_stock": any(v.get("available") for v in variants),
-            "available_sizes": available_sizes,
-            "tags": [t.lower() for t in tags[:10]],
+            "available_sizes": filtered_sizes,
+            "tags": filtered_tags[:10],
             "scraped_at": self.now_iso(),
         }
 
@@ -89,3 +93,32 @@ class CrepDogCrewScraper(BaseScraper):
             if b.lower() in name_lower:
                 return b
         return name.split()[0] if name else "Unknown"
+    
+    def _filter_shipping_tags(self, tags: list) -> list:
+        """Remove shipping-related tags from product tags."""
+        shipping_keywords = [
+            'ship', 'shipping', 'delivery', 'dispatch', 'express', 'days',
+            'instantship', 'dunkship', 'hyship', 'bearship', 'funkoship',
+            'readyship', 'free-delivery', 'freeshipping', 'fast shipping',
+            'lead time', 'ships in', 'dispatch in'
+        ]
+        filtered = []
+        for tag in tags:
+            tag_lower = tag.lower()
+            if not any(kw in tag_lower for kw in shipping_keywords):
+                filtered.append(tag)
+        return filtered
+    
+    def _filter_shipping_sizes(self, sizes: list) -> list:
+        """Remove shipping-related strings from sizes array."""
+        shipping_keywords = [
+            'ship', 'shipping', 'delivery', 'dispatch', 'days', 'week',
+            'lead time', 'ships in', 'dispatch in', 'express', 'standard',
+            'free', 'business'
+        ]
+        filtered = []
+        for size in sizes:
+            size_lower = str(size).lower()
+            if not any(kw in size_lower for kw in shipping_keywords):
+                filtered.append(size)
+        return filtered
