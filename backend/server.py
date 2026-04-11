@@ -3130,6 +3130,7 @@ async def shutdown_db_client():
 async def startup_scheduler():
     from scheduler import init_scheduler
     from auth import init_admin_routes, admin_router, seed_admin_user
+    from scraper_agent import init_scraper_agent
     
     # Initialize security module
     await init_security(app, db)
@@ -3143,6 +3144,10 @@ async def startup_scheduler():
     init_admin_routes(db)
     app.include_router(admin_router)
     logger.info("Admin routes initialized")
+    
+    # Initialize self-healing scraper agent
+    await init_scraper_agent(db)
+    logger.info("Self-healing scraper agent initialized with Gemini LLM")
     
     # Seed default admin user
     await seed_admin_user()

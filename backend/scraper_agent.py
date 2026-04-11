@@ -123,7 +123,7 @@ class ScraperAgent:
     def __init__(self, db=None):
         self._db = db
         self._llm = None
-        self._llm_model = "gemini/gemini-2.0-flash"
+        self._llm_model = "gemini-2.5-flash"  # Updated to latest model
         self._healing_start_times: Dict[str, datetime] = {}  # Track when healing started per brand
         self._recent_response_times: Dict[str, List[int]] = {}  # Track response times per brand
         
@@ -131,21 +131,27 @@ class ScraperAgent:
         """Initialize the agent with database and LLM."""
         self._db = db
         
-        # Initialize LLM
+        # Initialize LLM using emergentintegrations
         try:
             from emergentintegrations.llm.chat import LlmChat
-            self._llm = LlmChat(
-                api_key=os.getenv("EMERGENT_LLM_KEY"),
-                session_id="scraper_agent",
-                system_message="""You are an expert web scraping diagnostic agent. Your job is to:
+            api_key = os.getenv("EMERGENT_LLM_KEY")
+            if not api_key:
+                logger.warning("[ScraperAgent] EMERGENT_LLM_KEY not found in environment")
+                self._llm = None
+            else:
+                chat = LlmChat(
+                    api_key=api_key,
+                    session_id="scraper_agent_healer",
+                    system_message="""You are an expert web scraping diagnostic agent. Your job is to:
 1. Analyze scraper errors and diagnose the root cause
 2. Pick the best fix strategy from available options
 3. When websites change structure, analyze HTML and suggest new CSS selectors or JSON paths
 4. Learn from past successes and failures
 
 Always respond with valid JSON. Be concise and technical."""
-            )
-            logger.info("[ScraperAgent] LLM initialized successfully")
+                )
+                self._llm = chat.with_model("gemini", "gemini-2.5-flash")
+                logger.info("[ScraperAgent] LLM initialized successfully with Gemini 2.5 Flash")
         except Exception as e:
             logger.error(f"[ScraperAgent] Failed to initialize LLM: {e}")
             self._llm = None
@@ -272,8 +278,10 @@ Respond with JSON:
 """
         
         try:
-            response = await self._llm.chat(prompt, model=self._llm_model)
-            response_text = response.content if hasattr(response, 'content') else str(response)
+            from emergentintegrations.llm.chat import UserMessage
+            user_message = UserMessage(text=prompt)
+            response = await self._llm.send_message(user_message)
+            response_text = str(response) if response else ""
             
             # Try to parse JSON
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
@@ -498,13 +506,16 @@ Provide CSS selectors or JSON paths to extract this data. Respond with JSON:
 """
         
         try:
-            response = await self._llm.chat(prompt, model=self._llm_model)
-            response_text = response.content if hasattr(response, 'content') else str(response)
+            from emergentintegrations.llm.chat import UserMessage
+            user_message = UserMessage(text=prompt)
+            response = await self._llm.send_message(user_message)
+            response_text = str(response) if response else ""
             
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
                 selectors = json.loads(json_match.group())
                 if selectors.get("confidence", 0) >= 60:
+                    logger.info(f"[ScraperAgent] Generated new selectors with {selectors.get('confidence')}% confidence")
                     return selectors
         except Exception as e:
             logger.error(f"[ScraperAgent] Selector rewrite failed: {e}")
