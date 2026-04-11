@@ -3,7 +3,6 @@ from .vegnonveg import VegNonVegScraper
 from .culturecircle import CultureCircleScraper
 from .hiyest import HiyestScraper
 from .midsandlows import MidsAndLowsScraper
-from .footlocker import FootLockerIndiaScraper
 
 # ====== BRAND REGISTRY ======
 # All Shopify-based brands use the generic ShopifyScraper
@@ -41,4 +40,3 @@ SCRAPERS["veg_non_veg"] = VegNonVegScraper
 SCRAPERS["culture_circle"] = CultureCircleScraper
 SCRAPERS["hiyest"] = HiyestScraper
 SCRAPERS["mids_and_lows"] = MidsAndLowsScraper
-SCRAPERS["footlocker_india"] = FootLockerIndiaScraper
