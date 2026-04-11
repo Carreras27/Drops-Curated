@@ -1,5 +1,6 @@
 """
 Base Scraper with Anti-Blocking Protection
+Includes human-like behavior patterns for bot detection evasion.
 """
 import httpx
 import logging
@@ -17,7 +18,9 @@ from .scraper_utils import (
     health_tracker,
     build_headers,
     BlockedError,
-    detect_blocked_response
+    detect_blocked_response,
+    human,
+    HumanBehavior,
 )
 
 logger = logging.getLogger(__name__)
@@ -232,3 +235,94 @@ class BaseScraper:
             if not any(kw in size_lower for kw in shipping_keywords):
                 filtered.append(size)
         return filtered
+
+    async def scrape_with_playwright(
+        self, 
+        url: str, 
+        selectors: Dict[str, str] = None,
+        wait_for_product: bool = True,
+        scroll: bool = True
+    ) -> tuple:
+        """
+        Scrape a page using Playwright with human-like behavior.
+        Returns (html_content, extracted_data).
+        
+        Args:
+            url: Page URL to scrape
+            selectors: Dict of CSS selectors to extract {name: selector}
+            wait_for_product: Wait for product image to be visible
+            scroll: Simulate human scrolling
+        """
+        from playwright.async_api import async_playwright
+        from playwright_stealth import Stealth
+        import random
+        
+        stealth = Stealth(
+            navigator_webdriver=True,
+            navigator_plugins=True,
+            navigator_permissions=True,
+            webgl_vendor=True,
+        )
+        
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                ]
+            )
+            
+            context = await browser.new_context(
+                user_agent=get_random_user_agent(),
+                viewport={"width": 1920, "height": 1080},
+                locale="en-IN",
+                timezone_id="Asia/Kolkata",
+                extra_http_headers=human.get_human_headers()
+            )
+            
+            # Apply stealth mode
+            await stealth.apply_stealth_async(context)
+            
+            page = await context.new_page()
+            
+            # Block heavy resources
+            await page.route("**/*.{woff,woff2,ttf,otf}", lambda r: r.abort())
+            await page.route("**/analytics**", lambda r: r.abort())
+            await page.route("**/gtm.js**", lambda r: r.abort())
+            
+            try:
+                # Navigate with human-like timing
+                await page.goto(url, timeout=45000, wait_until="domcontentloaded")
+                
+                # Wait for product to be visible (mimics human looking at product)
+                if wait_for_product:
+                    await human.wait_for_product_visible(page)
+                
+                # Random mouse movements
+                await human.random_mouse_movement(page)
+                
+                # Scroll like a human browsing
+                if scroll:
+                    await human.scroll_like_human(page, scroll_count=random.randint(2, 4))
+                
+                # Get page content
+                html = await page.content()
+                
+                # Extract data if selectors provided
+                extracted = {}
+                if selectors:
+                    for key, selector in selectors.items():
+                        try:
+                            element = await page.query_selector(selector)
+                            if element:
+                                extracted[key] = await element.inner_text()
+                        except Exception:
+                            extracted[key] = None
+                
+                return html, extracted
+                
+            finally:
+                await browser.close()
+

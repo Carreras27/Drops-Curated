@@ -1,6 +1,7 @@
 """
 Scraper Protection Utilities
 Comprehensive anti-blocking measures for all scrapers.
+Includes human-like behavior patterns to avoid bot detection.
 """
 import os
 import random
@@ -40,6 +41,110 @@ USER_AGENTS = [
 def get_random_user_agent() -> str:
     """Get a random user agent from the pool."""
     return random.choice(USER_AGENTS)
+
+
+# ============ HUMAN-LIKE BEHAVIOR PATTERNS ============
+
+class HumanBehavior:
+    """
+    Simulates human-like browsing patterns to avoid bot detection.
+    Includes random delays, mouse movements, and element waiting.
+    """
+    
+    @staticmethod
+    async def think_delay(min_sec: float = 1.5, max_sec: float = 3.0) -> float:
+        """Simulate human 'thinking' time when viewing a product."""
+        delay = random.uniform(min_sec, max_sec)
+        await asyncio.sleep(delay)
+        return delay
+    
+    @staticmethod
+    async def reading_delay(text_length: int = 100) -> float:
+        """Simulate time spent reading text (avg 200 words/min)."""
+        # Approx 5 chars per word, 200 words/min = 1000 chars/min
+        min_read_time = max(0.5, text_length / 2000)  # Min 0.5s
+        max_read_time = min(5.0, text_length / 500)   # Max 5s
+        delay = random.uniform(min_read_time, max_read_time)
+        await asyncio.sleep(delay)
+        return delay
+    
+    @staticmethod
+    async def scroll_like_human(page, scroll_count: int = 3):
+        """Scroll down page in human-like increments."""
+        for i in range(scroll_count):
+            # Random scroll distance (200-600 pixels)
+            scroll_distance = random.randint(200, 600)
+            await page.evaluate(f"window.scrollBy(0, {scroll_distance})")
+            # Pause between scrolls like a human would
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+    
+    @staticmethod
+    async def wait_for_product_visible(page, timeout: int = 10000):
+        """
+        Wait for product content to be visible before scraping.
+        Mimics a human looking at the product before checking price.
+        """
+        # Common product image selectors
+        image_selectors = [
+            "img[alt*='sneaker' i]",
+            "img[alt*='shoe' i]",
+            "img[alt*='product' i]",
+            ".product-image img",
+            "[data-testid='product-image']",
+            ".product-gallery img",
+            ".pdp-image img",
+        ]
+        
+        for selector in image_selectors:
+            try:
+                await page.wait_for_selector(selector, state="visible", timeout=timeout // len(image_selectors))
+                # Human-like pause after seeing the product
+                await HumanBehavior.think_delay(1.5, 3.0)
+                return True
+            except Exception:
+                continue
+        
+        # Fallback: just wait a bit
+        await asyncio.sleep(random.uniform(2.0, 4.0))
+        return False
+    
+    @staticmethod
+    async def random_mouse_movement(page):
+        """Simulate random mouse movements on the page."""
+        try:
+            viewport = page.viewport_size
+            if viewport:
+                # Move to random positions
+                for _ in range(random.randint(2, 4)):
+                    x = random.randint(100, viewport['width'] - 100)
+                    y = random.randint(100, viewport['height'] - 100)
+                    await page.mouse.move(x, y)
+                    await asyncio.sleep(random.uniform(0.1, 0.3))
+        except Exception:
+            pass
+    
+    @staticmethod
+    def get_human_headers() -> dict:
+        """Get headers that mimic a real browser."""
+        return {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+
+
+# Global instance for easy access
+human = HumanBehavior()
 
 
 # ============ RANDOM DELAYS ============
