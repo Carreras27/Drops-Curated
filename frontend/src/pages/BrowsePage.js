@@ -19,7 +19,7 @@ import { WishlistButtonOverlay } from '../components/WishlistButton';
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const CATEGORIES = ['All', 'SHOES', 'CLOTHES', 'ACCESSORIES', 'COLLECTABLES'];
-const SUBCATEGORIES = ['T-Shirts', 'Shirts', 'Hoodies', 'Jackets', 'Pants', 'Sneakers', 'Slides'];
+const SUBCATEGORIES = ['T-Shirts', 'Shirts', 'Hoodies', 'Jackets', 'Pants', 'Sneakers', 'Slides', 'Caps', 'Hats', 'Bags', 'Watches', 'Socks', 'Belts', 'Wallets'];
 const GENDERS = ['All', 'Men', 'Women', 'Unisex'];
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in ms
 
