@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart } from 'lucide-react';
+import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import { HomepageSchemas, BreadcrumbSchema } from '../components/SEOSchema';
 import { useWishlist } from '../context/WishlistContext';
+import { useTrial, StartTrialButton } from '../context/TrialContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -427,6 +428,10 @@ export default function LandingPage() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: '0.3s' }}>
+                <StartTrialButton className="">
+                  <Sparkles className="w-4 h-4" />
+                  Try Free for 7 Days
+                </StartTrialButton>
                 <Link
                   to="/subscribe"
                   className="inline-flex items-center justify-center gap-3 bg-primary text-background px-8 py-4 font-medium text-sm hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
@@ -434,14 +439,6 @@ export default function LandingPage() {
                 >
                   <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
                   Get WhatsApp Alerts — ₹399/mo
-                </Link>
-                <Link
-                  to="/browse"
-                  className="inline-flex items-center justify-center gap-3 border border-primary/15 text-primary px-8 py-4 font-medium text-sm hover:border-accent hover:text-accent transition-all duration-300"
-                  data-testid="hero-browse-cta"
-                >
-                  Explore Drops
-                  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
                 </Link>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight, Bell } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight, Bell, Lock } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { 
@@ -15,6 +15,7 @@ import {
   AllDropsSchema
 } from '../components/SEOSchema';
 import { WishlistButtonOverlay } from '../components/WishlistButton';
+import { useTrial, BlurredPrice, LockedOverlay } from '../context/TrialContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -360,6 +361,9 @@ const LastUpdatedBadge = ({ lastUpdated, isRefreshing, onRefresh }) => {
 
 // Product Card Component
 const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
+  const { isTrialActive, hasStartedTrial, setShowUpgradeModal } = useTrial();
+  const isLocked = hasStartedTrial() && !isTrialActive;
+  
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     try {
@@ -384,8 +388,17 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
       style={{ animationDelay: `${Math.min(idx * 0.04, 0.5)}s` }}
       data-testid={`product-card-${product.id}`}
     >
-      {/* Wishlist Button */}
-      <WishlistButtonOverlay product={product} />
+      {/* Wishlist Button - locked if trial expired */}
+      {isLocked ? (
+        <button 
+          onClick={() => setShowUpgradeModal(true)}
+          className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-full border border-primary/10 text-primary/40 hover:text-accent transition-colors"
+        >
+          <Lock className="w-3.5 h-3.5" />
+        </button>
+      ) : (
+        <WishlistButtonOverlay product={product} />
+      )}
       
       <Link to={`/product/${product.id}`}>
         <div className="aspect-square overflow-hidden mb-3 bg-surface relative">
@@ -414,14 +427,14 @@ const ProductCard = ({ product, idx, showDate = false, showStock = false }) => {
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-accent mb-1">{product.brand}</p>
           <h3 className="text-sm font-medium leading-snug line-clamp-2 mb-2 group-hover:text-accent transition-colors duration-200">{product.name}</h3>
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium">
-              {product.lowestPrice > 0 ? `₹${product.lowestPrice?.toLocaleString('en-IN')}` : '—'}
-            </span>
-            {product.highestPrice > 0 && product.highestPrice !== product.lowestPrice && (
-              <span className="text-xs text-primary/30 line-through">₹${product.highestPrice?.toLocaleString('en-IN')}</span>
-            )}
-        </div>
+          
+          {/* Blurred Price when trial expired */}
+          <BlurredPrice 
+            price={product.lowestPrice} 
+            originalPrice={product.highestPrice}
+            className="flex items-baseline gap-2 text-sm"
+          />
+          
         {product.store && (
           <p className="text-[10px] text-primary/30 mt-1">{product.store.replace(/_/g, ' ')}</p>
         )}
