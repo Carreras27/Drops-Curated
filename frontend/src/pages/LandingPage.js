@@ -4,6 +4,7 @@ import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield,
 import axios from 'axios';
 import { HomepageSchemas, BreadcrumbSchema } from '../components/SEOSchema';
 import { useWishlist } from '../context/WishlistContext';
+import { ThemeToggle } from '../context/ThemeContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -132,7 +133,7 @@ const LiveTimestamp = () => {
 };
 
 // Funky Gen Z Style Background Elements
-const GradientBlob = ({ className, color1 = "#D4AF37", color2 = "#001F3F", opacity = 0.15 }) => (
+const GradientBlob = ({ className, color1 = "var(--color-accent)", color2 = "transparent", opacity = 0.15 }) => (
   <div 
     className={`absolute rounded-full blur-3xl ${className}`}
     style={{
@@ -175,7 +176,7 @@ const GeometricShape = ({ className, type = "square" }) => {
           borderLeft: '20px solid transparent',
           borderRight: '20px solid transparent',
           borderBottom: '35px solid',
-          borderBottomColor: 'rgba(212, 175, 55, 0.15)',
+          borderBottomColor: 'var(--color-accent-dim)',
         }}
       />
     );
@@ -208,28 +209,31 @@ export const Header = ({ transparent = false }) => {
   }
   
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 ${transparent ? 'bg-background/90 backdrop-blur-xl' : 'bg-background'} border-b border-primary/[0.06]`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 ${transparent ? 'bg-background/90 backdrop-blur-xl' : 'bg-background'} border-b border-border`}>
       <nav className="max-w-7xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
-        <Link to="/" className="font-serif text-xl tracking-tight" data-testid="logo-link">
+        <Link to="/" className="font-serif text-xl tracking-tight text-primary" data-testid="logo-link">
           Drops <span className="text-accent">Curated</span>
         </Link>
-        <div className="flex items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-3 md:gap-5">
           {NAV_LINKS.map(l => (
-            <Link key={l.to} to={l.to} className="hidden md:inline text-xs md:text-sm font-medium text-primary/60 hover:text-primary transition-colors duration-200" data-testid={`nav-${l.label.toLowerCase()}`}>
+            <Link key={l.to} to={l.to} className="hidden md:inline text-xs md:text-sm font-medium text-primary-muted hover:text-primary transition-colors duration-200" data-testid={`nav-${l.label.toLowerCase()}`}>
               {l.label}
             </Link>
           ))}
           
+          {/* Theme Toggle */}
+          <ThemeToggle className="theme-toggle-glow" />
+          
           {/* Wishlist Icon */}
           <Link
             to="/wishlist"
-            className="relative p-2 text-primary/60 hover:text-primary transition-colors"
+            className="relative p-2 text-primary-muted hover:text-primary transition-colors"
             data-testid="nav-wishlist"
             title="My Wishlist"
           >
             <Heart className="w-5 h-5" strokeWidth={1.5} />
             {wishlistCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-accent text-primary text-[10px] font-bold flex items-center justify-center rounded-full">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-accent text-background text-[10px] font-bold flex items-center justify-center rounded-full">
                 {wishlistCount > 9 ? '9+' : wishlistCount}
               </span>
             )}
@@ -237,7 +241,7 @@ export const Header = ({ transparent = false }) => {
           
           <Link
             to="/subscribe"
-            className="hidden md:inline-flex items-center gap-2 bg-primary text-background text-xs font-medium px-5 py-2.5 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+            className="hidden md:inline-flex items-center gap-2 bg-accent text-background text-xs font-medium px-5 py-2.5 hover:-translate-y-0.5 hover:shadow-glow transition-all duration-300"
             data-testid="nav-subscribe-cta"
           >
             <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -268,15 +272,15 @@ export const Footer = () => {
   const scrollingBrands = [...brands, ...brands];
   
   return (
-    <footer className="border-t border-primary/[0.06] bg-background">
+    <footer className="border-t border-border bg-background">
       {/* Auto-scrolling Brands Marquee */}
       {brands.length > 0 && (
-        <div className="py-8 border-b border-primary/[0.06] overflow-hidden">
+        <div className="py-8 border-b border-border overflow-hidden">
           <p className="text-[10px] uppercase tracking-[0.3em] text-center text-accent mb-6">Brands Listed</p>
           <div className="relative">
             {/* Gradient overlays for fade effect */}
-            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background to-transparent z-10" />
-            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-10" />
+            <div className="absolute left-0 top-0 bottom-0 w-32 gradient-fade-left z-10" />
+            <div className="absolute right-0 top-0 bottom-0 w-32 gradient-fade-right z-10" />
             
             {/* Scrolling container */}
             <div className="flex animate-marquee hover:pause-animation">
@@ -287,12 +291,12 @@ export const Footer = () => {
                   className="flex-shrink-0 mx-4 md:mx-6 group"
                 >
                   <div className="flex flex-col items-center transition-all duration-300 transform group-hover:scale-110">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-primary/5 rounded-full flex items-center justify-center group-hover:bg-accent/20 transition-colors mb-2">
-                      <span className="text-lg md:text-xl font-bold text-primary/40 group-hover:text-accent transition-colors">
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-stat rounded-full flex items-center justify-center group-hover:bg-accent/20 transition-colors mb-2">
+                      <span className="text-lg md:text-xl font-bold text-primary-muted group-hover:text-accent transition-colors">
                         {brand.name?.charAt(0) || '?'}
                       </span>
                     </div>
-                    <span className="text-[10px] md:text-xs text-primary/40 group-hover:text-accent transition-colors whitespace-nowrap">
+                    <span className="text-[10px] md:text-xs text-primary-muted group-hover:text-accent transition-colors whitespace-nowrap">
                       {brand.name}
                     </span>
                   </div>
@@ -308,18 +312,18 @@ export const Footer = () => {
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-12">
             <div className="col-span-2 md:col-span-1">
-              <p className="font-serif text-xl mb-3">Drops <span className="text-accent">Curated</span></p>
-              <p className="text-xs text-primary/40 leading-relaxed max-w-[220px]">
+              <p className="font-serif text-xl mb-3 text-primary">Drops <span className="text-accent">Curated</span></p>
+              <p className="text-xs text-primary-muted leading-relaxed max-w-[220px]">
                 India's premium streetwear discovery. Never miss a drop.
               </p>
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Explore</p>
               <div className="flex flex-col gap-2.5">
-                <Link to="/browse" className="text-xs text-primary/50 hover:text-primary transition-colors">All Drops</Link>
-                <Link to="/brands" className="text-xs text-primary/50 hover:text-primary transition-colors">All Brands</Link>
-                <Link to="/raffles" className="text-xs text-primary/50 hover:text-primary transition-colors">Raffles</Link>
-                <Link to="/subscribe" className="text-xs text-primary/50 hover:text-primary transition-colors">Membership</Link>
+                <Link to="/browse" className="text-xs text-primary-muted hover:text-primary transition-colors">All Drops</Link>
+                <Link to="/brands" className="text-xs text-primary-muted hover:text-primary transition-colors">All Brands</Link>
+                <Link to="/raffles" className="text-xs text-primary-muted hover:text-primary transition-colors">Raffles</Link>
+                <Link to="/subscribe" className="text-xs text-primary-muted hover:text-primary transition-colors">Membership</Link>
               </div>
             </div>
             <div>
@@ -329,7 +333,7 @@ export const Footer = () => {
                   <Link 
                     key={brand.key} 
                     to={`/brands/${brand.storeKey || brand.key?.toUpperCase()}`}
-                    className="text-xs text-primary/40 hover:text-accent transition-colors"
+                    className="text-xs text-primary-muted hover:text-accent transition-colors"
                   >
                     {brand.name}
                   </Link>
@@ -385,7 +389,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {/* Gradient Blobs */}
           <GradientBlob className="w-[600px] h-[600px] -top-40 -right-40" opacity={0.08} />
-          <GradientBlob className="w-[400px] h-[400px] bottom-0 -left-20" color1="#D4AF37" color2="#F5F5DC" opacity={0.06} />
+          <GradientBlob className="w-[400px] h-[400px] bottom-0 -left-20" opacity={0.06} />
           
           {/* Floating Circles */}
           <FloatingCircle className="w-4 h-4 top-32 left-[15%] opacity-20" />
@@ -414,10 +418,10 @@ export default function LandingPage() {
                 <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
                 <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live — {stats.products}+ Products Tracked</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up text-primary" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
                 Never Miss<br />a Drop Again.
               </h1>
-              <p className="text-base md:text-lg text-primary/50 leading-relaxed max-w-lg mb-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+              <p className="text-base md:text-lg text-primary-muted leading-relaxed max-w-lg mb-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
                 India's fastest streetwear alerts. Price drops, new collections, restocks — delivered to your WhatsApp in under 10 seconds.
               </p>
               
@@ -429,7 +433,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: '0.3s' }}>
                 <Link
                   to="/subscribe"
-                  className="inline-flex items-center justify-center gap-3 bg-primary text-background px-8 py-4 font-medium text-sm hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+                  className="inline-flex items-center justify-center gap-3 bg-accent text-background px-8 py-4 font-medium text-sm hover:-translate-y-0.5 hover:shadow-glow transition-all duration-300"
                   data-testid="hero-subscribe-cta"
                 >
                   <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
@@ -437,7 +441,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   to="/browse"
-                  className="inline-flex items-center justify-center gap-3 border border-primary/15 text-primary px-8 py-4 font-medium text-sm hover:border-accent hover:text-accent transition-all duration-300"
+                  className="inline-flex items-center justify-center gap-3 border border-border-strong text-primary px-8 py-4 font-medium text-sm hover:border-accent hover:text-accent transition-all duration-300"
                   data-testid="hero-browse-cta"
                 >
                   Explore Drops
@@ -453,7 +457,7 @@ export default function LandingPage() {
                   className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-700 ease-out"
                 />
               </div>
-              <div className="absolute -bottom-5 -left-5 bg-surface border border-primary/[0.06] p-5 shadow-soft overflow-hidden">
+              <div className="absolute -bottom-5 -left-5 bg-surface border border-border p-5 shadow-soft overflow-hidden">
                 {/* Animated scanning line */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                   <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-accent/50 to-transparent animate-scan" />
@@ -469,10 +473,10 @@ export default function LandingPage() {
                 </div>
                 
                 {/* Animated counter effect */}
-                <p className="font-serif text-lg flex items-baseline gap-1">
+                <p className="font-serif text-lg text-primary flex items-baseline gap-1">
                   <span className="tabular-nums">{stats.products?.toLocaleString() || '9,355'}</span>
                   <span className="text-accent animate-pulse">+</span>
-                  <span className="text-sm font-normal text-primary/60">Products</span>
+                  <span className="text-sm font-normal text-primary-muted">Products</span>
                 </p>
                 
                 {/* Activity ticker */}
