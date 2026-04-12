@@ -16,7 +16,6 @@ import FAQPage from './pages/FAQPage';
 import ContactPage from './pages/ContactPage';
 import WishlistPage from './pages/WishlistPage';
 import { WishlistProvider } from './context/WishlistContext';
-import { ThemeProvider } from './context/ThemeContext';
 
 // Error Boundary Component (Fix #9)
 class ErrorBoundary extends React.Component {
@@ -75,31 +74,29 @@ function NotFound() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <WishlistProvider>
-          <BrowserRouter>
-            <div className="min-h-screen bg-background transition-colors duration-300">
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/browse" element={<BrowsePage />} />
-                <Route path="/brands" element={<BrandsPage />} />
-                <Route path="/brands/:brandKey" element={<BrandPage />} />
-                <Route path="/product/:id" element={<ProductPage />} />
-                <Route path="/subscribe" element={<SubscribePage />} />
-                <Route path="/partners" element={<PartnersPage />} />
-                <Route path="/raffles" element={<RafflesPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/faq" element={<FAQPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/wishlist" element={<WishlistPage />} />
-                <Route path="/admin" element={<AdminPanel />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <Toaster position="top-center" richColors />
-            </div>
-          </BrowserRouter>
-        </WishlistProvider>
-      </ThemeProvider>
+      <WishlistProvider>
+        <BrowserRouter>
+          <div className="min-h-screen bg-background">
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/browse" element={<BrowsePage />} />
+              <Route path="/brands" element={<BrandsPage />} />
+              <Route path="/brands/:brandKey" element={<BrandPage />} />
+              <Route path="/product/:id" element={<ProductPage />} />
+              <Route path="/subscribe" element={<SubscribePage />} />
+              <Route path="/partners" element={<PartnersPage />} />
+              <Route path="/raffles" element={<RafflesPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/faq" element={<FAQPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <Toaster position="top-center" richColors />
+          </div>
+        </BrowserRouter>
+      </WishlistProvider>
     </ErrorBoundary>
   );
 }
