@@ -19,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from scrapers import SCRAPERS, SHOPIFY_BRANDS
+from scrapers import SCRAPERS, SHOPIFY_BRANDS, aether_brain
 from scrapers.scraper_utils import (
     stagger_delay, 
     brand_delay, 
@@ -68,6 +68,9 @@ def init_scheduler(db):
     
     # Initialize LLM-powered self-healing scraper agent
     asyncio.create_task(init_scraper_agent(db))
+
+    # Initialize Aether Brain self-learning
+    asyncio.create_task(aether_brain.init(db))
 
     # Auto-scrape job every 15 minutes
     scheduler.add_job(
@@ -177,7 +180,8 @@ async def scrape_all_brands():
             scraper = scraper_factory()
             logger.info(f"[Scheduler] [{i+1}/{len(brand_keys)}] Scraping {scraper.brand_name}...")
 
-            scraped = await scraper.scrape_products(max_pages=5)
+            # Use Aether Swarm scrape (persona rotation + self-learning)
+            scraped = await scraper.run_swarm_scrape(max_pages=5)
             
             if not scraped:
                 _run_results[key] = {"status": "empty", "scraped": 0}

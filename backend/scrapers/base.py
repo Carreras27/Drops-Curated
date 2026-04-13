@@ -5,6 +5,8 @@ Includes human-like behavior patterns for bot detection evasion.
 import httpx
 import logging
 import asyncio
+import time
+import random
 from datetime import datetime, timezone
 from typing import Optional, Dict, List, Any
 
@@ -21,6 +23,12 @@ from .scraper_utils import (
     detect_blocked_response,
     human,
     HumanBehavior,
+    persona_manager,
+    aether_brain,
+    aether_human,
+    AetherHuman,
+    PersonaManager,
+    AetherBrain,
 )
 
 logger = logging.getLogger(__name__)
@@ -326,3 +334,212 @@ class BaseScraper:
             finally:
                 await browser.close()
 
+
+
+class AetherBaseScraper(BaseScraper):
+    """
+    AETHER SWARM v1.0 — Lethal self-learning multi-bot scraper base.
+
+    Extends BaseScraper with:
+    - Multi-persona rotation via PersonaManager
+    - Self-learning via AetherBrain (per-brand persona scoring)
+    - Extreme human mimicry via AetherHuman
+    - Swarm retry: on failure, automatically rotates persona and retries
+
+    Subclasses still implement scrape_products() and normalize_product()
+    exactly as before. The swarm layer wraps around them transparently.
+    """
+
+    swarm_max_retries: int = 3  # How many persona rotations before giving up
+
+    def __init__(self):
+        super().__init__()
+        self._current_persona: Optional[Dict] = None
+        self._swarm_attempt: int = 0
+
+    # ------------------------------------------------------------------
+    # Public entry point — call this instead of scrape_products() directly
+    # ------------------------------------------------------------------
+    async def run_swarm_scrape(self, max_pages: int = 5) -> List[dict]:
+        """
+        Run the scrape through the Aether Swarm pipeline:
+        1. Pick best persona (or rotate on retry)
+        2. Apply persona headers/fingerprint
+        3. Call the subclass scrape_products()
+        4. Record result in AetherBrain
+        5. On failure → rotate persona → retry up to swarm_max_retries
+        """
+        last_error = None
+
+        for attempt in range(self.swarm_max_retries):
+            self._swarm_attempt = attempt
+
+            # Pick persona — prioritise brain's best pick, then rotate
+            best_name = aether_brain.get_best_persona(self.store_key.lower())
+            if attempt == 0 and best_name:
+                # Use the learned best persona on first try
+                persona = persona_manager.get_persona(self.store_key.lower())
+                for p in PersonaManager.PERSONAS:
+                    if p["name"] == best_name:
+                        persona = p.copy()
+                        break
+            else:
+                persona = persona_manager.get_persona(self.store_key.lower())
+
+            self._current_persona = persona
+            persona_name = persona["name"]
+
+            logger.info(
+                f"[AetherSwarm] [{self.store_key}] Attempt {attempt + 1}/{self.swarm_max_retries} "
+                f"with persona '{persona_name}'"
+            )
+
+            start = time.time()
+            try:
+                products = await self.scrape_products(max_pages=max_pages)
+                elapsed_ms = int((time.time() - start) * 1000)
+
+                if products:
+                    # Record success
+                    await aether_brain.record_attempt(
+                        self.store_key.lower(), persona_name,
+                        success=True, products=len(products), response_ms=elapsed_ms,
+                    )
+                    persona_manager.record_win(self.store_key.lower(), persona_name)
+
+                    logger.info(
+                        f"[AetherSwarm] [{self.store_key}] SUCCESS — {len(products)} products "
+                        f"via '{persona_name}' in {elapsed_ms}ms"
+                    )
+                    return products
+                else:
+                    raise Exception("No products returned")
+
+            except Exception as e:
+                elapsed_ms = int((time.time() - start) * 1000)
+                last_error = e
+
+                await aether_brain.record_attempt(
+                    self.store_key.lower(), persona_name,
+                    success=False, response_ms=elapsed_ms,
+                )
+
+                logger.warning(
+                    f"[AetherSwarm] [{self.store_key}] Persona '{persona_name}' failed: {e}"
+                )
+
+                # Backoff before next persona
+                if attempt < self.swarm_max_retries - 1:
+                    backoff = random.uniform(5, 15) * (attempt + 1)
+                    logger.info(f"[AetherSwarm] [{self.store_key}] Backing off {backoff:.1f}s before next persona")
+                    await asyncio.sleep(backoff)
+
+        # All personas exhausted — fall through to caller / scraper agent
+        logger.error(
+            f"[AetherSwarm] [{self.store_key}] All {self.swarm_max_retries} personas exhausted"
+        )
+        raise last_error or Exception("Swarm scrape failed after all persona rotations")
+
+    # ------------------------------------------------------------------
+    # Override fetch_with_protection to inject current persona headers
+    # ------------------------------------------------------------------
+    async def fetch_with_protection(
+        self,
+        url: str,
+        method: str = "GET",
+        headers: Dict = None,
+        json_response: bool = False,
+        timeout: int = 30,
+    ) -> tuple:
+        """Fetch with persona-aware headers injected automatically."""
+        persona_headers = {}
+        if self._current_persona:
+            persona_headers = persona_manager.get_headers_for_persona(self._current_persona)
+
+        merged = {**persona_headers, **(headers or {})}
+        return await super().fetch_with_protection(
+            url, method=method, headers=merged,
+            json_response=json_response, timeout=timeout,
+        )
+
+    # ------------------------------------------------------------------
+    # Override Playwright scrape to use persona + extreme human mimicry
+    # ------------------------------------------------------------------
+    async def scrape_with_playwright(
+        self,
+        url: str,
+        selectors: Dict[str, str] = None,
+        wait_for_product: bool = True,
+        scroll: bool = True,
+    ) -> tuple:
+        """
+        Playwright scrape with persona fingerprint and AetherHuman session.
+        """
+        from playwright.async_api import async_playwright
+
+        persona = self._current_persona or persona_manager.get_persona(self.store_key.lower())
+
+        try:
+            from playwright_stealth import Stealth
+            stealth = Stealth(
+                navigator_webdriver=True,
+                navigator_plugins=True,
+                navigator_permissions=True,
+                webgl_vendor=True,
+            )
+        except ImportError:
+            stealth = None
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                ],
+            )
+
+            context = await browser.new_context(
+                user_agent=persona["user_agent"],
+                viewport=persona["viewport"],
+                locale=persona.get("locale", "en-IN"),
+                timezone_id=persona.get("timezone", "Asia/Kolkata"),
+                extra_http_headers=persona_manager.get_headers_for_persona(persona),
+            )
+
+            if stealth:
+                await stealth.apply_stealth_async(context)
+
+            page = await context.new_page()
+
+            # Block heavy resources
+            await page.route("**/*.{woff,woff2,ttf,otf}", lambda r: r.abort())
+            await page.route("**/analytics**", lambda r: r.abort())
+            await page.route("**/gtm.js**", lambda r: r.abort())
+
+            try:
+                await page.goto(url, timeout=45000, wait_until="domcontentloaded")
+
+                if wait_for_product:
+                    await aether_human.wait_for_product_visible(page)
+
+                # Full human session — jitter, hover, erratic scroll
+                await aether_human.full_human_session(page)
+
+                html = await page.content()
+
+                extracted = {}
+                if selectors:
+                    for key, selector in selectors.items():
+                        try:
+                            element = await page.query_selector(selector)
+                            if element:
+                                extracted[key] = await element.inner_text()
+                        except Exception:
+                            extracted[key] = None
+
+                return html, extracted
+
+            finally:
+                await browser.close()

@@ -1,10 +1,12 @@
+# AETHER SWARM v1.0 - Lethal self-learning multi-bot mode
 import httpx
 import re
 import json
 import html as html_lib
 import logging
 from bs4 import BeautifulSoup
-from .base import BaseScraper, HEADERS
+from .base import AetherBaseScraper, HEADERS
+from .scraper_utils import persona_manager
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,7 @@ COLLECTION_PAGES = [
 ]
 
 
-class VegNonVegScraper(BaseScraper):
+class VegNonVegScraper(AetherBaseScraper):
     brand_name = "Veg Non Veg"
     store_key = "VEG_NON_VEG"
     base_url = "https://www.vegnonveg.com"
@@ -27,7 +29,11 @@ class VegNonVegScraper(BaseScraper):
         seen_ids = set()
         pages_to_scrape = COLLECTION_PAGES[:max_pages + 2]
 
-        async with httpx.AsyncClient(headers=HEADERS, timeout=20, follow_redirects=True) as client:
+        # Get persona-aware headers
+        persona = self._current_persona or persona_manager.get_persona(self.store_key.lower())
+        headers = persona_manager.get_headers_for_persona(persona)
+
+        async with httpx.AsyncClient(headers=headers, timeout=20, follow_redirects=True) as client:
             for page_path in pages_to_scrape:
                 url = f"{self.base_url}{page_path}"
                 logger.info(f"[VegNonVeg] Fetching: {url}")

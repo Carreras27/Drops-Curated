@@ -509,3 +509,308 @@ def build_headers(referer: str = None, is_json: bool = False) -> Dict[str, str]:
         headers['Upgrade-Insecure-Requests'] = '1'
     
     return headers
+
+
+# ============ AETHER SWARM v1.0 - Multi-Persona System ============
+
+class PersonaManager:
+    """
+    Multi-persona rotation system that deploys different browser identities
+    per scrape run. Each persona is a complete browser fingerprint — user agent,
+    viewport, locale, timezone, platform — designed to confuse bot-fingerprinting.
+    """
+
+    PERSONAS = [
+        {
+            "name": "mumbai_chrome_desktop",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "viewport": {"width": 1920, "height": 1080},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "Win32",
+            "sec_ch_ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        },
+        {
+            "name": "delhi_firefox_desktop",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+            "viewport": {"width": 1536, "height": 864},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "Win32",
+            "sec_ch_ua": None,
+        },
+        {
+            "name": "bangalore_mac_safari",
+            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+            "viewport": {"width": 1440, "height": 900},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "MacIntel",
+            "sec_ch_ua": None,
+        },
+        {
+            "name": "pune_iphone_safari",
+            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+            "viewport": {"width": 390, "height": 844},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "iPhone",
+            "sec_ch_ua": None,
+        },
+        {
+            "name": "hyderabad_android_chrome",
+            "user_agent": "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.64 Mobile Safari/537.36",
+            "viewport": {"width": 412, "height": 915},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "Linux armv81",
+            "sec_ch_ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        },
+        {
+            "name": "kolkata_edge_desktop",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            "viewport": {"width": 1366, "height": 768},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "Win32",
+            "sec_ch_ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Microsoft Edge";v="122"',
+        },
+        {
+            "name": "chennai_mac_chrome",
+            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "viewport": {"width": 1680, "height": 1050},
+            "locale": "en-IN",
+            "timezone": "Asia/Kolkata",
+            "platform": "MacIntel",
+            "sec_ch_ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        },
+    ]
+
+    def __init__(self):
+        self._used_personas: List[str] = []
+        self._brand_wins: Dict[str, str] = {}  # brand_key -> persona_name that worked
+
+    def get_persona(self, brand_key: str = None) -> Dict:
+        """
+        Get a persona for scraping. Prioritises the last winning persona
+        for the given brand, then rotates through unused ones.
+        """
+        # If we know a winner for this brand, try it first
+        if brand_key and brand_key in self._brand_wins:
+            winner_name = self._brand_wins[brand_key]
+            for p in self.PERSONAS:
+                if p["name"] == winner_name:
+                    return p.copy()
+
+        # Pick a random persona not recently used
+        unused = [p for p in self.PERSONAS if p["name"] not in self._used_personas]
+        if not unused:
+            self._used_personas.clear()
+            unused = self.PERSONAS
+
+        persona = random.choice(unused)
+        self._used_personas.append(persona["name"])
+
+        # Keep rotation window small
+        if len(self._used_personas) > 4:
+            self._used_personas.pop(0)
+
+        return persona.copy()
+
+    def record_win(self, brand_key: str, persona_name: str):
+        """Record which persona succeeded for a brand."""
+        self._brand_wins[brand_key] = persona_name
+
+    def get_headers_for_persona(self, persona: Dict) -> Dict[str, str]:
+        """Build HTTP headers matching a persona's browser fingerprint."""
+        headers = {
+            "User-Agent": persona["user_agent"],
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+        }
+        if persona.get("sec_ch_ua"):
+            headers["sec-ch-ua"] = persona["sec_ch_ua"]
+            headers["sec-ch-ua-mobile"] = "?1" if "Mobile" in persona["user_agent"] else "?0"
+            headers["sec-ch-ua-platform"] = f'"{persona.get("platform", "Windows")}"'
+        return headers
+
+
+# Global persona manager
+persona_manager = PersonaManager()
+
+
+class AetherBrain:
+    """
+    Self-learning component that tracks per-brand scraping patterns:
+    - Which personas succeed/fail
+    - Optimal request timing per brand
+    - Selector health per store
+    Persists knowledge to MongoDB collection `aether_learning`.
+    """
+
+    def __init__(self):
+        self._db = None
+        self._memory: Dict[str, Dict] = {}  # in-memory cache
+
+    async def init(self, db):
+        """Load learned data from MongoDB."""
+        self._db = db
+        try:
+            docs = await db.aether_learning.find({}, {"_id": 0}).to_list(500)
+            for doc in docs:
+                self._memory[doc["brand_key"]] = doc
+            logger.info(f"[AetherBrain] Loaded learning data for {len(self._memory)} brands")
+        except Exception as e:
+            logger.warning(f"[AetherBrain] Could not load learning data: {e}")
+
+    async def record_attempt(self, brand_key: str, persona_name: str, success: bool, products: int = 0, response_ms: int = 0):
+        """Record a scrape attempt for future learning."""
+        if brand_key not in self._memory:
+            self._memory[brand_key] = {
+                "brand_key": brand_key,
+                "persona_scores": {},
+                "total_attempts": 0,
+                "total_successes": 0,
+                "avg_response_ms": 0,
+                "best_persona": None,
+                "last_updated": None,
+            }
+
+        mem = self._memory[brand_key]
+        mem["total_attempts"] = mem.get("total_attempts", 0) + 1
+
+        scores = mem.get("persona_scores", {})
+        if persona_name not in scores:
+            scores[persona_name] = {"wins": 0, "losses": 0, "score": 50}
+
+        ps = scores[persona_name]
+        if success:
+            ps["wins"] += 1
+            ps["score"] = min(100, ps["score"] + 5)
+            mem["total_successes"] = mem.get("total_successes", 0) + 1
+        else:
+            ps["losses"] += 1
+            ps["score"] = max(0, ps["score"] - 10)
+
+        mem["persona_scores"] = scores
+
+        # Track best persona
+        best = max(scores.items(), key=lambda x: x[1]["score"])
+        mem["best_persona"] = best[0]
+
+        # Update avg response time
+        if response_ms > 0:
+            prev_avg = mem.get("avg_response_ms", 0)
+            total = mem.get("total_attempts", 1)
+            mem["avg_response_ms"] = int(((prev_avg * (total - 1)) + response_ms) / total)
+
+        mem["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+        # Persist to DB
+        if self._db:
+            try:
+                await self._db.aether_learning.update_one(
+                    {"brand_key": brand_key},
+                    {"$set": mem},
+                    upsert=True,
+                )
+            except Exception as e:
+                logger.warning(f"[AetherBrain] DB persist failed for {brand_key}: {e}")
+
+    def get_best_persona(self, brand_key: str) -> Optional[str]:
+        """Return the persona name with the highest score for a brand."""
+        mem = self._memory.get(brand_key)
+        if not mem:
+            return None
+        return mem.get("best_persona")
+
+    def get_brand_stats(self, brand_key: str) -> Dict:
+        """Get learning stats for a brand."""
+        return self._memory.get(brand_key, {})
+
+    def get_all_stats(self) -> Dict[str, Dict]:
+        """Get learning stats for all brands."""
+        return self._memory.copy()
+
+
+# Global brain
+aether_brain = AetherBrain()
+
+
+class AetherHuman(HumanBehavior):
+    """
+    Extended human mimicry with extreme anti-detection behaviours:
+    - Irregular scroll patterns
+    - Fake idle periods (simulating tab switches)
+    - Mouse jitter and hover simulation
+    - Reading-speed-aware waits
+    """
+
+    @staticmethod
+    async def erratic_scroll(page, min_scrolls: int = 2, max_scrolls: int = 6):
+        """Scroll in an unpredictable human pattern — sometimes up, sometimes down."""
+        scrolls = random.randint(min_scrolls, max_scrolls)
+        for _ in range(scrolls):
+            direction = random.choice([1, 1, 1, -1])  # 75% down, 25% up
+            distance = random.randint(150, 700) * direction
+            await page.evaluate(f"window.scrollBy(0, {distance})")
+            await asyncio.sleep(random.uniform(0.3, 1.8))
+
+    @staticmethod
+    async def fake_idle(min_sec: float = 2.0, max_sec: float = 6.0):
+        """Simulate user switching tabs / being idle."""
+        await asyncio.sleep(random.uniform(min_sec, max_sec))
+
+    @staticmethod
+    async def mouse_jitter(page, moves: int = 5):
+        """Small, nervous mouse movements like a real user scanning the page."""
+        try:
+            vp = page.viewport_size
+            if not vp:
+                return
+            cx, cy = vp["width"] // 2, vp["height"] // 2
+            for _ in range(moves):
+                dx = random.randint(-60, 60)
+                dy = random.randint(-40, 40)
+                await page.mouse.move(cx + dx, cy + dy)
+                await asyncio.sleep(random.uniform(0.05, 0.2))
+        except Exception:
+            pass
+
+    @staticmethod
+    async def hover_random_elements(page, selector: str = "a, button, img", max_hovers: int = 3):
+        """Hover over random interactive elements like a browsing human."""
+        try:
+            elements = await page.query_selector_all(selector)
+            if not elements:
+                return
+            targets = random.sample(elements, min(max_hovers, len(elements)))
+            for el in targets:
+                try:
+                    await el.hover(timeout=2000)
+                    await asyncio.sleep(random.uniform(0.3, 1.0))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    @staticmethod
+    async def full_human_session(page):
+        """Run a complete human-like browsing session on the current page."""
+        await AetherHuman.fake_idle(1.0, 3.0)
+        await AetherHuman.mouse_jitter(page, moves=random.randint(3, 6))
+        await AetherHuman.erratic_scroll(page, 2, 5)
+        await AetherHuman.hover_random_elements(page)
+        await AetherHuman.fake_idle(0.5, 2.0)
+
+
+# Global aether human
+aether_human = AetherHuman()

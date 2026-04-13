@@ -1,10 +1,11 @@
+# AETHER SWARM v1.0 - Lethal self-learning multi-bot mode
 """
-Shopify Scraper with Anti-Blocking Protection
+Shopify Scraper with Anti-Blocking Protection + AETHER SWARM
 Uses the public JSON API endpoint which never gets blocked.
 """
 import logging
 from typing import Optional, List, Dict
-from .base import BaseScraper
+from .base import AetherBaseScraper
 from .scraper_utils import (
     product_delay,
     fingerprint_cache,
@@ -14,7 +15,7 @@ from .scraper_utils import (
 logger = logging.getLogger(__name__)
 
 
-class ShopifyScraper(BaseScraper):
+class ShopifyScraper(AetherBaseScraper):
     """
     Generic scraper for all Shopify-based stores.
     Uses the public /products.json endpoint which is designed for public access

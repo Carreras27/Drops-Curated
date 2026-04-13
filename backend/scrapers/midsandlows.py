@@ -1,3 +1,4 @@
+# AETHER SWARM v1.0 - Lethal self-learning multi-bot mode
 """
 Mids and Lows Scraper - Shopify Store
 Premium sneaker and streetwear retailer
@@ -6,13 +7,13 @@ import json
 import httpx
 import logging
 from typing import Optional, List
-from .base import BaseScraper
-from .scraper_utils import product_delay, fingerprint_cache, get_random_user_agent
+from .base import AetherBaseScraper
+from .scraper_utils import product_delay, fingerprint_cache, get_random_user_agent, persona_manager
 
 logger = logging.getLogger(__name__)
 
 
-class MidsAndLowsScraper(BaseScraper):
+class MidsAndLowsScraper(AetherBaseScraper):
     """
     Scraper for Mids and Lows - Shopify-based store.
     Uses the public /products.json endpoint.
@@ -28,11 +29,10 @@ class MidsAndLowsScraper(BaseScraper):
         total_found = 0
         new_count = 0
 
-        headers = {
-            'User-Agent': get_random_user_agent(),
-            'Accept': 'application/json',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
+        # Get persona-aware headers
+        persona = self._current_persona or persona_manager.get_persona(self.store_key.lower())
+        headers = persona_manager.get_headers_for_persona(persona)
+        headers['Accept'] = 'application/json'
 
         try:
             async with httpx.AsyncClient(headers=headers, timeout=30, follow_redirects=True) as client:

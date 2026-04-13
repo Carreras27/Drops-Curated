@@ -1,11 +1,13 @@
+# AETHER SWARM v1.0 - Lethal self-learning multi-bot mode
 import httpx
 import logging
-from .base import BaseScraper, HEADERS
+from .base import AetherBaseScraper, HEADERS
+from .scraper_utils import persona_manager
 
 logger = logging.getLogger(__name__)
 
 
-class HiyestScraper(BaseScraper):
+class HiyestScraper(AetherBaseScraper):
     brand_name = "Hiyest"
     store_key = "HIYEST"
     base_url = "https://hiyest.com"
@@ -13,7 +15,12 @@ class HiyestScraper(BaseScraper):
 
     async def scrape_products(self, max_pages: int = 5) -> list[dict]:
         products = []
-        async with httpx.AsyncClient(headers=HEADERS, timeout=20, follow_redirects=True) as client:
+
+        # Get persona-aware headers
+        persona = self._current_persona or persona_manager.get_persona(self.store_key.lower())
+        headers = persona_manager.get_headers_for_persona(persona)
+
+        async with httpx.AsyncClient(headers=headers, timeout=20, follow_redirects=True) as client:
             for page in range(1, max_pages + 1):
                 url = f"{self.api_url}?per_page=100&page={page}"
                 logger.info(f"[Hiyest] Fetching page {page}")

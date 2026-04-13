@@ -3,6 +3,8 @@ from .vegnonveg import VegNonVegScraper
 from .culturecircle import CultureCircleScraper
 from .hiyest import HiyestScraper
 from .midsandlows import MidsAndLowsScraper
+from .base import AetherBaseScraper
+from .scraper_utils import aether_brain, persona_manager
 
 # ====== BRAND REGISTRY ======
 # All Shopify-based brands use the generic ShopifyScraper

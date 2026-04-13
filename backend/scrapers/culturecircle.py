@@ -1,8 +1,10 @@
+# AETHER SWARM v1.0 - Lethal self-learning multi-bot mode
 import re
 import logging
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
-from .base import BaseScraper
+from .base import AetherBaseScraper
+from .scraper_utils import persona_manager, aether_human
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,7 @@ CATEGORY_PAGES = [
 ]
 
 
-class CultureCircleScraper(BaseScraper):
+class CultureCircleScraper(AetherBaseScraper):
     brand_name = "Culture Circle"
     store_key = "CULTURE_CIRCLE"
     base_url = "https://www.culture-circle.com"
@@ -23,12 +25,33 @@ class CultureCircleScraper(BaseScraper):
         seen = set()
         pages = CATEGORY_PAGES[:max_pages]
 
+        # Get current persona from swarm or pick one
+        persona = self._current_persona or persona_manager.get_persona(self.store_key.lower())
+
+        try:
+            from playwright_stealth import Stealth
+            stealth = Stealth(
+                navigator_webdriver=True,
+                navigator_plugins=True,
+                navigator_permissions=True,
+                webgl_vendor=True,
+            )
+        except ImportError:
+            stealth = None
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled", "--no-sandbox"])
             context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport={"width": 1920, "height": 1080},
+                user_agent=persona["user_agent"],
+                viewport=persona["viewport"],
+                locale=persona.get("locale", "en-IN"),
+                timezone_id=persona.get("timezone", "Asia/Kolkata"),
+                extra_http_headers=persona_manager.get_headers_for_persona(persona),
             )
+
+            if stealth:
+                await stealth.apply_stealth_async(context)
+
             page = await context.new_page()
 
             for page_path in pages:
@@ -36,7 +59,10 @@ class CultureCircleScraper(BaseScraper):
                 logger.info(f"[CultureCircle] Fetching: {url}")
                 try:
                     await page.goto(url, timeout=30000, wait_until="networkidle")
-                    await page.wait_for_timeout(2000)
+
+                    # Aether human session — jitter, hover, erratic scroll
+                    await aether_human.full_human_session(page)
+
                     html = await page.content()
                     page_products = self._parse_rendered_html(html)
                     for prod in page_products:

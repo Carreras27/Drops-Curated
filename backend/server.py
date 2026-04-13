@@ -2855,7 +2855,7 @@ async def scrape_brand(brand_key: str):
     scraper = SCRAPERS[brand_key]()
     logger.info(f"Starting scrape for {scraper.brand_name}")
 
-    scraped = await scraper.scrape_products(max_pages=3)
+    scraped = await scraper.run_swarm_scrape(max_pages=3)
     if not scraped:
         return {"success": False, "message": f"No products found for {scraper.brand_name}", "scraped": 0}
 
@@ -2878,7 +2878,7 @@ async def scrape_all_brands():
         scraper = scraper_cls()
         logger.info(f"Scraping {scraper.brand_name}...")
         try:
-            scraped = await scraper.scrape_products(max_pages=3)
+            scraped = await scraper.run_swarm_scrape(max_pages=3)
             result = await _store_scraped_products(scraped, key)
             results[key] = {"success": True, "scraped": len(scraped), **result}
         except Exception as e:
@@ -3131,6 +3131,7 @@ async def startup_scheduler():
     from scheduler import init_scheduler
     from auth import init_admin_routes, admin_router, seed_admin_user
     from scraper_agent import init_scraper_agent
+    from scrapers import aether_brain
     
     # Initialize security module
     await init_security(app, db)
@@ -3148,6 +3149,10 @@ async def startup_scheduler():
     # Initialize self-healing scraper agent
     await init_scraper_agent(db)
     logger.info("Self-healing scraper agent initialized with Gemini LLM")
+    
+    # Initialize Aether Brain self-learning
+    await aether_brain.init(db)
+    logger.info("Aether Brain self-learning system initialized")
     
     # Seed default admin user
     await seed_admin_user()
