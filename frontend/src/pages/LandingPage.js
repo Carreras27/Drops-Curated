@@ -418,7 +418,7 @@ export default function LandingPage() {
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 border border-accent/30 px-4 py-1.5 mb-8 animate-fade-up">
                 <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live — {stats.products}+ Products Tracked</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live — {stats.products}+ Products Observed</span>
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
                 Curated Excellence.<br />Delivered Instantly.
