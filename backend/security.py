@@ -546,7 +546,7 @@ async def admin_brute_force_check(ip: str, success: bool, db=None):
     security_tracker.record_failed_login(ip, "/api/admin/login")
     
     # Log to database
-    if db:
+    if db is not None:
         await security_tracker.log_auth_failure(ip, "/api/admin/login", "invalid_credentials")
     
     # Check if account should be locked

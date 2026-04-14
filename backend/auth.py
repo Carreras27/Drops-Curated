@@ -556,3 +556,153 @@ async def get_scraping_stats(
     """Get scraping detection statistics"""
     from security_advanced import scraping_detector
     return scraping_detector.get_stats()
+
+
+# ============ CRM — ANALYTICS & REVENUE ============
+
+@admin_router.get('/crm/analytics')
+async def get_crm_analytics(admin: dict = Depends(get_current_admin)):
+    """Get CRM analytics — signups over time, trial-to-paid conversion, churn."""
+    global _db
+    now = datetime.now(timezone.utc)
+
+    # Signups per day (last 30 days)
+    thirty_days_ago = (now - timedelta(days=30)).isoformat()
+    signup_pipeline = [
+        {"$match": {"createdAt": {"$gte": thirty_days_ago}}},
+        {"$addFields": {"day": {"$substr": ["$createdAt", 0, 10]}}},
+        {"$group": {"_id": "$day", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]
+    signups_by_day = await _db.subscribers.aggregate(signup_pipeline).to_list(31)
+
+    # Totals
+    total = await _db.subscribers.count_documents({})
+    active_paid = await _db.subscribers.count_documents({"isActive": True, "isPaid": True})
+    trial_only = await _db.subscribers.count_documents({"isActive": True, "isPaid": {"$ne": True}})
+    expired = await _db.subscribers.count_documents({"isActive": False})
+
+    # Trial-to-paid conversion
+    ever_paid = await _db.subscribers.count_documents({"isPaid": True})
+    conversion_rate = round((ever_paid / total * 100) if total > 0 else 0, 1)
+
+    # Churn (expired in last 30 days)
+    churned = await _db.subscribers.count_documents({
+        "isActive": False,
+        "expiresAt": {"$gte": thirty_days_ago},
+    })
+
+    # Top cities / preferences (if available)
+    pref_pipeline = [
+        {"$match": {"preferences.favoriteCategories": {"$exists": True}}},
+        {"$unwind": "$preferences.favoriteCategories"},
+        {"$group": {"_id": "$preferences.favoriteCategories", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10},
+    ]
+    top_categories = await _db.subscribers.aggregate(pref_pipeline).to_list(10)
+
+    size_pipeline = [
+        {"$match": {"preferences.shoeSize": {"$exists": True}}},
+        {"$group": {"_id": "$preferences.shoeSize", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10},
+    ]
+    top_sizes = await _db.subscribers.aggregate(size_pipeline).to_list(10)
+
+    return {
+        "totals": {
+            "total": total,
+            "active_paid": active_paid,
+            "trial_only": trial_only,
+            "expired": expired,
+            "conversion_rate": conversion_rate,
+            "churned_30d": churned,
+        },
+        "signups_by_day": [{"date": s["_id"], "count": s["count"]} for s in signups_by_day],
+        "top_categories": [{"name": c["_id"], "count": c["count"]} for c in top_categories],
+        "top_sizes": [{"size": s["_id"], "count": s["count"]} for s in top_sizes],
+    }
+
+
+@admin_router.get('/crm/revenue')
+async def get_crm_revenue(admin: dict = Depends(get_current_admin)):
+    """Revenue breakdown — MRR, lifetime, projections."""
+    global _db
+    now = datetime.now(timezone.utc)
+
+    active_paid = await _db.subscribers.count_documents({"isActive": True, "isPaid": True})
+    total_ever_paid = await _db.subscribers.count_documents({"isPaid": True})
+
+    mrr = active_paid * 399
+    arr = mrr * 12
+
+    # Revenue per month (based on payment dates if available)
+    months = []
+    for i in range(6):
+        month_start = (now.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        count = await _db.subscribers.count_documents({
+            "isPaid": True,
+            "isActive": True,
+            "createdAt": {"$lt": month_end.isoformat()},
+        })
+        months.append({
+            "month": month_start.strftime("%b %Y"),
+            "subscribers": count,
+            "revenue": count * 399,
+        })
+    months.reverse()
+
+    return {
+        "mrr": mrr,
+        "arr": arr,
+        "active_paid": active_paid,
+        "total_ever_paid": total_ever_paid,
+        "price_per_sub": 399,
+        "currency": "INR",
+        "monthly_breakdown": months,
+    }
+
+
+@admin_router.post('/crm/broadcast')
+async def send_broadcast(
+    admin: dict = Depends(get_current_admin),
+    message: str = "",
+):
+    """Send a WhatsApp broadcast to all active subscribers."""
+    global _db
+
+    if not message or len(message.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Message must be at least 5 characters")
+
+    from whatsapp import WhatsAppClient, IS_CONFIGURED
+    if not IS_CONFIGURED:
+        raise HTTPException(status_code=503, detail="WhatsApp API not configured")
+
+    client = WhatsAppClient()
+    subscribers = await _db.subscribers.find(
+        {"isActive": True, "isPaid": True},
+        {"_id": 0, "phone": 1, "name": 1},
+    ).to_list(10000)
+
+    sent = 0
+    failed = 0
+    for sub in subscribers:
+        try:
+            client.send_text_message(sub["phone"], message)
+            sent += 1
+        except Exception:
+            failed += 1
+
+    # Log broadcast
+    await _db.broadcast_log.insert_one({
+        "message": message,
+        "total_recipients": len(subscribers),
+        "sent": sent,
+        "failed": failed,
+        "sent_by": admin.get("email", "admin"),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {"sent": sent, "failed": failed, "total": len(subscribers)}

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, DollarSign, Package, Bell, RefreshCw, Settings, 
   LogOut, TrendingUp, AlertTriangle, CheckCircle, XCircle,
   Search, ChevronRight, Activity, Zap, Brain, Clock, 
-  Shield, Wifi, WifiOff, AlertCircle, Play, RotateCcw
+  Shield, Wifi, WifiOff, AlertCircle, Play, RotateCcw,
+  Heart, Send, BarChart3, Eye, Database, Globe, Server,
+  MessageSquare, UserCheck, UserX, IndianRupee
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -1056,6 +1058,552 @@ function AgentLogsViewer() {
   );
 }
 
+// ============ AETHER MASTER DASHBOARD ============
+function AetherMasterDashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const resp = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/admin/aether-status`);
+      setData(resp.data);
+    } catch (err) {
+      console.error('Failed to fetch aether status:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
+
+  const triggerCycle = async () => {
+    setRunning(true);
+    try {
+      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/admin/aether-run`);
+      setTimeout(fetchStatus, 2000);
+    } catch (err) {
+      alert('Failed to trigger cycle');
+    } finally {
+      setTimeout(() => setRunning(false), 2000);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+    </div>
+  );
+
+  const current = data?.current || {};
+  const components = current.components || {};
+  const metrics = current.metrics || {};
+  const latencies = current.latencies_ms || {};
+  const incidents = current.incidents || [];
+  const history = data?.history || [];
+
+  const statusColor = {
+    healthy: 'text-green-400',
+    degraded: 'text-yellow-400',
+    critical: 'text-red-400',
+    not_yet_run: 'text-gray-400',
+  };
+
+  const statusBg = {
+    healthy: 'bg-green-500',
+    degraded: 'bg-yellow-500',
+    critical: 'bg-red-500',
+    not_yet_run: 'bg-gray-500',
+  };
+
+  const ComponentCard = ({ name, ok, latency }) => (
+    <div className={`bg-gray-800 p-4 rounded-lg border-l-4 ${ok ? 'border-green-500/50' : 'border-red-500/50'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-white font-medium capitalize">{name}</span>
+        {ok ? <CheckCircle className="w-5 h-5 text-green-400" /> : <XCircle className="w-5 h-5 text-red-400" />}
+      </div>
+      <div className="text-sm text-gray-400">
+        {ok ? 'Operational' : 'Down'}
+        {latency != null && <span className="ml-2 text-gray-500">({latency}ms)</span>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6" data-testid="aether-master-dashboard">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Eye className="w-6 h-6 text-cyan-400" />
+            AETHER MASTER — Site Guardian
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">
+            Autonomous monitoring every 5 minutes | Cycles: {current.cycles_completed || 0}
+          </p>
+        </div>
+        <button
+          onClick={triggerCycle}
+          disabled={running}
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-white text-sm transition-colors disabled:opacity-50"
+          data-testid="aether-run-cycle-btn"
+        >
+          {running ? (
+            <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Running...</>
+          ) : (
+            <><Play className="w-4 h-4" /> Run Cycle Now</>
+          )}
+        </button>
+      </div>
+
+      {/* Overall Status */}
+      <div className="bg-gray-800 p-5 rounded-lg flex items-center gap-4">
+        <div className={`w-4 h-4 rounded-full animate-pulse ${statusBg[current.overall_status] || 'bg-gray-500'}`} />
+        <div>
+          <span className="text-gray-400">Overall Status: </span>
+          <span className={`font-bold text-lg ${statusColor[current.overall_status] || 'text-gray-400'}`}>
+            {(current.overall_status || 'NOT YET RUN').toUpperCase()}
+          </span>
+        </div>
+        <div className="ml-auto text-sm text-gray-500">
+          {current.timestamp ? new Date(current.timestamp).toLocaleString() : '—'}
+        </div>
+      </div>
+
+      {/* Component Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <ComponentCard name="MongoDB" ok={components.mongodb} latency={latencies.mongodb_ping} />
+        <ComponentCard name="Backend" ok={components.backend} latency={latencies['Backend Health']} />
+        <ComponentCard name="Frontend" ok={components.frontend} latency={latencies.frontend} />
+        <ComponentCard name="Scrapers" ok={components.scrapers} />
+        <ComponentCard name="Scheduler" ok={components.scheduler} />
+      </div>
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <Database className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-white">{(metrics.total_products || 0).toLocaleString()}</div>
+          <div className="text-gray-500 text-xs">Products in DB</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <Globe className="w-5 h-5 text-green-400 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-green-400">{metrics.brands_healthy || 0}</div>
+          <div className="text-gray-500 text-xs">Brands Healthy</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <AlertTriangle className="w-5 h-5 text-red-400 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-red-400">{metrics.brands_blocked || 0}</div>
+          <div className="text-gray-500 text-xs">Blocked</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded-lg text-center">
+          <Server className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-white">{current.auto_heals || 0}</div>
+          <div className="text-gray-500 text-xs">Auto-Heals</div>
+        </div>
+      </div>
+
+      {/* Latency Breakdown */}
+      <div className="bg-gray-800 p-5 rounded-lg">
+        <h3 className="text-white font-medium mb-3">Endpoint Latencies</h3>
+        <div className="space-y-2">
+          {Object.entries(latencies).map(([name, ms]) => (
+            <div key={name} className="flex items-center gap-3">
+              <span className="text-gray-400 text-sm w-36 truncate">{name}</span>
+              <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${ms > 3000 ? 'bg-red-500' : ms > 1000 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                  style={{ width: `${Math.min(100, (ms / 5000) * 100)}%` }}
+                />
+              </div>
+              <span className={`text-sm font-mono w-16 text-right ${ms > 3000 ? 'text-red-400' : ms > 1000 ? 'text-yellow-400' : 'text-green-400'}`}>
+                {ms}ms
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Incidents */}
+      {incidents.length > 0 && (
+        <div className="bg-gray-800 p-5 rounded-lg">
+          <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-400" />
+            Incidents ({incidents.length})
+          </h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {incidents.map((inc, i) => (
+              <div key={i} className={`flex items-start gap-3 p-3 rounded ${
+                inc.severity === 'critical' ? 'bg-red-500/10' : inc.severity === 'warning' ? 'bg-yellow-500/10' : 'bg-gray-700/50'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mt-1.5 ${
+                  inc.severity === 'critical' ? 'bg-red-500' : inc.severity === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+                }`} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-sm font-medium">[{inc.component}]</span>
+                    <span className="text-gray-300 text-sm">{inc.message}</span>
+                  </div>
+                  {inc.auto_healed && (
+                    <span className="text-green-400 text-xs mt-1 block">Auto-healed: {inc.heal_action}</span>
+                  )}
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded ${
+                  inc.severity === 'critical' ? 'bg-red-500/20 text-red-400' : 
+                  inc.severity === 'warning' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
+                }`}>
+                  {inc.severity}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* History Timeline */}
+      {history.length > 0 && (
+        <div className="bg-gray-800 p-5 rounded-lg">
+          <h3 className="text-white font-medium mb-3">Recent Cycles</h3>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {history.slice(0, 15).map((h, i) => (
+              <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-700/50 last:border-0">
+                <span className="text-gray-500 text-xs">{new Date(h.timestamp).toLocaleString()}</span>
+                <span className={`font-medium ${
+                  h.overall_status === 'healthy' ? 'text-green-400' :
+                  h.overall_status === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+                }`}>
+                  {h.overall_status?.toUpperCase()}
+                </span>
+                <span className="text-gray-500 text-xs">
+                  {(h.incidents?.length || 0)} incidents | {h.auto_heals || 0} heals
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ CRM DASHBOARD ============
+function CRMDashboard() {
+  const [tab, setTab] = useState('analytics');
+  const [analytics, setAnalytics] = useState(null);
+  const [revenue, setRevenue] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [sending, setSending] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [aResp, rResp] = await Promise.all([
+        axios.get(`${API_URL}/crm/analytics`, { headers: getAuthHeader() }),
+        axios.get(`${API_URL}/crm/revenue`, { headers: getAuthHeader() }),
+      ]);
+      setAnalytics(aResp.data);
+      setRevenue(rResp.data);
+    } catch (err) {
+      console.error('CRM fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendBroadcast = async () => {
+    if (!broadcastMsg.trim() || broadcastMsg.length < 5) {
+      alert('Message must be at least 5 characters');
+      return;
+    }
+    if (!window.confirm(`Send this message to ALL active paid subscribers?`)) return;
+
+    setSending(true);
+    try {
+      const resp = await axios.post(
+        `${API_URL}/crm/broadcast?message=${encodeURIComponent(broadcastMsg)}`,
+        {},
+        { headers: getAuthHeader() },
+      );
+      setBroadcastResult(resp.data);
+      setBroadcastMsg('');
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Broadcast failed');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+    </div>
+  );
+
+  const t = analytics?.totals || {};
+  const rev = revenue || {};
+  const signups = analytics?.signups_by_day || [];
+
+  const crmTabs = [
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'revenue', label: 'Revenue', icon: IndianRupee },
+    { id: 'broadcast', label: 'Broadcast', icon: Send },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="crm-dashboard">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Heart className="w-6 h-6 text-pink-400" />
+          CRM Dashboard
+        </h2>
+        <button
+          onClick={fetchData}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 text-sm"
+        >
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
+      </div>
+
+      {/* CRM Sub-tabs */}
+      <div className="flex gap-2 border-b border-gray-700 pb-2">
+        {crmTabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-t text-sm transition-colors ${
+              tab === t.id ? 'bg-gray-800 text-white border-b-2 border-amber-500' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Analytics Tab ── */}
+      {tab === 'analytics' && (
+        <div className="space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <Users className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-white">{t.total || 0}</div>
+              <div className="text-gray-500 text-xs">Total Subscribers</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <UserCheck className="w-5 h-5 text-green-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-green-400">{t.active_paid || 0}</div>
+              <div className="text-gray-500 text-xs">Active Paid</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <Clock className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-amber-400">{t.trial_only || 0}</div>
+              <div className="text-gray-500 text-xs">On Trial</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <UserX className="w-5 h-5 text-red-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-red-400">{t.expired || 0}</div>
+              <div className="text-gray-500 text-xs">Expired</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <TrendingUp className="w-5 h-5 text-cyan-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-cyan-400">{t.conversion_rate || 0}%</div>
+              <div className="text-gray-500 text-xs">Trial → Paid</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <AlertTriangle className="w-5 h-5 text-orange-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-orange-400">{t.churned_30d || 0}</div>
+              <div className="text-gray-500 text-xs">Churned (30d)</div>
+            </div>
+          </div>
+
+          {/* Signups Chart (bar chart using divs) */}
+          {signups.length > 0 && (
+            <div className="bg-gray-800 p-5 rounded-lg">
+              <h3 className="text-white font-medium mb-4">Signups (Last 30 Days)</h3>
+              <div className="flex items-end gap-1 h-40">
+                {signups.map((s, i) => {
+                  const max = Math.max(...signups.map(x => x.count), 1);
+                  const pct = (s.count / max) * 100;
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center group relative">
+                      <div
+                        className="w-full bg-amber-500/80 rounded-t hover:bg-amber-400 transition-colors min-h-[2px]"
+                        style={{ height: `${pct}%` }}
+                      />
+                      <div className="absolute -top-8 bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        {s.date}: {s.count}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <span>{signups[0]?.date}</span>
+                <span>{signups[signups.length - 1]?.date}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Preferences */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-800 p-5 rounded-lg">
+              <h3 className="text-white font-medium mb-3">Top Categories</h3>
+              {(analytics?.top_categories || []).length > 0 ? (
+                <div className="space-y-2">
+                  {analytics.top_categories.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between py-1">
+                      <span className="text-gray-300 text-sm">{c.name}</span>
+                      <span className="text-amber-400 font-medium text-sm">{c.count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">No preference data yet</p>
+              )}
+            </div>
+            <div className="bg-gray-800 p-5 rounded-lg">
+              <h3 className="text-white font-medium mb-3">Popular Shoe Sizes</h3>
+              {(analytics?.top_sizes || []).length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {analytics.top_sizes.map((s, i) => (
+                    <span key={i} className="px-3 py-1.5 bg-gray-700 text-white text-sm rounded-full">
+                      {s.size} <span className="text-gray-400">({s.count})</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">No size data yet</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Revenue Tab ── */}
+      {tab === 'revenue' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-amber-600/20 to-amber-800/10 border border-amber-500/20 p-5 rounded-lg text-center">
+              <div className="text-sm text-amber-300 mb-1">Monthly Revenue (MRR)</div>
+              <div className="text-3xl font-bold text-white">{'\u20B9'}{(rev.mrr || 0).toLocaleString()}</div>
+            </div>
+            <div className="bg-gradient-to-br from-green-600/20 to-green-800/10 border border-green-500/20 p-5 rounded-lg text-center">
+              <div className="text-sm text-green-300 mb-1">Annual Run Rate (ARR)</div>
+              <div className="text-3xl font-bold text-white">{'\u20B9'}{(rev.arr || 0).toLocaleString()}</div>
+            </div>
+            <div className="bg-gray-800 p-5 rounded-lg text-center">
+              <div className="text-sm text-gray-400 mb-1">Active Paid</div>
+              <div className="text-3xl font-bold text-green-400">{rev.active_paid || 0}</div>
+            </div>
+            <div className="bg-gray-800 p-5 rounded-lg text-center">
+              <div className="text-sm text-gray-400 mb-1">Lifetime Paid</div>
+              <div className="text-3xl font-bold text-white">{rev.total_ever_paid || 0}</div>
+            </div>
+          </div>
+
+          {/* Monthly Breakdown */}
+          {(rev.monthly_breakdown || []).length > 0 && (
+            <div className="bg-gray-800 p-5 rounded-lg">
+              <h3 className="text-white font-medium mb-4">Monthly Revenue Breakdown</h3>
+              <div className="space-y-3">
+                {rev.monthly_breakdown.map((m, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <span className="text-gray-400 text-sm w-24">{m.month}</span>
+                    <div className="flex-1 h-3 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full"
+                        style={{
+                          width: `${Math.min(100, (m.revenue / Math.max(...rev.monthly_breakdown.map(x => x.revenue), 1)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-white font-medium text-sm w-24 text-right">
+                      {'\u20B9'}{m.revenue.toLocaleString()}
+                    </span>
+                    <span className="text-gray-500 text-xs w-16 text-right">{m.subscribers} subs</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-gray-800 p-5 rounded-lg text-center text-gray-500 text-sm">
+            Price per subscriber: {'\u20B9'}399/month
+          </div>
+        </div>
+      )}
+
+      {/* ── Broadcast Tab ── */}
+      {tab === 'broadcast' && (
+        <div className="space-y-6">
+          <div className="bg-gray-800 p-6 rounded-lg">
+            <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-green-400" />
+              WhatsApp Broadcast
+            </h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Send a message to all active paid subscribers via WhatsApp.
+            </p>
+            <textarea
+              value={broadcastMsg}
+              onChange={(e) => setBroadcastMsg(e.target.value)}
+              placeholder="Type your message here... (min 5 characters)"
+              rows={4}
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500 resize-none"
+              data-testid="broadcast-message-input"
+            />
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-gray-500 text-sm">{broadcastMsg.length} characters</span>
+              <button
+                onClick={sendBroadcast}
+                disabled={sending || broadcastMsg.length < 5}
+                className="flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-500 rounded text-white text-sm transition-colors disabled:opacity-50"
+                data-testid="send-broadcast-btn"
+              >
+                {sending ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Sending...</>
+                ) : (
+                  <><Send className="w-4 h-4" /> Send Broadcast</>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {broadcastResult && (
+            <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-lg">
+              <h4 className="text-green-400 font-medium mb-2">Broadcast Sent</h4>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-white">{broadcastResult.total}</div>
+                  <div className="text-gray-500 text-xs">Total Recipients</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-400">{broadcastResult.sent}</div>
+                  <div className="text-gray-500 text-xs">Delivered</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-red-400">{broadcastResult.failed}</div>
+                  <div className="text-gray-500 text-xs">Failed</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============ MAIN ADMIN PANEL ============
 export default function AdminPanel() {
   const [user, setUser] = useState(null);
@@ -1100,8 +1648,10 @@ export default function AdminPanel() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: Activity },
+    { id: 'crm', label: 'CRM', icon: Heart },
     { id: 'subscribers', label: 'Subscribers', icon: Users },
     { id: 'brands', label: 'Brands', icon: Package },
+    { id: 'aether-master', label: 'Aether Master', icon: Eye },
     { id: 'scraper-health', label: 'Scraper Health', icon: Shield },
     { id: 'agent-logs', label: 'Agent Logs', icon: Brain },
     { id: 'classification', label: 'AI Classification', icon: Zap },
@@ -1148,8 +1698,10 @@ export default function AdminPanel() {
       {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto">
         {activeTab === 'dashboard' && <Dashboard stats={stats} onRefresh={fetchStats} />}
+        {activeTab === 'crm' && <CRMDashboard />}
         {activeTab === 'subscribers' && <SubscribersList />}
         {activeTab === 'brands' && <BrandsManager />}
+        {activeTab === 'aether-master' && <AetherMasterDashboard />}
         {activeTab === 'scraper-health' && <ScraperHealthDashboard />}
         {activeTab === 'agent-logs' && <AgentLogsViewer />}
         {activeTab === 'classification' && <ClassificationStats />}
