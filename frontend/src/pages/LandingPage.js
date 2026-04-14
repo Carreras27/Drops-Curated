@@ -310,8 +310,8 @@ export const Footer = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-12">
             <div className="col-span-2 md:col-span-1">
               <p className="font-serif text-xl mb-3">Drops <span className="text-accent">Curated</span></p>
-              <p className="text-xs text-primary/40 leading-relaxed max-w-[220px]">
-                India's premium streetwear discovery. Never miss a drop.
+              <p className="text-xs text-primary/40 leading-relaxed max-w-[240px]">
+                India's most refined streetwear intelligence platform. Curated excellence, delivered instantly.
               </p>
             </div>
             <div>
@@ -352,9 +352,14 @@ export const Footer = () => {
               </div>
             </div>
           </div>
-          <div className="mt-14 pt-6 border-t border-primary/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[10px] text-primary/25">Drops Curated. All rights reserved.</p>
-            <p className="text-[10px] text-primary/25">Made in India</p>
+          <div className="mt-14 pt-6 border-t border-primary/[0.06]">
+            <p className="text-[10px] text-primary/30 leading-relaxed text-center max-w-3xl mx-auto mb-6">
+              Drops Curated is an independent discovery and alert platform. We are not affiliated with, endorsed by, or officially connected to any of the brands listed. All product names, logos, and trademarks are the property of their respective owners. We do not sell products directly — all purchases are made through the brands' own stores.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-[10px] text-primary/25">Drops Curated. All rights reserved.</p>
+              <p className="text-[10px] text-primary/25">Made in India</p>
+            </div>
           </div>
         </div>
       </div>
@@ -415,11 +420,11 @@ export default function LandingPage() {
                 <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
                 <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live — {stats.products}+ Products Tracked</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
-                Never Miss<br />a Drop Again.
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
+                Curated Excellence.<br />Delivered Instantly.
               </h1>
-              <p className="text-base md:text-lg text-primary/50 leading-relaxed max-w-lg mb-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-                India's fastest streetwear alerts. Price drops, new collections, restocks — delivered to your WhatsApp in under 10 seconds.
+              <p className="text-base md:text-lg text-primary/50 leading-relaxed max-w-xl mb-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+                India's most refined streetwear intelligence platform — a meticulously curated discovery ecosystem that connects discerning collectors and connoisseurs with the finest limited drops, exclusive releases, and premium collections from the country's most respected brands.
               </p>
               
               {/* Live Stats Social Proof */}
@@ -504,7 +509,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 3 Pillars */}
+      {/* Benefits for Buyers */}
       <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden">
         {/* Funky Background */}
         <NoiseOverlay />
@@ -517,57 +522,57 @@ export default function LandingPage() {
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Three Pillars</p>
-          <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-14">What We Do</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">For Collectors</p>
+          <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-14">Benefits for Buyers</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12">
             {[
-              { icon: <TrendingUp strokeWidth={1.5} />, title: 'Best Price Comparison', desc: 'Real-time prices from every major Indian retailer. Always know where it\'s cheapest.' },
-              { icon: <Zap strokeWidth={1.5} />, title: 'Instant Price Drop Alerts', desc: 'The moment a price drops, you know. WhatsApp alerts in under 10 seconds.' },
-              { icon: <Store strokeWidth={1.5} />, title: 'New Collection Drops', desc: 'Be first to know when brands drop new collections, restocks, and limited editions.' },
+              { icon: <Bell strokeWidth={1.5} />, title: 'Never Miss a Drop', desc: 'Instant, personalized alerts delivered straight to your WhatsApp — never miss a coveted drop again.' },
+              { icon: <Sparkles strokeWidth={1.5} />, title: 'Effortless Discovery', desc: 'Everything you love, from limited editions to price movements, in one elegant place.' },
+              { icon: <Shield strokeWidth={1.5} />, title: 'Privileged Access', desc: 'Early intelligence, size availability, and insider timing that saves hours of manual searching.' },
+              { icon: <Heart strokeWidth={1.5} />, title: 'Tailored to You', desc: 'A refined collecting experience tailored to your taste, style, and size preferences.' },
             ].map((f, i) => (
-              <div key={i} className="animate-fade-up" style={{ animationDelay: `${i * 0.15}s` }} data-testid={`pillar-${i}`}>
-                <div className="w-12 h-12 border border-accent/20 flex items-center justify-center mb-5 text-accent">
+              <div key={i} className="flex gap-5 animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`buyer-benefit-${i}`}>
+                <div className="w-12 h-12 border border-accent/20 flex items-center justify-center flex-shrink-0 text-accent">
                   {f.icon}
                 </div>
-                <h3 className="font-serif text-xl mb-3">{f.title}</h3>
-                <p className="text-sm text-primary/40 leading-relaxed">{f.desc}</p>
+                <div>
+                  <h3 className="font-serif text-xl mb-2">{f.title}</h3>
+                  <p className="text-sm text-primary/40 leading-relaxed">{f.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Why Different */}
+      {/* Platform Story */}
       <section className="py-20 md:py-28 bg-primary text-background relative overflow-hidden">
-        {/* Funky Dark Background */}
         <div className="absolute inset-0 pointer-events-none">
           <GradientBlob className="w-[700px] h-[700px] -top-40 -right-60" color1="#D4AF37" color2="#001F3F" opacity={0.12} />
           <GradientBlob className="w-[400px] h-[400px] bottom-0 left-0" color1="#F5F5DC" color2="#001F3F" opacity={0.06} />
-          
-          {/* Floating elements on dark */}
           <FloatingCircle className="w-6 h-6 top-24 left-[15%] opacity-10 border-background/30" />
           <FloatingCircle className="w-4 h-4 bottom-32 right-[25%] opacity-15 bg-accent/20" filled />
-          <FloatingCircle className="w-8 h-8 top-40 right-[12%] opacity-8 border-accent/20" />
-          
           <GeometricShape className="w-16 h-16 bottom-24 left-[8%] opacity-15 border-background/20" type="square" />
           <StarBurst className="w-8 h-8 top-32 right-[30%] text-accent/10" />
-          <StarBurst className="w-5 h-5 bottom-40 left-[35%] text-background/10" />
-          
           <GlitchLine className="w-40 top-20 left-[10%] opacity-15" />
-          <GlitchLine className="w-28 bottom-28 right-[15%] opacity-10" />
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Why Us</p>
-          <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-14">Built Different</h2>
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">The Platform</p>
+            <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-6">A Win-Win Ecosystem</h2>
+            <p className="text-base text-background/50 leading-relaxed">
+              We maintain an intelligent, centralized database and vibrant community so that buyers enjoy unparalleled speed and convenience, while brands gain direct, meaningful access to a highly engaged, high-intent audience — all without intermediaries, commissions, or complexity.
+            </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { stat: '<10s', label: 'Alert delivery speed. Fastest in India.' },
               { stat: '₹399', label: 'Per month. No hidden fees. Cancel anytime.' },
-              { stat: `${stats.products || '4,900'}+`, label: 'Products tracked in real-time across brands.' },
+              { stat: `${stats.products || '9,300'}+`, label: 'Products tracked in real-time across brands.' },
               { stat: '0%', label: 'Commission on your purchases. We never take a cut.' },
             ].map((s, i) => (
-              <div key={i} className="animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`stat-${i}`}>
+              <div key={i} className="animate-fade-up text-center" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`stat-${i}`}>
                 <p className="font-serif text-4xl md:text-5xl text-accent mb-2">{s.stat}</p>
                 <p className="text-sm text-background/50 leading-relaxed">{s.label}</p>
               </div>
@@ -576,9 +581,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* For Brands */}
+      {/* Benefits for Brands */}
       <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden">
-        {/* Funky Background */}
         <NoiseOverlay />
         <div className="absolute inset-0 pointer-events-none">
           <GradientBlob className="w-[450px] h-[450px] -bottom-40 -right-40" opacity={0.05} />
@@ -589,38 +593,35 @@ export default function LandingPage() {
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">For Brands</p>
-              <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-6">Partner With Drops Curated</h2>
-              <p className="text-primary/50 leading-relaxed mb-8">
-                Showcase your upcoming collections to India's most engaged streetwear community.
-                Buy bulk memberships at a discount and gift them to your VIP customers.
-              </p>
-              <div className="space-y-4 mb-8">
+              <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-8">Benefits for Brands</h2>
+              <div className="space-y-6">
                 {[
-                  'Feature upcoming collections before launch',
-                  'Gift memberships to your premium customers',
-                  'Real-time analytics on product performance',
+                  { icon: <Zap strokeWidth={1.5} />, text: 'Reach passionate, ready-to-buy collectors in real time, driving qualified traffic and incremental sales.' },
+                  { icon: <TrendingUp strokeWidth={1.5} />, text: "Amplify visibility and prestige within India's most dedicated streetwear community." },
+                  { icon: <Handshake strokeWidth={1.5} />, text: 'Build deeper brand loyalty through a sophisticated partner that showcases your drops to the right audience.' },
+                  { icon: <Activity strokeWidth={1.5} />, text: 'Gain valuable market insights from real buyer behaviour — without additional marketing spend.' },
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-5 h-5 border border-accent/30 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-accent" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <div key={i} className="flex gap-4 animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`brand-benefit-${i}`}>
+                    <div className="w-10 h-10 border border-accent/20 flex items-center justify-center flex-shrink-0 text-accent">
+                      {item.icon}
                     </div>
-                    <p className="text-sm text-primary/60">{item}</p>
+                    <p className="text-sm text-primary/55 leading-relaxed pt-2">{item.text}</p>
                   </div>
                 ))}
               </div>
               <Link
                 to="/partners"
-                className="inline-flex items-center gap-3 border border-primary/15 text-primary px-6 py-3 text-sm font-medium hover:border-accent hover:text-accent transition-all duration-300"
+                className="inline-flex items-center gap-3 border border-primary/15 text-primary px-6 py-3 text-sm font-medium hover:border-accent hover:text-accent transition-all duration-300 mt-8"
                 data-testid="partner-cta"
               >
                 <Handshake className="w-4 h-4" strokeWidth={1.5} />
                 Become a Partner
               </Link>
             </div>
-            <div className="hidden lg:flex justify-center">
+            <div className="hidden lg:block">
               <div className="grid grid-cols-2 gap-4">
                 {['Crep Dog Crew', 'Huemn', 'Urban Monkey', 'Your Brand?'].map((b, i) => (
                   <div key={i} className={`border ${i === 3 ? 'border-accent/30 border-dashed' : 'border-primary/10'} p-6 flex items-center justify-center min-h-[120px]`}>
@@ -629,6 +630,32 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-20 md:py-28 bg-surface border-t border-primary/[0.06] relative overflow-hidden">
+        <NoiseOverlay />
+        <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+          <div className="text-center mb-14">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">How It Works</p>
+            <h2 className="font-serif text-3xl md:text-4xl tracking-tight">The Win-Win Story</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+            {[
+              { step: '01', title: 'Brands Create', desc: "India's finest streetwear brands release new collections, limited drops, and exclusive pieces through their own stores." },
+              { step: '02', title: 'We Curate & Alert', desc: 'Our intelligent platform detects new drops and price changes in real time, then delivers personalized WhatsApp alerts to our members within seconds.' },
+              { step: '03', title: 'Collectors Discover', desc: "Members effortlessly discover and purchase directly from brands — no middlemen, no commissions. Brands get traffic, buyers get the best drops." },
+            ].map((s, i) => (
+              <div key={i} className="text-center animate-fade-up" style={{ animationDelay: `${i * 0.15}s` }} data-testid={`how-step-${i}`}>
+                <div className="w-14 h-14 bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-5">
+                  <span className="font-serif text-xl text-accent">{s.step}</span>
+                </div>
+                <h3 className="font-serif text-xl mb-3">{s.title}</h3>
+                <p className="text-sm text-primary/40 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -658,9 +685,9 @@ export default function LandingPage() {
         
         <div className="max-w-7xl mx-auto px-6 md:px-12 text-center relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-6">Join the Inner Circle</p>
-          <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl tracking-tight mb-4">Stop Missing Out</h2>
-          <p className="text-base text-background/50 max-w-md mx-auto mb-10">
-            WhatsApp alerts in 10 seconds. Price comparison across every store. ₹399/month.
+          <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl tracking-tight mb-4">Curated Excellence Awaits</h2>
+          <p className="text-base text-background/50 max-w-lg mx-auto mb-10">
+            Join India's most discerning streetwear community. Personalized WhatsApp alerts, privileged access, and a refined discovery experience — all for ₹399/month.
           </p>
           <Link
             to="/subscribe"
