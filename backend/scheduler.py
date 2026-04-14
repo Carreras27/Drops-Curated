@@ -31,6 +31,7 @@ from alerts import detect_changes, send_alerts
 from classifier import classify_product, clean_product_title
 from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplicate_stats
 from scraper_agent import scraper_agent, ErrorContext, init_scraper_agent
+from aether_master import aether_master, init_aether_master
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,9 @@ def init_scheduler(db):
     # Initialize Aether Brain self-learning
     asyncio.create_task(aether_brain.init(db))
 
+    # Initialize Aether Master site guardian
+    asyncio.create_task(init_aether_master(db))
+
     # Auto-scrape job every 15 minutes
     scheduler.add_job(
         scrape_all_brands,
@@ -93,11 +97,21 @@ def init_scheduler(db):
         replace_existing=True,
     )
     
-    # Health check every 5 minutes
+    # AETHER MASTER — full platform health + auto-heal every 5 minutes
+    scheduler.add_job(
+        _run_aether_master_cycle,
+        'interval',
+        minutes=5,
+        id='aether_master',
+        max_instances=1,
+        replace_existing=True,
+    )
+
+    # Legacy health check (kept for backward compat, runs less often)
     scheduler.add_job(
         run_health_check,
         'interval',
-        minutes=5,
+        minutes=10,
         id='health_check',
         max_instances=1,
         replace_existing=True,
@@ -115,6 +129,15 @@ def init_scheduler(db):
     
     scheduler.start()
     logger.info("[Scheduler] Started — scraping every 15 minutes with staggered brand delays")
+
+
+async def _run_aether_master_cycle():
+    """Wrapper to run the Aether Master health cycle."""
+    try:
+        await aether_master.run_cycle()
+    except Exception as e:
+        logger.error(f"[AetherMaster] Cycle failed: {e}")
+
 
 
 async def _init_fingerprint_cache(db):

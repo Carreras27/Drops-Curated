@@ -2246,6 +2246,29 @@ async def get_agent_logs(limit: int = 100, brand_key: str = None):
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
 
+# ============ AETHER MASTER STATUS ============
+@api_router.get('/admin/aether-status')
+async def get_aether_status():
+    """Get the full Aether Master health report — current + history."""
+    from aether_master import aether_master
+    status = aether_master.get_status()
+    history = await aether_master.get_history(limit=20)
+    recent_incidents = await aether_master.get_incidents(limit=30)
+    return {
+        'current': status,
+        'history': history,
+        'recent_incidents': recent_incidents,
+    }
+
+@api_router.post('/admin/aether-run')
+async def trigger_aether_cycle():
+    """Manually trigger an Aether Master health cycle."""
+    from aether_master import aether_master
+    report = await aether_master.run_cycle()
+    return aether_master.get_status()
+
+
+
 # ============ AI PRODUCT CLASSIFICATION ============
 from classifier import (
     classify_product, 
@@ -3132,6 +3155,7 @@ async def startup_scheduler():
     from auth import init_admin_routes, admin_router, seed_admin_user
     from scraper_agent import init_scraper_agent
     from scrapers import aether_brain
+    from aether_master import init_aether_master
     
     # Initialize security module
     await init_security(app, db)
@@ -3153,6 +3177,10 @@ async def startup_scheduler():
     # Initialize Aether Brain self-learning
     await aether_brain.init(db)
     logger.info("Aether Brain self-learning system initialized")
+    
+    # Initialize Aether Master site guardian
+    await init_aether_master(db)
+    logger.info("Aether Master site guardian initialized")
     
     # Seed default admin user
     await seed_admin_user()
