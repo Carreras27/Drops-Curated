@@ -128,7 +128,7 @@ async def _init_fingerprint_cache(db):
 async def _get_last_errors(brand_key: str, limit: int = 3) -> List[str]:
     """Get last N error messages for a brand from agent logs."""
     global _db
-    if not _db:
+    if _db is None:
         return []
     
     try:

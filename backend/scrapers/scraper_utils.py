@@ -277,7 +277,7 @@ class FingerprintCache:
         fingerprint = self.generate_fingerprint(product_id, updated_at, price)
         self._cache[product_id] = fingerprint
         
-        if self._db:
+        if self._db is not None:
             try:
                 await self._db.product_fingerprints.update_one(
                     {'product_id': product_id},
@@ -715,7 +715,7 @@ class AetherBrain:
         mem["last_updated"] = datetime.now(timezone.utc).isoformat()
 
         # Persist to DB
-        if self._db:
+        if self._db is not None:
             try:
                 await self._db.aether_learning.update_one(
                     {"brand_key": brand_key},
