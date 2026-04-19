@@ -755,6 +755,8 @@ _CS_COLOR_WORDS = {
     'pale', 'light', 'dark', 'hyper', 'solar', 'frosted', 'blackened', 'beige',
     'olive', 'khaki', 'maroon', 'burgundy', 'charcoal', 'stone', 'rust',
     'turquoise', 'aqua', 'lilac', 'lavender', 'magenta', 'tan', 'camo',
+    'indigo', 'platinum', 'bronze', 'copper', 'emerald', 'ruby', 'sapphire',
+    'mocha', 'taupe', 'fuchsia', 'peach', 'wheat', 'rose', 'apricot',
 }
 
 _CS_STOPWORDS = {
@@ -766,7 +768,7 @@ _CS_STOPWORDS = {
 _CS_TYPE_BUCKETS = {
     'footwear': {'sneaker', 'sneakers', 'shoe', 'shoes', 'boot', 'boots', 'sandal', 'sandals',
                  'slide', 'slides', 'mule', 'mules', 'slipper', 'slippers', 'trainer', 'trainers',
-                 'runner', 'runners'},
+                 'runner', 'runners', 'clog', 'clogs', 'loafer', 'loafers'},
     'top': {'tee', 'tshirt', 't-shirt', 'shirt', 'top', 'jersey', 'polo', 'tank', 'singlet',
             'blouse'},
     'outerwear': {'hoodie', 'hoody', 'sweatshirt', 'sweater', 'pullover', 'crewneck',
@@ -775,10 +777,14 @@ _CS_TYPE_BUCKETS = {
     'bottom': {'pants', 'pant', 'trouser', 'trousers', 'shorts', 'short', 'jean', 'jeans',
                'skirt', 'legging', 'leggings', 'joggers', 'jogger', 'sweatpant', 'sweatpants',
                'cargo', 'cargos', 'chino', 'chinos'},
+    'dress': {'dress', 'gown', 'robe', 'kaftan', 'kurta', 'saree'},
     'headwear': {'cap', 'hat', 'beanie', 'bucket', 'visor'},
     'bag': {'bag', 'backpack', 'tote', 'sling', 'duffel', 'crossbody', 'pouch'},
     'accessory': {'sock', 'socks', 'belt', 'wallet', 'scarf', 'gloves', 'glasses',
                   'sunglasses', 'bracelet', 'necklace', 'ring', 'keychain'},
+    'homeware': {'quilt', 'blanket', 'throw', 'pillow', 'duvet', 'rug', 'mat', 'towel'},
+    'collectible': {'card', 'cards', 'figure', 'figurine', 'poster', 'sticker', 'plush',
+                    'model', 'booster', 'deck', 'pack'},
 }
 
 def _cs_detect_bucket(tokens: list) -> str:
@@ -804,6 +810,11 @@ def _cs_tokenize(name: str, brand: str) -> tuple:
     if brand:
         brand_tokens = set(re.sub(r'[^a-zA-Z0-9]+', ' ', brand).lower().split())
     size_pattern = re.compile(r'^(xx?x?s|xx?x?l|xxs|xxxl|2xl|3xl|4xl|s|m|l|uk|us|eu)$')
+    # All words from any product-type bucket are product-category descriptors and
+    # should NOT be treated as distinctive identifiers.
+    all_bucket_words: set = set()
+    for bucket_words in _CS_TYPE_BUCKETS.values():
+        all_bucket_words.update(bucket_words)
     distinctive = set()
     colors = set()
     for t in tokens:
@@ -814,9 +825,13 @@ def _cs_tokenize(name: str, brand: str) -> tuple:
             continue
         if t in _CS_TYPE_WORDS or t in _CS_FIT_WORDS or t in _CS_STOPWORDS:
             continue
+        if t in all_bucket_words:
+            continue
         if size_pattern.match(t):
             continue
-        if len(t) < 2:
+        # Keep single-character digits (model numbers like "Ja 1", "Cloud X 4"),
+        # but drop other single-character noise.
+        if len(t) < 2 and not t.isdigit():
             continue
         distinctive.add(t)
     bucket = _cs_detect_bucket(tokens)
@@ -893,8 +908,26 @@ async def _find_cross_store_prices(product: dict, existing_prices: list) -> list
     if not scored:
         return []
 
-    # Require at least 2 shared distinctive tokens OR (1 shared token + jaccard >= 0.5)
-    strong = [c for (n, j, c) in scored if n >= 2 or (n >= 1 and j >= 0.5)]
+    # Require bulletproof match (false positives erode trust more than false negatives):
+    #   (a) shared >= 4 distinctive tokens (very strong signal), OR
+    #   (b) shared >= 2 AND one side's distinctive tokens fully contained in the other's,
+    #       AND the larger side has at most 1 extra distinctive token beyond the shared set.
+    # This prevents family-name overlaps like "Crocs Classic Clog Squid Game" vs
+    # "Crocs Classic Clog" — the shorter name is a base model that shares a family,
+    # not a cross-listing of the same SKU.
+    strong = []
+    for n, j, c in scored:
+        cand_tokens, _, _ = _cs_tokenize(c.get('name', ''), brand)
+        if n >= 4:
+            strong.append(c)
+            continue
+        if n >= 2:
+            if src_tokens.issubset(cand_tokens) and len(cand_tokens - src_tokens) <= 1:
+                strong.append(c)
+                continue
+            if cand_tokens.issubset(src_tokens) and len(src_tokens - cand_tokens) <= 1:
+                strong.append(c)
+                continue
     if not strong:
         return []
 
@@ -2753,6 +2786,53 @@ async def recent_alerts():
     alerts = await db.alert_log.find({}, {'_id': 0}).sort('createdAt', -1).limit(50).to_list(50)
     return {'alerts': alerts, 'count': len(alerts)}
 
+
+@api_router.get('/savings/active')
+async def get_active_savings(
+    limit: int = Query(50, ge=1, le=200),
+    brand: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    min_savings_pct: float = Query(0, ge=0, le=100),
+):
+    """Live cross-store savings feed: products that are cheaper at another store right now.
+
+    Updated nightly by the cross-store savings scanner. Sorted by savings % desc.
+    """
+    query: dict = {}
+    if brand:
+        query['brand'] = {'$regex': f'^{brand}$', '$options': 'i'}
+    if category:
+        query['category'] = {'$regex': f'^{category}$', '$options': 'i'}
+    if min_savings_pct > 0:
+        query['savingsPct'] = {'$gte': min_savings_pct}
+
+    total = await db.cross_store_savings.count_documents(query)
+    savings = await db.cross_store_savings.find(query, {'_id': 0}) \
+        .sort('savingsPct', -1) \
+        .limit(limit) \
+        .to_list(limit)
+
+    return {
+        'savings': savings,
+        'count': len(savings),
+        'total': total,
+    }
+
+
+@api_router.post('/admin/savings/run-scan')
+async def run_savings_scan_now():
+    """Admin-only: manually trigger the cross-store savings scan (instead of waiting for nightly cron)."""
+    from cross_store_savings import cross_store_savings_scanner
+    result = await cross_store_savings_scanner.run_scan(_find_cross_store_prices)
+    return {'ok': True, 'result': result}
+
+
+@api_router.get('/admin/savings/status')
+async def savings_scanner_status():
+    """Admin-only: last-run status of the cross-store savings scanner."""
+    from cross_store_savings import cross_store_savings_scanner
+    return cross_store_savings_scanner.get_status()
+
 @api_router.get('/alerts/digest/{phone}')
 async def get_daily_digest(phone: str):
     """Get pending daily digest for a subscriber"""
@@ -2795,6 +2875,7 @@ async def send_daily_digests():
         new_drops = [a for a in alerts if a.get('type') == 'new_release']
         price_drops = [a for a in alerts if a.get('type') == 'price_drop']
         restocks = [a for a in alerts if a.get('type') == 'restock']
+        cross_saves = [a for a in alerts if a.get('type') == 'cross_store_save']
         
         # Build digest message
         message = "🌙 *Your Daily Drops Digest*\n\n"
@@ -2823,6 +2904,20 @@ async def send_daily_digests():
             for rs in restocks[:3]:
                 data = rs.get('data', {})
                 message += f"  • {data.get('name', 'Product')[:40]}\n"
+            message += "\n"
+
+        if cross_saves:
+            message += f"🔀 *{len(cross_saves)} Cheaper Elsewhere*\n"
+            for cs in cross_saves[:3]:
+                data = cs.get('data', {})
+                name = (data.get('name') or 'Product')[:40]
+                cheapest_store = (data.get('cheapestStore') or '').replace('_', ' ').title()
+                cheapest_price = data.get('cheapestPrice', 0)
+                source_price = data.get('sourcePrice', 0)
+                saving_pct = data.get('savingsPct', 0)
+                message += f"  • {name} — ₹{cheapest_price:,.0f} at {cheapest_store} (was ₹{source_price:,.0f}, save {saving_pct}%)\n"
+            if len(cross_saves) > 3:
+                message += f"  _...and {len(cross_saves) - 3} more_\n"
             message += "\n"
         
         message += "👉 Browse all drops on Drops Curated!"

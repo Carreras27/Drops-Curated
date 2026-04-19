@@ -34,6 +34,7 @@ from scraper_agent import scraper_agent, ErrorContext, init_scraper_agent
 from aether_master import aether_master, init_aether_master
 from catalog_auditor import catalog_auditor, init_catalog_auditor
 from data_quality_validator import data_quality_validator, init_data_quality_validator
+from cross_store_savings import cross_store_savings_scanner, init_cross_store_savings_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,9 @@ def init_scheduler(db):
 
     # Initialize Data Quality Validator
     asyncio.create_task(init_data_quality_validator(db))
+
+    # Initialize Cross-Store Savings Scanner
+    asyncio.create_task(init_cross_store_savings_scanner(db))
 
     # Auto-scrape job — base interval 90 minutes with dynamic jitter
     # After each run, the next run is rescheduled with a random offset (±15 min)
@@ -186,6 +190,17 @@ async def _run_data_quality_check():
         logger.info(f"[DataQuality] Completed: {result.get('issues_found', 0)} issues, {result.get('auto_fixed', 0)} auto-fixed")
     except Exception as e:
         logger.error(f"[DataQuality] Check failed: {e}")
+
+
+async def _run_cross_store_savings_scan():
+    """Nightly scan for cross-store savings opportunities + alert subscribers."""
+    try:
+        # Import here to avoid circular import at module load time
+        from server import _find_cross_store_prices
+        result = await cross_store_savings_scanner.run_scan(_find_cross_store_prices)
+        logger.info(f"[CrossStoreSavings] Completed: {result}")
+    except Exception as e:
+        logger.error(f"[CrossStoreSavings] Scan failed: {e}")
 
 
 
