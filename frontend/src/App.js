@@ -75,9 +75,9 @@ function NotFound() {
 function App() {
   return (
     <ErrorBoundary>
-      <TrialProvider>
-        <WishlistProvider>
-          <BrowserRouter>
+      <BrowserRouter>
+        <TrialProvider>
+          <WishlistProvider>
             <div className="min-h-screen bg-background">
               <TrialBanner />
               <Routes>
@@ -98,9 +98,9 @@ function App() {
               </Routes>
               <Toaster position="top-center" richColors />
             </div>
-          </BrowserRouter>
-        </WishlistProvider>
-      </TrialProvider>
+          </WishlistProvider>
+        </TrialProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }

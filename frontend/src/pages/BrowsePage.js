@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight, Bell, Lock } from 'lucide-react';
+import { Search, SlidersHorizontal, X, RefreshCw, ExternalLink, Flame, Sparkles, Clock, AlertTriangle, Star, Check, Ruler, User, Store, Tag, Package, ArrowRight, Bell, Lock, ArrowUpDown, MessageSquare, Frown } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { 
@@ -13,7 +13,7 @@ import {
   AllDropsSchema
 } from '../components/SEOSchema';
 import { WishlistButtonOverlay } from '../components/WishlistButton';
-import { useTrial, BlurredPrice, LockedOverlay } from '../context/TrialContext';
+import { useTrial, BlurredPrice, LockedOverlay, TrialBanner } from '../context/TrialContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -679,6 +679,13 @@ export default function BrowsePage() {
   const [userSizePrefs, setUserSizePrefs] = useState(null);
   const [sizeFilterActive, setSizeFilterActive] = useState(false);
   
+  // Sort
+  const [sortBy, setSortBy] = useState('newest');
+  
+  // Trial
+  const { isTrialActive, hasStartedTrial, setShowUpgradeModal } = useTrial();
+  const isTrialExpired = hasStartedTrial() && !isTrialActive;
+  
   // Load size preferences from localStorage or show modal
   useEffect(() => {
     const savedSizePrefs = localStorage.getItem('dropsCurated_sizePrefs');
@@ -1093,6 +1100,21 @@ export default function BrowsePage() {
     return true;
   });
 
+  // Apply sort
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'price_asc':
+        return (a.lowestPrice || a.price || 0) - (b.lowestPrice || b.price || 0);
+      case 'price_desc':
+        return (b.lowestPrice || b.price || 0) - (a.lowestPrice || a.price || 0);
+      case 'name_asc':
+        return (a.name || '').localeCompare(b.name || '');
+      case 'newest':
+      default:
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    }
+  });
+
   return (
     <div className="bg-background min-h-screen" data-testid="browse-page">
       {/* Breadcrumb Schema */}
@@ -1287,7 +1309,9 @@ export default function BrowsePage() {
 
           {/* Filter panel */}
           {showFilters && (
-            <div ref={filterSectionRef} className="mb-8 p-6 border border-primary/10 bg-surface animate-fade-up" data-testid="filter-panel">
+            <div ref={filterSectionRef} className="mb-8 p-6 border border-primary/10 bg-surface animate-fade-up relative" data-testid="filter-panel">
+              {/* Lock overlay when trial expired */}
+              {isTrialExpired && <LockedOverlay feature="filters" />}
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Refine</p>
                 <button onClick={clearFilters} className="text-xs text-primary/40 hover:text-primary flex items-center gap-1">
@@ -1522,8 +1546,8 @@ export default function BrowsePage() {
               {/* All Products Section */}
               <div className="mt-8">
                 {/* All Drops Schema */}
-                {filteredProducts.length > 0 && !query && !selectedBrand && (
-                  <AllDropsSchema products={filteredProducts.slice(0, 50)} totalCount={totalProducts} />
+                {sortedProducts.length > 0 && !query && !selectedBrand && (
+                  <AllDropsSchema products={sortedProducts.slice(0, 50)} totalCount={totalProducts} />
                 )}
                 
                 <div className="flex items-center justify-between mb-6">
@@ -1536,16 +1560,31 @@ export default function BrowsePage() {
                         {query ? `Search: "${query}"` : selectedBrand ? selectedBrand.name : 'All Drops'}
                       </h2>
                       <p className="text-xs text-primary/40">
-                        {filteredProducts.length} of {totalProducts.toLocaleString()} products
+                        {sortedProducts.length} of {totalProducts.toLocaleString()} products
                       </p>
                     </div>
                   </div>
+                  {/* Sort Controls */}
+                  <div className="flex items-center gap-2" data-testid="sort-controls">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-primary/40" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="text-xs bg-transparent border border-primary/10 px-3 py-2 text-primary/70 focus:outline-none focus:border-accent cursor-pointer"
+                      data-testid="sort-select"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="price_desc">Price: High to Low</option>
+                      <option value="name_asc">Name: A-Z</option>
+                    </select>
+                  </div>
                 </div>
 
-                {filteredProducts.length > 0 ? (
+                {sortedProducts.length > 0 ? (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8" data-testid="all-products-grid">
-                      {filteredProducts.map((product, idx) => (
+                      {sortedProducts.map((product, idx) => (
                         <ProductCard 
                           key={product.id} 
                           product={product} 
@@ -1574,7 +1613,7 @@ export default function BrowsePage() {
                     )}
                     
                     {/* End of results */}
-                    {!hasMore && filteredProducts.length > 0 && (
+                    {!hasMore && sortedProducts.length > 0 && (
                       <div className="flex flex-col items-center justify-center py-12 text-primary/30">
                         <p className="text-sm">You've seen all {totalProducts.toLocaleString()} drops</p>
                       </div>
@@ -1593,8 +1632,26 @@ export default function BrowsePage() {
                   </>
                 ) : (
                   <div className="text-center py-24" data-testid="no-results">
+                    <Frown className="w-10 h-10 text-primary/20 mx-auto mb-4" />
                     <p className="font-serif text-2xl text-primary/30 mb-2">No drops found</p>
-                    <p className="text-sm text-primary/20">Try adjusting your search or filters</p>
+                    <p className="text-sm text-primary/20 mb-6">Try adjusting your search or filters</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button 
+                        onClick={clearFilters}
+                        className="text-xs border border-primary/15 text-primary/60 px-4 py-2 hover:border-accent hover:text-accent transition-colors"
+                        data-testid="clear-filters-btn"
+                      >
+                        Clear All Filters
+                      </button>
+                      <a
+                        href="mailto:hello@dropscurated.com?subject=Wrong%20Category%20Report"
+                        className="text-xs border border-primary/15 text-primary/60 px-4 py-2 hover:border-accent hover:text-accent transition-colors flex items-center gap-1.5"
+                        data-testid="wrong-category-btn"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Wrong category?
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>
