@@ -280,6 +280,28 @@ class DataQualityValidator:
                 findings["orphaned_prices_cleaned"] = len(orphaned)
                 auto_fixed += len(orphaned)
 
+        # ── CHECK: Price records missing sizePrices when product has per-size pricing ──
+        # Auto-sync: if product has size_prices but price record doesn't, copy them over
+        missing_sp_cursor = self._db.products.find(
+            {**query, "attributes.size_prices": {"$exists": True, "$ne": {}}},
+            {"_id": 0, "id": 1, "store": 1, "attributes.size_prices": 1},
+        ).limit(500)
+        sp_sync_count = 0
+        async for prod in missing_sp_cursor:
+            sp = prod.get("attributes", {}).get("size_prices", {})
+            if not sp:
+                continue
+            result = await self._db.prices.update_one(
+                {"productId": prod["id"], "sizePrices": {"$exists": False}},
+                {"$set": {"sizePrices": sp}},
+            )
+            if result.modified_count > 0:
+                sp_sync_count += 1
+        if sp_sync_count:
+            findings["size_prices_synced"] = sp_sync_count
+            auto_fixed += sp_sync_count
+
+
         issues_found = sum(findings.values())
 
         result = {
