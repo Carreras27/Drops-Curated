@@ -12,33 +12,44 @@ class CrepDogCrewScraper(AetherBaseScraper):
     store_key = "CREPDOG_CREW"
     base_url = "https://crepdogcrew.com"
 
-    async def scrape_products(self, max_pages: int = 3) -> list[dict]:
+    async def scrape_products(self, max_pages: int = 20) -> list[dict]:
+        """Scrape ALL products from Crepdog Crew via Shopify JSON API.
+        Shopify limits to 250/page. With 3500+ products, we need ~14 pages.
+        The JSON API is public and free — no reason to limit pages."""
         products = []
+        catalog_complete = False
 
         # Get persona-aware headers
         persona = self._current_persona or persona_manager.get_persona(self.store_key.lower())
         headers = persona_manager.get_headers_for_persona(persona)
+        headers['Accept'] = 'application/json'
 
-        async with httpx.AsyncClient(headers=headers, timeout=20, follow_redirects=True) as client:
+        async with httpx.AsyncClient(headers=headers, timeout=25, follow_redirects=True) as client:
             for page in range(1, max_pages + 1):
                 url = f"{self.base_url}/products.json?limit=250&page={page}"
-                logger.info(f"[CrepDogCrew] Fetching page {page}: {url}")
+                logger.info(f"[CrepDogCrew] Fetching page {page}/{max_pages}")
                 try:
                     resp = await client.get(url)
                     resp.raise_for_status()
                     data = resp.json()
                     page_products = data.get("products", [])
                     if not page_products:
+                        catalog_complete = True
+                        logger.info(f"[CrepDogCrew] Catalog complete at page {page} (no more products)")
                         break
                     for raw in page_products:
                         p = self.normalize_product(raw)
                         if p:
                             products.append(p)
-                    logger.info(f"[CrepDogCrew] Page {page}: {len(page_products)} products")
+                    logger.info(f"[CrepDogCrew] Page {page}: {len(page_products)} products (running total: {len(products)})")
                 except Exception as e:
                     logger.error(f"[CrepDogCrew] Page {page} error: {e}")
                     break
-        logger.info(f"[CrepDogCrew] Total scraped: {len(products)}")
+
+        if not catalog_complete and len(products) >= max_pages * 250:
+            logger.warning(f"[CrepDogCrew] Hit page limit ({max_pages}) — catalog may be incomplete. Got {len(products)} products.")
+
+        logger.info(f"[CrepDogCrew] Total scraped: {len(products)} | Catalog complete: {catalog_complete}")
         return products
 
     def normalize_product(self, raw: dict) -> dict | None:

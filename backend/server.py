@@ -485,16 +485,21 @@ async def search_products(
         query['store'] = {'$regex': f'^{store}$', '$options': 'i'}
     # Search query - searches name, description, brand, tags, store
     elif search_term:
+        # Make search flexible: spaces match hyphens and vice versa
+        # "li ning" matches "Li-Ning", "ink ivory" matches "INK IVORY"
+        import re as _re
+        flexible_term = _re.sub(r'[\s\-]+', r'[\\s\\-]+', search_term)
+        
         # For very short search terms (<=3 chars like "On", "NIL"), ONLY search brand field
         # This prevents false positives like "Monk On Fire Hoodie" where "on" is just a preposition
         if len(search_term) <= 3:
             # STRICT BRAND-ONLY MATCH for short terms
-            query['brand'] = {'$regex': f'^{search_term}$', '$options': 'i'}
+            query['brand'] = {'$regex': f'^{flexible_term}$', '$options': 'i'}
         elif len(search_term) <= 5:
             # For medium terms (4-5 chars), use word boundary matching on brand and name
-            word_regex = f'\\b{search_term}\\b'
+            word_regex = f'\\b{flexible_term}\\b'
             query['$or'] = [
-                {'brand': {'$regex': f'^{search_term}$', '$options': 'i'}},
+                {'brand': {'$regex': f'^{flexible_term}$', '$options': 'i'}},
                 {'brand': {'$regex': word_regex, '$options': 'i'}},
                 {'name': {'$regex': word_regex, '$options': 'i'}},
                 {'store': {'$regex': word_regex, '$options': 'i'}},
@@ -502,11 +507,11 @@ async def search_products(
         else:
             # For longer search terms, use standard partial matching
             query['$or'] = [
-                {'name': {'$regex': search_term, '$options': 'i'}},
-                {'description': {'$regex': search_term, '$options': 'i'}},
-                {'brand': {'$regex': search_term, '$options': 'i'}},
-                {'tags': {'$regex': search_term, '$options': 'i'}},
-                {'store': {'$regex': search_term, '$options': 'i'}},
+                {'name': {'$regex': flexible_term, '$options': 'i'}},
+                {'description': {'$regex': flexible_term, '$options': 'i'}},
+                {'brand': {'$regex': flexible_term, '$options': 'i'}},
+                {'tags': {'$regex': flexible_term, '$options': 'i'}},
+                {'store': {'$regex': flexible_term, '$options': 'i'}},
             ]
     
     # Brand filter - exact match on brand field
@@ -2878,7 +2883,7 @@ async def scrape_brand(brand_key: str):
     scraper = SCRAPERS[brand_key]()
     logger.info(f"Starting scrape for {scraper.brand_name}")
 
-    scraped = await scraper.run_swarm_scrape(max_pages=3)
+    scraped = await scraper.run_swarm_scrape(max_pages=20)
     if not scraped:
         return {"success": False, "message": f"No products found for {scraper.brand_name}", "scraped": 0}
 
@@ -2901,7 +2906,7 @@ async def scrape_all_brands():
         scraper = scraper_cls()
         logger.info(f"Scraping {scraper.brand_name}...")
         try:
-            scraped = await scraper.run_swarm_scrape(max_pages=3)
+            scraped = await scraper.run_swarm_scrape(max_pages=20)
             result = await _store_scraped_products(scraped, key)
             results[key] = {"success": True, "scraped": len(scraped), **result}
         except Exception as e:

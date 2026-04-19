@@ -30,7 +30,7 @@ class ShopifyScraper(AetherBaseScraper):
         # Shopify JSON API rarely needs proxy
         self.use_proxy = False
     
-    async def scrape_products(self, max_pages: int = 5) -> List[dict]:
+    async def scrape_products(self, max_pages: int = 20) -> List[dict]:
         """
         Scrape products using Shopify's public JSON API.
         This endpoint is designed for public consumption and doesn't get blocked.
@@ -93,6 +93,10 @@ class ShopifyScraper(AetherBaseScraper):
             
             # Update fingerprints for processed products
             await fingerprint_cache.bulk_update(products)
+            
+            # Catalog completeness check
+            if total_found >= max_pages * 250:
+                logger.warning(f"[{self.store_key}] Hit page limit ({max_pages}) — catalog may be incomplete. Got {len(products)} products.")
             
             # Report success
             self.report_success(products_found=len(products), new_products=new_count)

@@ -360,7 +360,7 @@ class AetherBaseScraper(BaseScraper):
     # ------------------------------------------------------------------
     # Public entry point — call this instead of scrape_products() directly
     # ------------------------------------------------------------------
-    async def run_swarm_scrape(self, max_pages: int = 5) -> List[dict]:
+    async def run_swarm_scrape(self, max_pages: int = 20) -> List[dict]:
         """
         Run the scrape through the Aether Swarm pipeline:
         1. Pick best persona (or rotate on retry)

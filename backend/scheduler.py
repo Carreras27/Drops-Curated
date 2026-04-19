@@ -204,7 +204,7 @@ async def scrape_all_brands():
             logger.info(f"[Scheduler] [{i+1}/{len(brand_keys)}] Scraping {scraper.brand_name}...")
 
             # Use Aether Swarm scrape (persona rotation + self-learning)
-            scraped = await scraper.run_swarm_scrape(max_pages=5)
+            scraped = await scraper.run_swarm_scrape(max_pages=20)
             
             if not scraped:
                 _run_results[key] = {"status": "empty", "scraped": 0}
@@ -637,7 +637,7 @@ async def manual_scrape(brand_key: str = None):
         
         try:
             scraper = SCRAPERS[brand_key]()
-            products = await scraper.scrape_products(max_pages=5)
+            products = await scraper.scrape_products(max_pages=20)
             
             if products:
                 unique, dupes = await filter_duplicates(_db, products)
