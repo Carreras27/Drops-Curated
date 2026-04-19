@@ -39,6 +39,20 @@ VALID_SIZE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Colors that should NEVER appear as sizes
+COLOR_WORDS = {
+    'red', 'blue', 'green', 'black', 'white', 'grey', 'gray', 'pink', 'yellow',
+    'orange', 'purple', 'brown', 'navy', 'cream', 'ivory', 'teal', 'silver',
+    'gold', 'crimson', 'coral', 'mint', 'menta', 'smoke', 'chrome', 'canary',
+    'geode', 'arctic', 'sand', 'ice', 'lime', 'salmon', 'photon', 'dust',
+    'pale', 'light', 'dark', 'hyper', 'solar', 'frosted', 'blackened',
+    'indigo', 'maroon', 'olive', 'khaki', 'beige', 'tan', 'amber', 'jade',
+    'ruby', 'sapphire', 'emerald', 'charcoal', 'slate', 'bone', 'ash',
+    'cloud', 'fog', 'thunder', 'storm', 'midnight', 'sunset', 'dawn',
+    'burgundy', 'magenta', 'cyan', 'turquoise', 'lavender', 'peach',
+    'multi', 'multicolor', 'multicolour', 'tie-dye', 'camo', 'print',
+}
+
 VALID_URL_PATTERN = re.compile(r'^https?://', re.IGNORECASE)
 
 PRICE_MIN = 50
@@ -116,6 +130,28 @@ class DataQualityValidator:
             )
             findings["shipping_in_sizes"] += 1
             auto_fixed += 1
+
+        # ── CHECK: Colors stored as sizes (e.g., "GREEN", "RED", "IVORY") ──
+        # This catches the exact bug where option1=COLOR was mistaken for a size
+        all_sized_products = self._db.products.find(
+            {**query, "attributes.sizes.0": {"$exists": True}},
+            {"_id": 1, "attributes.sizes": 1, "attributes.size_prices": 1},
+        ).limit(3000)
+        async for prod in all_sized_products:
+            sizes = prod.get("attributes", {}).get("sizes", [])
+            sp = prod.get("attributes", {}).get("size_prices", {})
+            bad_sizes = [s for s in sizes if s.strip().lower() in COLOR_WORDS]
+            if bad_sizes:
+                clean_sizes = [s for s in sizes if s.strip().lower() not in COLOR_WORDS]
+                clean_sp = {k: v for k, v in sp.items() if k.strip().lower() not in COLOR_WORDS}
+                update = {"attributes.sizes": clean_sizes}
+                if sp:
+                    update["attributes.size_prices"] = clean_sp
+                await self._db.products.update_one({"_id": prod["_id"]}, {"$set": update})
+                findings["colors_as_sizes"] = findings.get("colors_as_sizes", 0) + 1
+                auto_fixed += 1
+
+
 
         # ── Check for duplicate sizes ──
         dedup_cursor = self._db.products.find(
