@@ -101,6 +101,36 @@ export default function ProductPage() {
   const lowestPrice = selectedSizePrice || baseLowest;
   const highestPrice = selectedSizePrice || baseHighest;
   const savings = selectedSizePrice ? 0 : (baseHighest - baseLowest);
+
+  // Build dynamic "Where to Buy" prices based on selected size
+  const displayPrices = prices.map(p => {
+    const storeSizePrices = p.sizePrices || {};
+    const productSizePrices = p.matchedProductId 
+      ? {} // Cross-matched products use their own sizePrices
+      : sizePrices;
+    const allSizePrices = { ...productSizePrices, ...storeSizePrices };
+    
+    if (selectedSize && Object.keys(allSizePrices).length > 0) {
+      const sizePrice = allSizePrices[selectedSize];
+      return {
+        ...p,
+        displayPrice: sizePrice || null,     // null = size not available at this store
+        sizeAvailable: sizePrice != null,
+        priceLabel: sizePrice ? `₹${sizePrice.toLocaleString('en-IN')}` : 'N/A',
+      };
+    }
+    return {
+      ...p,
+      displayPrice: p.currentPrice,
+      sizeAvailable: true,
+      priceLabel: p.currentPrice ? `₹${p.currentPrice.toLocaleString('en-IN')}` : '—',
+    };
+  }).sort((a, b) => {
+    // Available sizes first, then by price
+    if (a.sizeAvailable && !b.sizeAvailable) return -1;
+    if (!a.sizeAvailable && b.sizeAvailable) return 1;
+    return (a.displayPrice || Infinity) - (b.displayPrice || Infinity);
+  });
   
   // Generate SEO-friendly alt text
   const productAltText = generateProductAlt(product);
@@ -267,51 +297,65 @@ export default function ProductPage() {
           </div>
 
           {/* Price Comparison */}
-          {prices.length > 0 && (
+          {displayPrices.length > 0 && (
             <div className="mt-16 md:mt-24">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-3">Price Comparison</p>
-              <h2 className="font-serif text-3xl tracking-tight mb-8">Where to Buy</h2>
+              <h2 className="font-serif text-3xl tracking-tight mb-2">Where to Buy</h2>
+              {selectedSize && hasSizePricing && (
+                <p className="text-xs text-accent mb-6">Showing prices for {selectedSize}</p>
+              )}
+              {!selectedSize && hasSizePricing && (
+                <p className="text-xs text-primary/40 mb-6">Select a size above to see store-specific pricing</p>
+              )}
 
               {/* Desktop table */}
               <div className="hidden md:block border border-primary/10" data-testid="price-table">
                 <div className="grid grid-cols-5 border-b border-primary/10 text-xs text-primary/40 uppercase tracking-widest">
                   <div className="px-6 py-4">Store</div>
-                  <div className="px-6 py-4">Price</div>
+                  <div className="px-6 py-4">{selectedSize ? `Price (${selectedSize})` : 'Price'}</div>
                   <div className="px-6 py-4">Original</div>
                   <div className="px-6 py-4">Stock</div>
                   <div className="px-6 py-4 text-right">Action</div>
                 </div>
-                {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, i) => (
+                {displayPrices.map((price, i) => (
                   <div
                     key={price.id || i}
-                    className={`grid grid-cols-5 border-b border-primary/10 items-center hover:bg-primary/[0.02] transition-colors ${i === 0 ? 'bg-accent/[0.03]' : ''}`}
+                    className={`grid grid-cols-5 border-b border-primary/10 items-center hover:bg-primary/[0.02] transition-colors ${
+                      i === 0 && price.sizeAvailable ? 'bg-accent/[0.03]' : ''
+                    } ${!price.sizeAvailable ? 'opacity-40' : ''}`}
                     data-testid={`price-row-${i}`}
                   >
                     <div className="px-6 py-5 flex items-center gap-3">
                       <span className="text-sm font-medium">{price.store?.replace(/_/g, ' ')}</span>
-                      {i === 0 && (
+                      {i === 0 && price.sizeAvailable && (
                         <span className="border border-accent text-accent text-[9px] uppercase tracking-widest px-2 py-0.5">Best</span>
                       )}
                     </div>
                     <div className="px-6 py-5">
-                      <span className={`text-lg font-medium ${i === 0 ? 'text-accent' : ''}`}>
-                        ₹{price.currentPrice?.toLocaleString('en-IN')}
-                      </span>
+                      {price.sizeAvailable ? (
+                        <span className={`text-lg font-medium ${i === 0 ? 'text-accent' : ''}`}>
+                          {price.priceLabel}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-primary/30 italic">
+                          {selectedSize ? `${selectedSize} not available` : '—'}
+                        </span>
+                      )}
                     </div>
                     <div className="px-6 py-5">
-                      {price.originalPrice && price.originalPrice !== price.currentPrice ? (
+                      {price.sizeAvailable && price.originalPrice && price.originalPrice !== price.displayPrice ? (
                         <span className="text-sm text-primary/30 line-through">₹{price.originalPrice?.toLocaleString('en-IN')}</span>
                       ) : (
                         <span className="text-sm text-primary/20">—</span>
                       )}
                     </div>
                     <div className="px-6 py-5">
-                      <span className={`text-xs ${price.inStock ? 'text-success' : 'text-danger'}`}>
-                        {price.inStock ? 'In Stock' : 'Out of Stock'}
+                      <span className={`text-xs ${price.sizeAvailable && price.inStock ? 'text-success' : 'text-danger'}`}>
+                        {price.sizeAvailable ? (price.inStock ? 'In Stock' : 'Out of Stock') : 'N/A'}
                       </span>
                     </div>
                     <div className="px-6 py-5 text-right">
-                      {price.productUrl && (
+                      {price.productUrl && price.sizeAvailable && (
                         <a
                           href={price.productUrl}
                           target="_blank"
@@ -330,28 +374,36 @@ export default function ProductPage() {
 
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
-                {prices.sort((a, b) => a.currentPrice - b.currentPrice).map((price, i) => (
-                  <div key={price.id || i} className={`border border-primary/10 p-5 ${i === 0 ? 'bg-accent/[0.03]' : ''}`}>
+                {displayPrices.map((price, i) => (
+                  <div key={price.id || i} className={`border border-primary/10 p-5 ${
+                    i === 0 && price.sizeAvailable ? 'bg-accent/[0.03]' : ''
+                  } ${!price.sizeAvailable ? 'opacity-40' : ''}`}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{price.store?.replace(/_/g, ' ')}</span>
-                        {i === 0 && (
+                        {i === 0 && price.sizeAvailable && (
                           <span className="border border-accent text-accent text-[9px] uppercase tracking-widest px-2 py-0.5">Best</span>
                         )}
                       </div>
-                      <span className={`text-xs ${price.inStock ? 'text-success' : 'text-danger'}`}>
-                        {price.inStock ? 'In Stock' : 'Out'}
+                      <span className={`text-xs ${price.sizeAvailable && price.inStock ? 'text-success' : 'text-danger'}`}>
+                        {price.sizeAvailable ? (price.inStock ? 'In Stock' : 'Out') : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-baseline gap-2 mb-4">
-                      <span className={`text-2xl font-medium ${i === 0 ? 'text-accent' : ''}`}>
-                        ₹{price.currentPrice?.toLocaleString('en-IN')}
-                      </span>
-                      {price.originalPrice && price.originalPrice !== price.currentPrice && (
-                        <span className="text-sm text-primary/30 line-through">₹{price.originalPrice?.toLocaleString('en-IN')}</span>
+                      {price.sizeAvailable ? (
+                        <>
+                          <span className={`text-2xl font-medium ${i === 0 ? 'text-accent' : ''}`}>
+                            {price.priceLabel}
+                          </span>
+                          {price.originalPrice && price.originalPrice !== price.displayPrice && (
+                            <span className="text-sm text-primary/30 line-through">₹{price.originalPrice?.toLocaleString('en-IN')}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-primary/30 italic">{selectedSize} not available</span>
                       )}
                     </div>
-                    {price.productUrl && (
+                    {price.productUrl && price.sizeAvailable && (
                       <a
                         href={price.productUrl}
                         target="_blank"
