@@ -4,7 +4,7 @@ import { ArrowLeft, ExternalLink, Bell, Share2, Check, Heart } from 'lucide-reac
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { generateProductAlt, ProductSchema, BreadcrumbSchema, OrganizationSchema } from '../components/SEOSchema';
+import { generateProductAlt, ProductSchema, BreadcrumbSchema } from '../components/SEOSchema';
 import { useWishlist } from '../context/WishlistContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
@@ -103,7 +103,6 @@ export default function ProductPage() {
     <div className="bg-background min-h-screen" data-testid="product-page">
       {/* Product Schema for Rich Snippets */}
       <ProductSchema product={product} prices={prices} />
-      <OrganizationSchema />
       
       {/* Breadcrumb Schema */}
       <BreadcrumbSchema items={[

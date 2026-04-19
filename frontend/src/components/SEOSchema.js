@@ -1,10 +1,10 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 
-const SITE_URL = 'https://drops-curated.preview.emergentagent.com';
+const SITE_URL = 'https://dropscurated.com';
 const SITE_NAME = 'Drops Curated';
-const TOTAL_PRODUCTS = 11371;
-const TOTAL_BRANDS = 23;
+const SITE_TAGLINE = 'Curated Excellence. Delivered Instantly.';
+const SITE_DESCRIPTION = "India's most refined streetwear intelligence platform — a meticulously curated discovery ecosystem that connects discerning collectors and connoisseurs with the finest limited drops, exclusive releases, and premium collections from the country's most respected brands.";
 
 // Generate descriptive alt text for product images
 export const generateProductAlt = (product) => {
@@ -15,7 +15,6 @@ export const generateProductAlt = (product) => {
   const store = product.store?.replace(/_/g, ' ') || '';
   const category = product.aiCategory || product.category || 'drop';
   
-  // Create descriptive alt text
   let alt = `${name}`;
   if (brand && !name.toLowerCase().includes(brand.toLowerCase())) {
     alt = `${brand} ${name}`;
@@ -28,94 +27,22 @@ export const generateProductAlt = (product) => {
   return alt;
 };
 
-// Organization Schema - Enhanced with exact data
-export const OrganizationSchema = () => {
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": SITE_NAME,
-    "alternateName": "Drops Curated India",
-    "url": SITE_URL,
-    "logo": {
-      "@type": "ImageObject",
-      "url": `${SITE_URL}/logo.png`,
-      "width": 512,
-      "height": 512
-    },
-    "description": `Premium Indian streetwear discovery platform tracking ${TOTAL_PRODUCTS.toLocaleString()}+ products from ${TOTAL_BRANDS} brands. Real-time WhatsApp alerts for price drops and new releases.`,
-    "foundingDate": "2024",
-    "areaServed": {
-      "@type": "Country",
-      "name": "India"
-    },
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "contactType": "customer service",
-      "availableLanguage": ["English", "Hindi"],
-      "areaServed": "IN"
-    },
-    "sameAs": [
-      "https://instagram.com/dropscurated",
-      "https://twitter.com/dropscurated"
-    ],
-    "knowsAbout": [
-      "Streetwear",
-      "Sneakers",
-      "Indian Fashion",
-      "Limited Edition Releases",
-      "Price Tracking"
-    ]
-  };
-
-  return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-  );
-};
-
-// WebSite Schema with SearchAction - Enhanced with exact data
-export const WebSiteSchema = () => {
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": SITE_NAME,
-    "alternateName": "Drops Curated - India's Fastest Streetwear Alerts",
-    "url": SITE_URL,
-    "description": `India's fastest streetwear alerts. Track ${TOTAL_PRODUCTS.toLocaleString()}+ products from ${TOTAL_BRANDS} premium brands. Price drops, new collections, restocks delivered to WhatsApp in under 10 seconds.`,
-    "inLanguage": "en-IN",
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": {
-        "@type": "EntryPoint",
-        "urlTemplate": `${SITE_URL}/browse?search={search_term_string}`
-      },
-      "query-input": "required name=search_term_string"
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": SITE_NAME,
-      "url": SITE_URL
-    }
-  };
-
-  return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-  );
-};
-
-// Helper to determine availability schema
+// ============ AVAILABILITY HELPER ============
 const getAvailabilitySchema = (product, prices = []) => {
-  // Check if product is limited edition
   const isLimited = product.isLimited || 
+                    product.is_limited ||
                     product.stockLimit || 
                     (product.tags && product.tags.some(t => 
                       t.toLowerCase().includes('limited') || 
-                      t.toLowerCase().includes('exclusive')
+                      t.toLowerCase().includes('exclusive') ||
+                      t.toLowerCase().includes('collab') ||
+                      t.toLowerCase().includes('rare')
                     ));
   
-  // Check stock status
+  const inStock = product.in_stock !== false && product.inStock !== false;
   const hasStock = prices.length > 0 
     ? prices.some(p => p.inStock !== false) 
-    : true;
+    : inStock;
   
   if (!hasStock) {
     return "https://schema.org/OutOfStock";
@@ -128,9 +55,8 @@ const getAvailabilitySchema = (product, prices = []) => {
   return "https://schema.org/InStock";
 };
 
-// Generate AggregateRating based on product data
+// ============ AGGREGATE RATING HELPER ============
 const generateAggregateRating = (product) => {
-  // If product has real rating data, use it
   if (product.rating && product.reviewCount) {
     return {
       "@type": "AggregateRating",
@@ -140,23 +66,179 @@ const generateAggregateRating = (product) => {
       "worstRating": 1
     };
   }
-  
-  // For products without ratings, don't include AggregateRating
-  // to avoid misleading schema
   return null;
 };
 
-// Single Product Schema - Enhanced with AggregateRating and LimitedAvailability
+// ============ HOMEPAGE SCHEMAS (@graph) ============
+// Combines Organization + WebSite + FAQPage + Service into a single JSON-LD block
+export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
+  const prodCount = totalProducts || 11700;
+  const brandCount = totalBrands || 24;
+
+  const graph = {
+    "@context": "https://schema.org",
+    "@graph": [
+      // Organization
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        "name": SITE_NAME,
+        "alternateName": "Drops Curated India",
+        "url": SITE_URL,
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${SITE_URL}/logo.png`,
+          "width": 512,
+          "height": 512
+        },
+        "description": SITE_DESCRIPTION,
+        "foundingDate": "2024",
+        "slogan": SITE_TAGLINE,
+        "areaServed": {
+          "@type": "Country",
+          "name": "India"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "customer service",
+          "availableLanguage": ["English", "Hindi"],
+          "areaServed": "IN"
+        },
+        "sameAs": [
+          "https://instagram.com/dropscurated",
+          "https://twitter.com/dropscurated"
+        ],
+        "knowsAbout": [
+          "Streetwear",
+          "Sneakers",
+          "Indian Fashion",
+          "Limited Edition Releases",
+          "Price Tracking"
+        ]
+      },
+      // WebSite
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        "name": SITE_NAME,
+        "alternateName": `${SITE_NAME} - ${SITE_TAGLINE}`,
+        "url": SITE_URL,
+        "description": `${SITE_TAGLINE} Track ${prodCount.toLocaleString()}+ products from ${brandCount} premium Indian streetwear brands. Instant WhatsApp alerts for price drops and new releases.`,
+        "inLanguage": "en-IN",
+        "publisher": { "@id": `${SITE_URL}/#organization` },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": `${SITE_URL}/browse?search={search_term_string}`
+          },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      // FAQPage
+      {
+        "@type": "FAQPage",
+        "@id": `${SITE_URL}/#faq`,
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How fast are the WhatsApp alerts?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": `Our alerts are delivered to your WhatsApp within 10 seconds of a price drop or new release being detected. We observe ${brandCount} premium brands every 15 minutes, tracking ${prodCount.toLocaleString()}+ products.`
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What brands do you track?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": `We track ${brandCount}+ premium Indian and global streetwear brands including Crep Dog Crew, Huemn, Urban Monkey, VegNonVeg, Superkicks, and more. Total of ${prodCount.toLocaleString()}+ products tracked in real-time.`
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How much does the subscription cost?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The Drops Curated membership costs ₹399 per month with no hidden fees. Cancel anytime. Includes instant WhatsApp alerts, price comparisons, size-first browsing, and privileged early access to drops."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What types of products do you track?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "We track sneakers, hoodies, t-shirts, jackets, accessories, collectibles, watches, and more from premium streetwear brands. Categories include limited editions, new releases, and price drops across all sizes."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Drops Curated affiliated with the brands listed?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Drops Curated is an independent discovery and alert platform. We are not affiliated with, endorsed by, or officially connected to any of the brands listed. All purchases are made directly through the brands' own stores."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I get alerts for my size?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Set your preferred sizes (UK/US/EU for shoes, XS-XXL for garments) in your profile. We automatically convert sizes and only alert you when products in YOUR size are available or drop in price."
+            }
+          }
+        ]
+      },
+      // Service (Subscription)
+      {
+        "@type": "Service",
+        "@id": `${SITE_URL}/#service`,
+        "name": "Drops Curated Premium Membership",
+        "serviceType": "Streetwear Intelligence & Alert Service",
+        "description": `Premium WhatsApp alerts for streetwear drops and price reductions. Track ${prodCount.toLocaleString()}+ products from ${brandCount} brands. Curated excellence, delivered instantly.`,
+        "provider": { "@id": `${SITE_URL}/#organization` },
+        "areaServed": {
+          "@type": "Country",
+          "name": "India"
+        },
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Membership Plans",
+          "itemListElement": [
+            {
+              "@type": "Offer",
+              "name": "Monthly Membership",
+              "price": "399",
+              "priceCurrency": "INR",
+              "availability": "https://schema.org/InStock",
+              "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "price": "399",
+                "priceCurrency": "INR",
+                "billingDuration": "P1M",
+                "unitText": "month"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  };
+
+  return (
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(graph) }} />
+  );
+};
+
+// ============ SINGLE PRODUCT SCHEMA ============
 export const ProductSchema = ({ product, prices = [] }) => {
   if (!product) return null;
 
-  const lowestPrice = prices.length > 0 
-    ? Math.min(...prices.filter(p => p.currentPrice > 0).map(p => p.currentPrice))
-    : product.lowestPrice || 0;
-  
-  const highestPrice = prices.length > 0 
-    ? Math.max(...prices.filter(p => p.currentPrice > 0).map(p => p.currentPrice))
-    : product.highestPrice || lowestPrice;
+  const allPrices = prices.filter(p => p.currentPrice > 0).map(p => p.currentPrice);
+  const productPrice = product.lowestPrice || product.price || 0;
+  const lowestPrice = allPrices.length > 0 ? Math.min(...allPrices) : productPrice;
+  const highestPrice = allPrices.length > 0 ? Math.max(...allPrices) : (product.highestPrice || product.original_price || lowestPrice);
 
   const availability = getAvailabilitySchema(product, prices);
   const aggregateRating = generateAggregateRating(product);
@@ -165,11 +247,11 @@ export const ProductSchema = ({ product, prices = [] }) => {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.name,
-    "description": product.description || `${product.brand} ${product.name} - Premium streetwear available in India. Track price drops and get instant WhatsApp alerts on Drops Curated.`,
-    "image": [product.imageUrl],
+    "description": product.description || `${product.brand || ''} ${product.name} – Premium streetwear available in India. Discover on Drops Curated.`,
+    "image": [product.imageUrl || product.image_url],
     "url": `${SITE_URL}/product/${product.id}`,
     "sku": product.id,
-    "mpn": product.id,
+    "mpn": product.shopify_id || product.id,
     "brand": {
       "@type": "Brand",
       "name": product.brand
@@ -179,7 +261,7 @@ export const ProductSchema = ({ product, prices = [] }) => {
       "@type": "PeopleAudience",
       "suggestedGender": product.aiGender || "unisex"
     },
-    "offers": {
+    "offers": lowestPrice !== highestPrice ? {
       "@type": "AggregateOffer",
       "priceCurrency": "INR",
       "lowPrice": lowestPrice,
@@ -192,20 +274,29 @@ export const ProductSchema = ({ product, prices = [] }) => {
         "name": product.store?.replace(/_/g, ' ') || SITE_NAME
       },
       "priceValidUntil": new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    } : {
+      "@type": "Offer",
+      "priceCurrency": "INR",
+      "price": lowestPrice,
+      "availability": availability,
+      "itemCondition": "https://schema.org/NewCondition",
+      "url": `${SITE_URL}/product/${product.id}`,
+      "seller": {
+        "@type": "Organization",
+        "name": product.store?.replace(/_/g, ' ') || SITE_NAME
+      },
+      "priceValidUntil": new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     }
   };
 
-  // Add AggregateRating if available
   if (aggregateRating) {
     schema.aggregateRating = aggregateRating;
   }
 
-  // Add sizes if available
-  if (product.attributes?.sizes?.length > 0) {
-    schema.size = product.attributes.sizes;
+  if (product.available_sizes?.length > 0 || product.attributes?.sizes?.length > 0) {
+    schema.size = product.available_sizes || product.attributes.sizes;
   }
 
-  // Add color if available
   if (product.attributes?.color) {
     schema.color = product.attributes.color;
   }
@@ -215,17 +306,17 @@ export const ProductSchema = ({ product, prices = [] }) => {
   );
 };
 
-// Product Card Schema for lists - Enhanced with availability
+// ============ PRODUCT CARD SCHEMA (for inline use in lists) ============
 export const ProductCardSchema = ({ product }) => {
   if (!product) return null;
 
   const availability = getAvailabilitySchema(product);
+  const price = product.lowestPrice || product.price || 0;
 
-  const schema = {
-    "@context": "https://schema.org",
+  return {
     "@type": "Product",
     "name": product.name,
-    "image": product.imageUrl,
+    "image": product.imageUrl || product.image_url,
     "url": `${SITE_URL}/product/${product.id}`,
     "sku": product.id,
     "brand": {
@@ -235,27 +326,15 @@ export const ProductCardSchema = ({ product }) => {
     "offers": {
       "@type": "Offer",
       "priceCurrency": "INR",
-      "price": product.lowestPrice || 0,
+      "price": price,
       "availability": availability,
       "itemCondition": "https://schema.org/NewCondition",
       "url": `${SITE_URL}/product/${product.id}`
     }
   };
-
-  // Add rating if available
-  if (product.rating) {
-    schema.aggregateRating = {
-      "@type": "AggregateRating",
-      "ratingValue": product.rating,
-      "reviewCount": product.reviewCount || 1,
-      "bestRating": 5
-    };
-  }
-
-  return schema;
 };
 
-// ItemList Schema for product collections - Enhanced with full product data
+// ============ ITEM LIST SCHEMA ============
 export const ItemListSchema = ({ products, listName, description, listType = 'ItemList' }) => {
   if (!products || products.length === 0) return null;
 
@@ -263,11 +342,12 @@ export const ItemListSchema = ({ products, listName, description, listType = 'It
     "@context": "https://schema.org",
     "@type": listType,
     "name": listName || "Streetwear Drops",
-    "description": description || `Curated streetwear products from ${TOTAL_BRANDS} premium Indian brands`,
+    "description": description || "Curated streetwear products from premium Indian brands",
     "numberOfItems": products.length,
     "itemListOrder": "https://schema.org/ItemListOrderDescending",
     "itemListElement": products.slice(0, 50).map((product, index) => {
       const availability = getAvailabilitySchema(product);
+      const price = product.lowestPrice || product.price || 0;
       
       return {
         "@type": "ListItem",
@@ -275,7 +355,7 @@ export const ItemListSchema = ({ products, listName, description, listType = 'It
         "item": {
           "@type": "Product",
           "name": product.name,
-          "image": product.imageUrl,
+          "image": product.imageUrl || product.image_url,
           "url": `${SITE_URL}/product/${product.id}`,
           "sku": product.id,
           "brand": {
@@ -286,7 +366,7 @@ export const ItemListSchema = ({ products, listName, description, listType = 'It
           "offers": {
             "@type": "Offer",
             "priceCurrency": "INR",
-            "price": product.lowestPrice || 0,
+            "price": price,
             "availability": availability,
             "itemCondition": "https://schema.org/NewCondition"
           }
@@ -300,12 +380,12 @@ export const ItemListSchema = ({ products, listName, description, listType = 'It
   );
 };
 
-// Specific section schemas for Browse page
+// ============ SECTION-SPECIFIC SCHEMAS ============
 export const NewDropsSchema = ({ products }) => (
   <ItemListSchema 
     products={products}
     listName="New Streetwear Drops"
-    description={`Latest streetwear releases from ${TOTAL_BRANDS} premium Indian brands. Fresh drops updated every 15 minutes.`}
+    description="Latest streetwear releases from premium Indian brands. Fresh drops updated every 15 minutes."
   />
 );
 
@@ -313,7 +393,7 @@ export const TrendingSchema = ({ products }) => (
   <ItemListSchema 
     products={products}
     listName="Trending Streetwear Now"
-    description="Most popular streetwear items trending in India right now. Hottest sneakers, hoodies, and limited editions."
+    description="Most popular streetwear items trending in India right now."
   />
 );
 
@@ -329,11 +409,11 @@ export const AllDropsSchema = ({ products, totalCount }) => (
   <ItemListSchema 
     products={products}
     listName="All Streetwear Drops"
-    description={`Browse ${totalCount || TOTAL_PRODUCTS}+ streetwear products from ${TOTAL_BRANDS} premium Indian and global brands.`}
+    description={`Browse ${(totalCount || 11700).toLocaleString()}+ streetwear products from premium Indian and global brands.`}
   />
 );
 
-// BreadcrumbList Schema
+// ============ BREADCRUMB SCHEMA ============
 export const BreadcrumbSchema = ({ items }) => {
   if (!items || items.length === 0) return null;
 
@@ -353,107 +433,26 @@ export const BreadcrumbSchema = ({ items }) => {
   );
 };
 
-// FAQ Schema - Enhanced
-export const FAQSchema = () => {
+// ============ STANDALONE SCHEMAS (backward compat) ============
+export const OrganizationSchema = () => {
   const schema = {
     "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "How fast are the WhatsApp alerts?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `Our alerts are delivered to your WhatsApp within 10 seconds of a price drop or new release being detected. We scan ${TOTAL_BRANDS} premium brands every 15 minutes, tracking ${TOTAL_PRODUCTS.toLocaleString()}+ products.`
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What brands do you track?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `We track ${TOTAL_BRANDS}+ premium Indian and global streetwear brands including Crep Dog Crew, Huemn, Urban Monkey, AMIRI, Nike, On Running, and more. Total of ${TOTAL_PRODUCTS.toLocaleString()}+ products tracked in real-time.`
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How much does the subscription cost?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "The Drops Curated membership costs ₹399 per month with no hidden fees. You can cancel anytime. Get instant WhatsApp alerts, price comparisons, and member-only early access to drops."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What types of products do you track?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "We track sneakers, hoodies, t-shirts, jackets, accessories, and collectibles from premium streetwear brands. Categories include limited editions, new releases, and price drops across all sizes."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How do I get alerts for my size?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Set your preferred sizes (UK/US/EU for shoes, XS-XXL for garments) in your profile. We automatically convert sizes and only alert you when products in YOUR size are available or drop in price."
-        }
-      }
-    ]
+    "@type": "Organization",
+    "name": SITE_NAME,
+    "url": SITE_URL,
+    "logo": `${SITE_URL}/logo.png`,
+    "description": SITE_DESCRIPTION,
+    "slogan": SITE_TAGLINE,
+    "areaServed": { "@type": "Country", "name": "India" }
   };
-
-  return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-  );
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
 };
 
-// Service Schema for the subscription
-export const ServiceSchema = () => {
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "Service",
-    "name": "Drops Curated Premium Membership",
-    "serviceType": "Streetwear Alert Service",
-    "description": `Premium WhatsApp alerts for streetwear drops and price reductions. Track ${TOTAL_PRODUCTS.toLocaleString()}+ products from ${TOTAL_BRANDS} brands.`,
-    "provider": {
-      "@type": "Organization",
-      "name": SITE_NAME
-    },
-    "areaServed": {
-      "@type": "Country",
-      "name": "India"
-    },
-    "offers": {
-      "@type": "Offer",
-      "price": "399",
-      "priceCurrency": "INR",
-      "availability": "https://schema.org/InStock",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
-        "price": "399",
-        "priceCurrency": "INR",
-        "billingDuration": "P1M",
-        "unitText": "month"
-      }
-    }
-  };
+export const FAQSchema = () => null; // Merged into HomepageSchemas @graph
+export const ServiceSchema = () => null; // Merged into HomepageSchemas @graph
+export const WebSiteSchema = () => null; // Merged into HomepageSchemas @graph
 
-  return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-  );
-};
-
-// Combined Homepage Schema Component - Enhanced
-export const HomepageSchemas = () => (
-  <>
-    <OrganizationSchema />
-    <WebSiteSchema />
-    <FAQSchema />
-    <ServiceSchema />
-  </>
-);
-
-// Page-specific SEO with Helmet
+// ============ PAGE SEO WITH HELMET ============
 export const PageSEO = ({ 
   title, 
   description, 
@@ -462,7 +461,7 @@ export const PageSEO = ({
   type = 'website'
 }) => {
   const safeTitle = title ? String(title) : 'Streetwear Drops';
-  const safeDescription = description ? String(description) : 'Premium Indian streetwear drops with price comparison';
+  const safeDescription = description ? String(description) : SITE_DESCRIPTION;
   const fullTitle = safeTitle + ' | ' + SITE_NAME;
   const fullUrl = SITE_URL + path;
   
@@ -475,7 +474,9 @@ export const PageSEO = ({
       <meta property="og:description" content={safeDescription} />
       <meta property="og:url" content={fullUrl} />
       <meta property="og:type" content={type} />
+      <meta property="og:site_name" content={SITE_NAME} />
       {image ? <meta property="og:image" content={String(image)} /> : null}
+      <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={safeDescription} />
     </Helmet>

@@ -378,8 +378,8 @@ export default function LandingPage() {
 
   return (
     <div className="bg-background" data-testid="landing-page">
-      {/* Homepage SEO Schemas - Organization, WebSite, FAQ */}
-      <HomepageSchemas />
+      {/* Homepage SEO Schemas - Organization, WebSite, FAQ, Service in single @graph */}
+      <HomepageSchemas totalProducts={stats.products} totalBrands={stats.brands} />
       <BreadcrumbSchema items={[{ name: 'Home' }]} />
       
       <Header transparent />

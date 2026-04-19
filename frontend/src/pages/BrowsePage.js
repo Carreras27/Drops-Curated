@@ -7,8 +7,6 @@ import {
   generateProductAlt, 
   ItemListSchema, 
   BreadcrumbSchema, 
-  OrganizationSchema, 
-  WebSiteSchema,
   NewDropsSchema,
   TrendingSchema,
   LimitedEditionSchema,
@@ -1097,10 +1095,6 @@ export default function BrowsePage() {
 
   return (
     <div className="bg-background min-h-screen" data-testid="browse-page">
-      {/* JSON-LD Schemas for SEO */}
-      <OrganizationSchema />
-      <WebSiteSchema />
-      
       {/* Breadcrumb Schema */}
       <BreadcrumbSchema items={[
         { name: 'Home', url: '/' },
