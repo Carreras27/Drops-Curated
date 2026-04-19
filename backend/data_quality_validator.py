@@ -180,10 +180,9 @@ class DataQualityValidator:
             unfixable += 1
 
         # ── Check price vs size_prices consistency ──
-        # If a product has size_prices, its display price should be the first size's price
         sp_cursor = self._db.products.find(
             {**query, "attributes.size_prices": {"$exists": True, "$ne": {}}},
-            {"_id": 1, "name": 1, "store": 1, "attributes.size_prices": 1, "attributes.sizes": 1},
+            {"_id": 1, "name": 1, "store": 1, "id": 1, "attributes.size_prices": 1, "attributes.sizes": 1},
         )
         async for prod in sp_cursor:
             sp = prod.get("attributes", {}).get("size_prices", {})
@@ -191,13 +190,95 @@ class DataQualityValidator:
             if sp and sizes:
                 first_size_price = sp.get(sizes[0])
                 if first_size_price:
-                    # Update the corresponding price record
                     await self._db.prices.update_one(
                         {"productId": prod.get("id"), "store": prod.get("store")},
                         {"$set": {"currentPrice": first_size_price, "sizePrices": sp}},
                     )
                     findings["price_accuracy_fixed"] = findings.get("price_accuracy_fixed", 0) + 1
                     auto_fixed += 1
+
+        # ── CHECK: Buy Now URL matches product name ──
+        # Catches: URL pointing to a completely different product
+        url_fix_count = 0
+        url_mismatch_count = 0
+        price_cursor = self._db.prices.find(
+            {**({} if not store_key else {"store": store_key}), "productUrl": {"$exists": True, "$ne": ""}},
+            {"_id": 1, "productId": 1, "store": 1, "productUrl": 1},
+        ).limit(2000)  # Check up to 2000 per run
+        
+        # Batch-load product URLs for comparison
+        price_docs = await price_cursor.to_list(2000)
+        if price_docs:
+            pids = list({p["productId"] for p in price_docs})
+            prod_url_map = {}
+            prod_name_map = {}
+            prod_cursor = self._db.products.find(
+                {"id": {"$in": pids}},
+                {"_id": 0, "id": 1, "name": 1, "productUrl": 1}
+            )
+            async for prod in prod_cursor:
+                prod_url_map[prod["id"]] = prod.get("productUrl", "")
+                prod_name_map[prod["id"]] = prod.get("name", "")
+            
+            for price_doc in price_docs:
+                pid = price_doc["productId"]
+                price_url = price_doc.get("productUrl", "")
+                correct_url = prod_url_map.get(pid, "")
+                name = prod_name_map.get(pid, "")
+                
+                # If product has a stored URL and price URL differs, fix it
+                if correct_url and price_url and price_url != correct_url:
+                    await self._db.prices.update_one(
+                        {"_id": price_doc["_id"]},
+                        {"$set": {"productUrl": correct_url}}
+                    )
+                    url_fix_count += 1
+                elif name and price_url and not correct_url:
+                    # Cross-check: do key product name words appear in the URL?
+                    name_words = [w.lower() for w in name.split()[:3] if len(w) > 2]
+                    url_lower = price_url.lower()
+                    if len(name_words) >= 2 and sum(1 for w in name_words if w in url_lower) == 0:
+                        url_mismatch_count += 1
+        
+        if url_fix_count:
+            findings["url_mismatch_fixed"] = url_fix_count
+            auto_fixed += url_fix_count
+        if url_mismatch_count:
+            findings["url_name_mismatch"] = url_mismatch_count
+            unfixable += url_mismatch_count
+
+        # ── CHECK: Product ID collisions ──
+        id_pipeline = [
+            {"$group": {"_id": "$id", "count": {"$sum": 1}, "names": {"$addToSet": "$name"}}},
+            {"$match": {"count": {"$gt": 1}}},
+            {"$limit": 50},
+        ]
+        collisions = await self._db.products.aggregate(id_pipeline).to_list(50)
+        collision_count = sum(1 for c in collisions if len(c.get("names", [])) > 1)
+        if collision_count:
+            findings["id_collisions"] = collision_count
+            unfixable += collision_count
+
+        # ── CHECK: Orphaned price records (sampled) ──
+        # Check a sample of price records for missing products
+        sample_prices = await self._db.prices.aggregate([
+            {"$sample": {"size": 500}},
+            {"$project": {"productId": 1}},
+        ]).to_list(500)
+        if sample_prices:
+            sample_pids = [p["productId"] for p in sample_prices]
+            existing_pids = set()
+            existing_cursor = self._db.products.find(
+                {"id": {"$in": sample_pids}}, {"_id": 0, "id": 1}
+            )
+            async for doc in existing_cursor:
+                existing_pids.add(doc["id"])
+            orphaned = [pid for pid in sample_pids if pid not in existing_pids]
+            if orphaned:
+                findings["orphaned_prices"] = len(orphaned)
+                await self._db.prices.delete_many({"productId": {"$in": orphaned}})
+                findings["orphaned_prices_cleaned"] = len(orphaned)
+                auto_fixed += len(orphaned)
 
         issues_found = sum(findings.values())
 
