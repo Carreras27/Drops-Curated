@@ -356,21 +356,24 @@ def detect_blocked_response(response, content: str = None) -> Optional[BlockedEr
     if content:
         content_lower = content.lower()
         
-        # Captcha detection
+        # If the response is valid JSON with products, it's definitely not blocked
+        if '"products":[' in content or '"products": [' in content:
+            return None
+        
+        # Captcha detection — only check non-JSON responses
         captcha_indicators = [
-            'captcha', 'recaptcha', 'hcaptcha', 'cloudflare',
+            'captcha', 'recaptcha', 'hcaptcha',
             'please verify you are human', 'bot detection',
-            'access denied', 'blocked', 'suspicious activity'
+            'access denied', 'suspicious activity',
+            'challenge-platform', 'cf-browser-verification',
         ]
         for indicator in captcha_indicators:
             if indicator in content_lower:
                 return BlockedError(f"Captcha/Block detected: {indicator}", is_captcha=True)
         
-        # Empty product list when we expect products
-        if '"products":[]' in content or '"products": []' in content:
-            # This could be legitimate (no products) or a soft block
-            # We'll flag it as potential block for retry logic
-            pass
+        # Cloudflare challenge page (not just the word "cloudflare" in any context)
+        if 'cloudflare' in content_lower and ('challenge' in content_lower or 'ray id' in content_lower):
+            return BlockedError("Cloudflare challenge detected", is_captcha=True)
     
     return None
 
