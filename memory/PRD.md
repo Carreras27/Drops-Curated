@@ -4,7 +4,7 @@
 Premium VIP subscription platform (₹399/month) for the Indian luxury streetwear market. Core value: real-time WhatsApp alerts for new drops and price reductions within 10 seconds.
 
 ## Brand Narrative
-"Curated Excellence. Delivered Instantly." — India's most refined streetwear intelligence platform. A meticulously curated discovery ecosystem connecting discerning collectors with the finest limited drops, exclusive releases, and premium collections from India's most respected brands. Win-win: buyers get speed + convenience, brands get high-intent traffic — no intermediaries, no commissions.
+"Curated Excellence. Delivered Instantly." — India's most refined streetwear intelligence platform.
 
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Recharts
@@ -12,60 +12,66 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 - **AI**: Gemini 2.5 Flash (Scraper Self-Healing via Emergent LLM Key)
 - **Scraping**: Playwright + BeautifulSoup + AETHER SWARM v1.0
 - **Monitoring**: AETHER MASTER v1.0 (autonomous 5-min health cycles)
-- **Monetization**: 7-Day Local/DB Trial → Razorpay Subscriptions
+- **Monetization**: 7-Day Free Trial → Razorpay Subscriptions ₹399/mo
 
 ## What's Been Implemented
 
-### Landing Page (COMPLETE — Updated Feb 2026)
-- Hero: "Curated Excellence. Delivered Instantly." + premium description
-- Benefits for Buyers: 4 cards (alerts, discovery, privileged access, tailored)
-- Platform Story: "A Win-Win Ecosystem" with centralized DB narrative
-- Benefits for Brands: 4 cards (traffic, prestige, loyalty, insights)
-- How It Works: 3-step win-win flow
-- Footer disclaimer (independence/non-affiliation)
-- Live stats social proof, brand marquee, live timestamp
+### 7-Day Free Trial System (COMPLETE — Apr 2026)
+- localStorage-based 7-day trial with `TrialProvider` context
+- Expired: Prices blurred, wishlist locked (lock icons), filter panel locked with overlay
+- Active: Full access with "X days remaining" banner
+- UpgradeModal with ₹399/month CTA on any locked element click
+- `BrowserRouter > TrialProvider > WishlistProvider` order (critical for Link)
+
+### Landing Page (COMPLETE)
+- Hero: "Curated Excellence. Delivered Instantly."
+- Benefits for Buyers (4 cards), Benefits for Brands (4 cards)
+- "A Win-Win Ecosystem" platform story, "How It Works" 3-step
+- Footer disclaimer, brand marquee, live stats
+
+### Browse Page (COMPLETE)
+- Sort: Newest First, Price Low→High, Price High→Low, Name A-Z
+- Empty state with Frown icon + Clear Filters + "Wrong category?" mailto
+- Curated sections: Limited Edition, Trending, New Drops, Celebrity Style
+- Filters: Brand, Category, Item Type, Gender (AI), Size First
+- Trial-aware: locked filters + blurred prices when expired
+
+### Subscribe Page (COMPLETE)
+- Indian phone validation: 10 digits, starts with 6-9, no repeated digits
+- OTP via WhatsApp, Razorpay payment, Turnstile CAPTCHA
+- Size preference funnel
+
+### JSON-LD Structured Data (COMPLETE)
+- Homepage: @graph (Organization + WebSite + FAQPage + Service)
+- Product pages: Product schema with LimitedAvailability
+- Browse: ItemList schemas + BreadcrumbList
+- No duplicate schemas
 
 ### Scraping System (COMPLETE)
-- 24 premium Indian streetwear brands tracked
-- AETHER SWARM v1.0: Multi-persona rotation, AetherBrain self-learning, AetherHuman
-- LLM Self-Healing Scraper Agent (Gemini 2.5 Flash)
-- Auto-scrape every 15 minutes with staggered delays
+- 24 brands, AETHER SWARM v1.0, Gemini self-healing
+- Auto-scrape every 15 minutes
 
 ### AETHER MASTER v1.0 (COMPLETE)
-- Autonomous 5-minute health monitoring
-- Auto-heals: service restarts, scraper retriggers
-- Incident memory persisted to MongoDB
-- Admin dashboard with latency bars, incidents, cycle history
+- 5-min health monitoring, auto-heals, incident memory
 
 ### Admin Panel (COMPLETE)
-- Dashboard, CRM (Analytics/Revenue/Broadcast), Subscribers, Brands
-- Aether Master, Scraper Health, Agent Logs, AI Classification
-
-### Frontend (PARTIALLY COMPLETE)
-- Landing page, Browse page, Wishlist Portfolio, Subscribe page
-- Warm cream / gold minimalist theme (NO dark mode)
-
-### Backend (COMPLETE)
-- FastAPI (3150+ lines), WhatsApp Cloud API, Razorpay, Cloudflare Turnstile
-- AI classification, duplicate detection, rate limiting
+- Dashboard, CRM, Subscribers, Brands, Aether Master, Scraper Health, Agent Logs, AI Classification
 
 ## Prioritized Backlog
 
-### P0 (In Progress)
-- [ ] 7-Day Free Trial: Blurred pricing, locked filters, disabled wishlist
-
 ### P1
-- [ ] SubscribePage: 10-digit Indian phone validation
-- [ ] BrowsePage UI: sort options, empty state, "Wrong category?" button
 - [ ] Apple/Google Wallet digital membership cards
-- [ ] Production keys migration
+- [ ] Production keys migration (Razorpay, Meta WhatsApp)
 
 ### P2
 - [ ] Drop Calendar UI
 - [ ] Brand Partner Dashboard
-- [ ] Refactor server.py into routes/ directory
+- [ ] Refactor server.py into routes/ directory (3150+ lines)
+
+## Key DB Collections
+products, subscribers, brands, prices, price_history, aether_learning, aether_master_memory, scraper_agent_logs, scraper_strategies, product_fingerprints, alert_log, broadcast_log, security_logs
 
 ## Date Log
-- Feb 2026: AETHER SWARM v1.0 deployed
-- Feb 2026: AETHER MASTER v1.0 + CRM Dashboard + Admin Panel
-- Feb 2026: Landing page rewritten with premium narrative
+- Feb 2026: AETHER SWARM v1.0, AETHER MASTER v1.0, CRM Dashboard, Admin Panel
+- Feb 2026: Landing page premium narrative
+- Apr 2026: P0 7-day free trial complete, P1 sort/empty state/phone validation, JSON-LD overhaul
