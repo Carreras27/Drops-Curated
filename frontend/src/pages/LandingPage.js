@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart, Sparkles } from 'lucide-react';
+import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart, Sparkles, Crown, Check } from 'lucide-react';
 import axios from 'axios';
 import { HomepageSchemas, BreadcrumbSchema } from '../components/SEOSchema';
 import { useWishlist } from '../context/WishlistContext';
@@ -443,7 +443,7 @@ export default function LandingPage() {
                   data-testid="hero-subscribe-cta"
                 >
                   <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
-                  Get WhatsApp Alerts — ₹399/mo
+                  Get WhatsApp Alerts — from ₹399/mo
                 </Link>
               </div>
             </div>
@@ -634,6 +634,116 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing — Regular vs VIP */}
+      <section className="py-20 md:py-28 border-t border-primary/[0.06] relative overflow-hidden" data-testid="pricing-section">
+        <NoiseOverlay />
+        <div className="absolute inset-0 pointer-events-none">
+          <GradientBlob className="w-[500px] h-[500px] top-20 -left-40" opacity={0.06} />
+          <GradientBlob className="w-[400px] h-[400px] -bottom-20 -right-20" color1="#D4AF37" color2="#001F3F" opacity={0.05} />
+          <FloatingCircle className="w-4 h-4 top-24 right-[20%] opacity-20" />
+          <GeometricShape className="w-8 h-8 bottom-32 left-[10%] opacity-15" type="square" />
+        </div>
+
+        <div className="max-w-6xl mx-auto px-6 md:px-12 relative z-10">
+          <div className="text-center mb-14">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4">Membership</p>
+            <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-4">Pick Your Tier</h2>
+            <p className="text-sm md:text-base text-primary/50 max-w-xl mx-auto leading-relaxed">
+              Start with Regular for the drops you love, or go VIP for alerts across every brand in India's streetwear scene.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            {/* Regular tier */}
+            <div className="border border-primary/10 bg-surface p-8 md:p-10 flex flex-col relative" data-testid="pricing-card-regular">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-primary/40 mb-3">Regular</p>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="font-serif text-4xl md:text-5xl">₹399</span>
+                <span className="text-sm text-primary/40">/month</span>
+              </div>
+              <p className="text-xs text-primary/50 mb-8">Everything you need to catch the drops you love.</p>
+              <ul className="space-y-3 mb-8 flex-1">
+                {[
+                  'WhatsApp alerts within 10 seconds',
+                  'Price drop notifications',
+                  'New collection drops',
+                  'Follow up to 5 brands',
+                  'Digital membership card',
+                ].map((f, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-primary/60">
+                    <Check className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/subscribe?plan=monthly"
+                className="inline-flex items-center justify-center gap-2 border border-primary/20 text-primary py-3.5 text-sm font-medium hover:bg-primary hover:text-background transition-all duration-300"
+                data-testid="pricing-regular-cta"
+              >
+                Start Regular
+                <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+              </Link>
+            </div>
+
+            {/* VIP tier */}
+            <div className="border-2 border-accent bg-gradient-to-br from-accent/[0.08] via-background to-background p-8 md:p-10 flex flex-col relative shadow-lift" data-testid="pricing-card-vip">
+              <div className="absolute -top-3 right-6 bg-accent text-background px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium">Most Popular</div>
+              <div className="flex items-center gap-2 mb-3">
+                <Crown className="w-4 h-4 text-accent" strokeWidth={1.5} />
+                <p className="text-[10px] uppercase tracking-[0.2em] text-accent font-semibold">VIP</p>
+              </div>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="font-serif text-4xl md:text-5xl">₹2,999</span>
+                <span className="text-sm text-primary/40">/month</span>
+              </div>
+              <p className="text-xs text-primary/50 mb-4">Or commit longer and save:</p>
+              <div className="grid grid-cols-2 gap-2 mb-8">
+                <div className="border border-accent/30 p-3">
+                  <p className="font-serif text-lg">₹16,195</p>
+                  <p className="text-[10px] text-primary/40">/6 months</p>
+                  <p className="text-[10px] uppercase tracking-wider text-accent mt-1 font-medium">Save 10%</p>
+                </div>
+                <div className="border border-accent bg-accent/5 p-3">
+                  <p className="font-serif text-lg">₹28,790</p>
+                  <p className="text-[10px] text-primary/40">/year</p>
+                  <p className="text-[10px] uppercase tracking-wider text-accent mt-1 font-medium">Save 20%</p>
+                </div>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                {[
+                  <><span className="font-medium">Alerts for ALL 24+ brands</span> (no caps, no limits)</>,
+                  'Everything in Regular',
+                  'Cross-store savings feed (find cheaper elsewhere)',
+                  'Early-access alerts — 15 min before non-VIPs',
+                  'Exclusive raffle entries & drop priority',
+                  'Priority WhatsApp concierge support',
+                  'Premium Apple / Google Wallet membership card',
+                ].map((f, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-primary/70">
+                    <Check className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/subscribe?plan=vip_yearly"
+                className="inline-flex items-center justify-center gap-2 bg-accent text-primary py-3.5 text-sm font-medium hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+                data-testid="pricing-vip-cta"
+              >
+                <Crown className="w-4 h-4" strokeWidth={1.5} />
+                Go VIP — Best Value
+                <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+              </Link>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-center text-primary/40 mt-8">
+            All plans: cancel anytime. No hidden fees. Secure payments via Razorpay (UPI, cards, net banking).
+          </p>
+        </div>
+      </section>
+
       {/* How It Works */}
       <section className="py-20 md:py-28 bg-surface border-t border-primary/[0.06] relative overflow-hidden">
         <NoiseOverlay />
@@ -687,7 +797,7 @@ export default function LandingPage() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-6">Join the Inner Circle</p>
           <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl tracking-tight mb-4">Curated Excellence Awaits</h2>
           <p className="text-base text-background/50 max-w-lg mx-auto mb-10">
-            Join India's most discerning streetwear community. Personalized WhatsApp alerts, privileged access, and a refined discovery experience — all for ₹399/month.
+            Join India's most discerning streetwear community. Personalized WhatsApp alerts, privileged access, and a refined discovery experience — starting at ₹399/month, or go VIP for every brand.
           </p>
           <Link
             to="/subscribe"

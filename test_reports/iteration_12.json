@@ -1,0 +1,74 @@
+{
+  "summary": "Tested VIP subscription plan feature (backend + landing page frontend) and cross-store savings regression. Backend: 10/12 passed, 2 skipped (per-IP payment rate-limit budget). Landing page pricing section and subscribe page URL-param preselection verified. Plan-selector UI past OTP step could not be automated due to live Cloudflare Turnstile (not sandbox test mode). Fixed a Motor DB truth-testing bug in security.py that was causing 500 errors during rate-limit paths.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/payment/create-order", "issue": "Rate-limit of 4/hour per IP is very tight for test automation — blocked 4th parametrized plan test. Functional, but makes full e2e suites flaky. Consider raising to 10/hour or exempting sandbox/trusted IPs."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Subscribe page OTP step", "issue": "Cloudflare Turnstile site key 0x4AAAAAAC5Kc8juEeONfiUI is a live (non-test) widget, so Send-OTP button stays disabled until a real human solves the checkbox. Main agent's brief said it would auto-pass in sandbox. This blocks automated testing of everything after the OTP step (plan-selector, upgrade-to-vip banner, payment flow).", "affected_selectors": ["send-otp-btn", "plan-selector", "upgrade-to-vip-banner"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_vip_subscription.py",
+    "/app/test_reports/pytest/vip_subscription_results.xml"
+  ],
+  "action_items": [
+    "Swap REACT_APP_TURNSTILE_SITE_KEY to Cloudflare's documented test site key 1x00000000000000000000AA (always passes) for preview/sandbox envs, so the OTP step can be automated end-to-end; keep the real key for production.",
+    "Consider raising /api/payment/create-order rate limit from 4/hour to 10/hour, or allow sandbox bypass, to make e2e tests deterministic.",
+    "Agent-to-agent note to main agent: the plan-selector/upgrade-banner UI itself has NOT been exercised in a browser — only the URL-param preselection side-effect (sidebar price) was confirmed. Recommend self-test with a real browser (click captcha, verify OTP, confirm plan radio cards + dynamic Pay button)."
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXED: /app/backend/security.py had three Motor/AsyncIOMotorDatabase instances tested with `if self._db:` / `if not self._db:` — PyMongo/Motor raises NotImplementedError on bool(db). Converted to `is not None` / `is None`. Was causing a 500 response whenever the rate-limiter fired on any endpoint (e.g., 4th payment create-order call returned 500 instead of a proper 429).",
+    "Subscribe page still depends on live Turnstile in preview env — consider env-gated test site key.",
+    "/api/payment/create-order requires name/email/address/dob even before showing plan UI — this is fine, but the create-order → verify rate limit is shared so e2e tests that do create+verify twice may trip rate limiter unexpectedly."
+  ],
+  "updated_files": [
+    "/app/backend/security.py",
+    "/app/backend/tests/test_vip_subscription.py"
+  ],
+  "success_rate": {
+    "backend": "100% of executed tests passed (10 passed, 2 skipped due to rate-limit budget — but vip_yearly create-order + verify was run standalone and passed)",
+    "frontend": "Landing pricing section 100%; Subscribe URL-param preselection confirmed; plan-selector UI past OTP: NOT TESTED (captcha blocker)"
+  },
+  "test_credentials": "Same as /app/memory/test_credentials.md. Fresh phones 9876543253-9876543258 used for new signups. 9876543251 upgraded to VIP yearly during test — no longer 'fresh'.",
+  "seed_data_creation": "Subscriber 9876543251 was promoted to VIP yearly (tier=vip, plan=vip_yearly, expiresAt ~365 days) during the verify-flow test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend /api/plans is the canonical source of truth; all 4 plan amounts verified. The Turnstile live-mode blocker for subscribe-page automation will persist until main agent swaps REACT_APP_TURNSTILE_SITE_KEY to the Cloudflare test key in the preview env. For future e2e runs, space out /api/payment/create-order calls (≤4/hour/IP) or restart backend to reset the in-memory rate limiter.",
+  "features_tested": {
+    "landing_pricing_section": {
+      "pricing-section_present": "PASS",
+      "pricing-card-regular_shows_399": "PASS",
+      "pricing-card-vip_shows_2999_16195_28790": "PASS",
+      "vip_save_10pct_20pct_badges": "PASS",
+      "most_popular_badge": "PASS",
+      "pricing-regular-cta_href": "PASS (/subscribe?plan=monthly)",
+      "pricing-vip-cta_href": "PASS (/subscribe?plan=vip_yearly)"
+    },
+    "subscribe_page_url_param": {
+      "vip_yearly_preselection_sidebar_price": "PASS (sidebar shows ₹28,790/year)"
+    },
+    "subscribe_page_plan_selector": {
+      "plan-selector_radio_cards": "NOT TESTED (captcha blocker)",
+      "dynamic_pay_button_label": "NOT TESTED",
+      "upgrade_to_vip_banner_for_regular_9876543210": "NOT TESTED"
+    },
+    "backend_apis": {
+      "GET /api/plans (4 plans, correct amounts/tiers/benefits)": "PASS",
+      "POST /api/payment/create-order monthly=39900": "PASS",
+      "POST /api/payment/create-order vip_monthly=299900": "PASS",
+      "POST /api/payment/create-order vip_6mo=1619500": "PASS",
+      "POST /api/payment/create-order vip_yearly=2879000": "PASS (standalone run)",
+      "POST /api/payment/verify vip_yearly → tier=vip, plan=vip_yearly, brandLimit=0, expiresAt≈365d": "PASS",
+      "GET /api/subscribers/{phone}/status (existing & unknown)": "PASS",
+      "GET /api/savings/active (total=376)": "PASS",
+      "GET /api/products/prod_ALMOST_GODS_25797 (SUPERKICKS ₹9,500 cheapest)": "PASS"
+    }
+  },
+  "rca_of_the_issue": "security.py used `if self._db:` / `if security_tracker._db:` truth-tests on a Motor AsyncIOMotorDatabase, which raises NotImplementedError. That triggered a 500 response in rate_limit_exceeded_handler whenever the payment endpoint's per-IP limit was hit (masking what should be a 429). Fixed by switching to `is not None` / `is None` comparisons in all three occurrences."
+}

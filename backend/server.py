@@ -126,6 +126,92 @@ def create_jwt_token(user_id: str, email: str) -> str:
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
+
+# ============ SUBSCRIPTION PLAN CATALOG ============
+# Central source of truth for all subscription plans. Used by /api/plans, payment order
+# creation, and payment verification. Amounts are in paise (INR * 100).
+PLAN_CATALOG = {
+    'monthly': {
+        'code': 'monthly',
+        'tier': 'regular',
+        'label': 'Regular',
+        'billing_period': 'monthly',
+        'duration_days': 30,
+        'amount_paise': 39900,          # ₹399 / month
+        'display_price': '₹399',
+        'display_period': '/month',
+        'brand_limit': 5,               # max brands subscriber can follow
+        'savings_pct': 0,
+        'benefits': [
+            'WhatsApp alerts within 10 seconds',
+            'Price drop notifications',
+            'New collection drops',
+            'Follow up to 5 brands',
+            'Digital membership card',
+        ],
+    },
+    'vip_monthly': {
+        'code': 'vip_monthly',
+        'tier': 'vip',
+        'label': 'VIP',
+        'billing_period': 'monthly',
+        'duration_days': 30,
+        'amount_paise': 299900,          # ₹2,999 / month
+        'display_price': '₹2,999',
+        'display_period': '/month',
+        'brand_limit': 0,                # 0 = unlimited
+        'savings_pct': 0,
+        'benefits': [
+            'Alerts for ALL 24+ premium brands (unlimited)',
+            'Everything in Regular',
+            'Cross-store savings feed (find cheaper elsewhere)',
+            'Early-access alerts — 15 min before non-VIP',
+            'Exclusive raffle entries & drop priority',
+            'Priority WhatsApp concierge support',
+            'Premium Apple / Google Wallet membership card',
+        ],
+    },
+    'vip_6mo': {
+        'code': 'vip_6mo',
+        'tier': 'vip',
+        'label': 'VIP',
+        'billing_period': 'semiannual',
+        'duration_days': 180,
+        'amount_paise': 1619500,         # ₹2,999 × 6 × 0.90 = ₹16,195
+        'display_price': '₹16,195',
+        'display_period': '/6 months',
+        'brand_limit': 0,
+        'savings_pct': 10,
+        'benefits': [
+            'Everything in VIP Monthly',
+            'Save 10% — 6-month commitment',
+        ],
+    },
+    'vip_yearly': {
+        'code': 'vip_yearly',
+        'tier': 'vip',
+        'label': 'VIP',
+        'billing_period': 'yearly',
+        'duration_days': 365,
+        'amount_paise': 2879000,         # ₹2,999 × 12 × 0.80 = ₹28,790
+        'display_price': '₹28,790',
+        'display_period': '/year',
+        'brand_limit': 0,
+        'savings_pct': 20,
+        'benefits': [
+            'Everything in VIP Monthly',
+            'Save 20% — best value',
+            'Priority early-access to exclusive drops',
+        ],
+    },
+}
+
+
+def get_plan(plan_code: str) -> dict:
+    """Return a plan dict for a given plan code, falling back to 'monthly'."""
+    return PLAN_CATALOG.get(plan_code) or PLAN_CATALOG['monthly']
+
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     try:
         token = credentials.credentials
@@ -1295,6 +1381,56 @@ class OTPRequestWithCaptcha(BaseModel):
     phone: str
     turnstile_token: Optional[str] = None
 
+
+@api_router.get('/plans')
+async def list_plans():
+    """Public catalog of subscription plans (for pricing UI)."""
+    # Expose ordered list so frontend can render in tier order
+    ordered = ['monthly', 'vip_monthly', 'vip_6mo', 'vip_yearly']
+    return {
+        'plans': [
+            {
+                'code': PLAN_CATALOG[c]['code'],
+                'tier': PLAN_CATALOG[c]['tier'],
+                'label': PLAN_CATALOG[c]['label'],
+                'billing_period': PLAN_CATALOG[c]['billing_period'],
+                'duration_days': PLAN_CATALOG[c]['duration_days'],
+                'amount_paise': PLAN_CATALOG[c]['amount_paise'],
+                'display_price': PLAN_CATALOG[c]['display_price'],
+                'display_period': PLAN_CATALOG[c]['display_period'],
+                'brand_limit': PLAN_CATALOG[c]['brand_limit'],
+                'savings_pct': PLAN_CATALOG[c]['savings_pct'],
+                'benefits': PLAN_CATALOG[c]['benefits'],
+            }
+            for c in ordered if c in PLAN_CATALOG
+        ]
+    }
+
+
+@api_router.get('/subscribers/{phone}/status')
+async def subscriber_status(phone: str):
+    """Lightweight subscriber status lookup — used by the upgrade banner to decide
+    whether to show 'Upgrade to VIP' for an existing regular subscriber.
+    Returns only non-PII flags.
+    """
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+    sub = await db.subscribers.find_one(
+        {'phone': phone},
+        {'_id': 0, 'isPaid': 1, 'plan': 1, 'tier': 1, 'expiresAt': 1, 'membershipId': 1}
+    )
+    if not sub:
+        return {'found': False}
+    return {
+        'found': True,
+        'isPaid': sub.get('isPaid', False),
+        'plan': sub.get('plan'),
+        'tier': sub.get('tier') or ('vip' if sub.get('plan', '').startswith('vip_') else 'regular'),
+        'expiresAt': sub.get('expiresAt'),
+        'membershipId': sub.get('membershipId'),
+    }
+
+
 @api_router.post('/otp/send')
 @limiter.limit("5/15minutes")
 async def send_otp_endpoint(request: Request, data: OTPRequestWithCaptcha):
@@ -1373,7 +1509,8 @@ async def create_payment_order(request: Request, data: CreateOrderRequest):
     if not stored or not stored.get('verified'):
         raise HTTPException(status_code=400, detail='Phone not verified. Complete OTP first.')
 
-    amount = 39900  # ₹399 in paise
+    plan = get_plan(data.plan)
+    amount = plan['amount_paise']
 
     if SANDBOX_MODE:
         # Sandbox: simulate order
@@ -1391,7 +1528,7 @@ async def create_payment_order(request: Request, data: CreateOrderRequest):
             'amount': amount,
             'currency': 'INR',
             'payment_capture': 1,
-            'notes': {'phone': phone, 'plan': data.plan},
+            'notes': {'phone': phone, 'plan': plan['code']},
         })
 
     # Store order
@@ -1404,7 +1541,8 @@ async def create_payment_order(request: Request, data: CreateOrderRequest):
         'dob': data.dob,
         'amount': amount,
         'status': 'created',
-        'plan': data.plan,
+        'plan': plan['code'],
+        'tier': plan['tier'],
         'createdAt': datetime.now(timezone.utc).isoformat(),
     })
 
@@ -1414,6 +1552,13 @@ async def create_payment_order(request: Request, data: CreateOrderRequest):
         'currency': 'INR',
         'key_id': RAZORPAY_KEY_ID,
         'sandbox': SANDBOX_MODE,
+        'plan': {
+            'code': plan['code'],
+            'label': plan['label'],
+            'tier': plan['tier'],
+            'display_price': plan['display_price'],
+            'display_period': plan['display_period'],
+        },
     }
 
 @api_router.post('/payment/verify')
@@ -1449,9 +1594,22 @@ async def verify_payment(data: VerifyPaymentRequest, request: Request):
     if not is_valid:
         raise HTTPException(status_code=400, detail='Payment verification failed')
 
-    # Activate membership
+    # Activate membership — duration and tier derived from plan catalog
     now = datetime.now(timezone.utc)
-    expires = now + timedelta(days=30)
+    plan = get_plan(order.get('plan', 'monthly'))
+
+    # If subscriber already has an active subscription, stack the new duration on top
+    # (handles upgrades and renewals — remaining time is preserved, not lost)
+    existing_sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0, 'expiresAt': 1, 'isPaid': 1})
+    base_time = now
+    if existing_sub and existing_sub.get('isPaid') and existing_sub.get('expiresAt'):
+        try:
+            current_expiry = datetime.fromisoformat(existing_sub['expiresAt'].replace('Z', '+00:00'))
+            if current_expiry > now:
+                base_time = current_expiry
+        except Exception:
+            pass
+    expires = base_time + timedelta(days=plan['duration_days'])
     membership_id = f"DC-{now.strftime('%Y%m')}-{random.randint(10000, 99999)}"
 
     await db.orders.update_one(
@@ -1486,7 +1644,9 @@ async def verify_payment(data: VerifyPaymentRequest, request: Request):
             'isActive': True,
             'isPaid': True,
             'membershipId': membership_id,
-            'plan': order.get('plan', 'monthly'),
+            'plan': plan['code'],
+            'tier': plan['tier'],
+            'brandLimit': plan['brand_limit'],
             'paidAt': now.isoformat(),
             'expiresAt': expires.isoformat(),
             'updatedAt': now.isoformat(),

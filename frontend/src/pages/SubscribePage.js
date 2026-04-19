@@ -372,6 +372,37 @@ export default function SubscribePage() {
   const [showWhatsAppWarning, setShowWhatsAppWarning] = useState(false);
   const [telegramUsername, setTelegramUsername] = useState('');
 
+  // Subscription plan selection
+  const [plans, setPlans] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(() => {
+    // Allow ?plan=vip_monthly etc. from Landing page CTAs
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('plan');
+      if (p && ['monthly', 'vip_monthly', 'vip_6mo', 'vip_yearly'].includes(p)) return p;
+    } catch { /* ignore */ }
+    return 'monthly';
+  });
+  const [existingSubStatus, setExistingSubStatus] = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/plans`)
+      .then(r => setPlans(r.data.plans || []))
+      .catch(() => { /* plans are decorative — silent fail */ });
+  }, []);
+
+  // After phone is verified, check if this phone already has a subscription
+  // so we can surface an Upgrade banner for existing Regular members.
+  useEffect(() => {
+    if (step === 'details' && phone && phone.length === 10) {
+      axios.get(`${API_URL}/subscribers/${phone}/status`)
+        .then(r => setExistingSubStatus(r.data))
+        .catch(() => setExistingSubStatus(null));
+    }
+  }, [step, phone]);
+
+  const currentPlan = plans.find(p => p.code === selectedPlan);
+
   const addKeyword = () => {
     const kw = keywordInput.trim().toLowerCase();
     if (kw && !keywords.includes(kw) && keywords.length < 10) {
@@ -513,14 +544,15 @@ export default function SubscribePage() {
     if (!dob) { toast.error('Please enter your date of birth'); return; }
     setLoading(true);
     try {
-      const resp = await axios.post(`${API_URL}/payment/create-order`, { phone, name, email, address, dob, plan: 'monthly' });
+      const resp = await axios.post(`${API_URL}/payment/create-order`, { phone, name, email, address, dob, plan: selectedPlan });
       setOrderId(resp.data.order_id);
       if (resp.data.sandbox) {
         setStep('payment');
       } else {
+        const planLabel = currentPlan?.label === 'VIP' ? 'VIP Membership' : 'Monthly Membership';
         const options = {
           key: resp.data.key_id, amount: resp.data.amount, currency: resp.data.currency,
-          order_id: resp.data.order_id, name: 'Drops Curated', description: 'Monthly Membership',
+          order_id: resp.data.order_id, name: 'Drops Curated', description: planLabel,
           handler: (r) => completePayment(r.razorpay_payment_id, r.razorpay_signature, resp.data.order_id),
           prefill: { name, contact: phone }, theme: { color: '#001F3F' },
         };
@@ -794,22 +826,130 @@ export default function SubscribePage() {
                         className="w-full px-4 py-3.5 bg-surface border border-primary/10 text-sm placeholder:text-primary/20 focus:outline-none focus:border-accent transition-colors" data-testid="dob-input" required />
                       <p className="text-[10px] text-accent/60 mt-1">For exclusive birthday offers & discounts</p>
                     </div>
+                    {/* Upgrade banner for existing Regular subscribers */}
+                    {existingSubStatus?.found && existingSubStatus?.isPaid && existingSubStatus?.tier === 'regular' && selectedPlan === 'monthly' && (
+                      <div className="bg-accent/10 border border-accent/30 p-5 rounded-sm" data-testid="upgrade-to-vip-banner">
+                        <div className="flex items-start gap-3">
+                          <Crown className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                          <div className="flex-1">
+                            <p className="text-xs text-accent uppercase tracking-[0.2em] mb-1 font-medium">Upgrade Available</p>
+                            <p className="text-sm font-medium mb-1">You're on Regular. Unlock VIP.</p>
+                            <p className="text-xs text-primary/60 leading-relaxed mb-3">
+                              Get alerts for ALL 24+ brands (vs 5), the cross-store savings feed, and 15-min early access.
+                              Your remaining days stack on top of the VIP subscription.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPlan('vip_monthly')}
+                              className="text-xs font-medium text-accent underline underline-offset-4 hover:no-underline"
+                              data-testid="upgrade-to-vip-btn"
+                            >
+                              Switch to VIP →
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Plan Selector */}
+                    <div data-testid="plan-selector">
+                      <label className="text-xs text-primary/40 uppercase tracking-widest mb-3 block">Choose Your Membership</label>
+
+                      {/* Regular card */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPlan('monthly')}
+                        className={`w-full text-left p-5 mb-3 border transition-all ${
+                          selectedPlan === 'monthly'
+                            ? 'border-primary bg-primary/[0.04]'
+                            : 'border-primary/10 bg-surface hover:border-primary/30'
+                        }`}
+                        data-testid="plan-regular"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-[10px] uppercase tracking-[0.2em] text-primary/40">Regular</span>
+                            </div>
+                            <p className="font-serif text-2xl">₹399<span className="text-xs text-primary/40 font-sans">/month</span></p>
+                            <p className="text-[11px] text-primary/50 mt-2">WhatsApp alerts · up to 5 brands · price drops</p>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            selectedPlan === 'monthly' ? 'border-primary bg-primary' : 'border-primary/20'
+                          }`}>
+                            {selectedPlan === 'monthly' && <div className="w-1.5 h-1.5 rounded-full bg-background" />}
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* VIP section — all three billing options */}
+                      <div className={`border transition-all ${
+                        selectedPlan?.startsWith('vip_')
+                          ? 'border-accent bg-gradient-to-br from-accent/[0.06] to-transparent'
+                          : 'border-primary/10 bg-surface'
+                      }`}>
+                        <div className="p-5 pb-3 border-b border-primary/5">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Crown className="w-3.5 h-3.5 text-accent" strokeWidth={1.5} />
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-medium">VIP Membership</span>
+                          </div>
+                          <p className="text-[11px] text-primary/60 leading-relaxed">
+                            Alerts for <span className="font-medium">ALL 24+ brands</span> · cross-store savings feed · early access · concierge support
+                          </p>
+                        </div>
+                        <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {[
+                            { code: 'vip_monthly', price: '₹2,999', period: '/mo', save: null },
+                            { code: 'vip_6mo', price: '₹16,195', period: '/6 mo', save: 'Save 10%' },
+                            { code: 'vip_yearly', price: '₹28,790', period: '/year', save: 'Save 20% — Best value' },
+                          ].map(opt => (
+                            <button
+                              key={opt.code}
+                              type="button"
+                              onClick={() => setSelectedPlan(opt.code)}
+                              className={`relative p-3 text-left border transition-all ${
+                                selectedPlan === opt.code
+                                  ? 'border-accent bg-accent/5'
+                                  : 'border-primary/10 hover:border-accent/40'
+                              }`}
+                              data-testid={`plan-${opt.code}`}
+                            >
+                              <p className="font-serif text-lg">{opt.price}</p>
+                              <p className="text-[10px] text-primary/40">{opt.period}</p>
+                              {opt.save && (
+                                <p className="text-[9px] uppercase tracking-wider text-accent mt-1 font-medium">{opt.save}</p>
+                              )}
+                              {selectedPlan === opt.code && (
+                                <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-accent flex items-center justify-center">
+                                  <Check className="w-2 h-2 text-background" strokeWidth={3} />
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Benefits list for selected plan */}
                     <div className="bg-primary/[0.03] border border-primary/10 p-5">
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium">Monthly Membership</span>
-                        <span className="font-serif text-2xl">₹399</span>
+                        <span className="text-sm font-medium flex items-center gap-2">
+                          {currentPlan?.tier === 'vip' && <Crown className="w-4 h-4 text-accent" strokeWidth={1.5} />}
+                          {currentPlan?.label || 'Regular'} Membership
+                        </span>
+                        <span className="font-serif text-2xl">{currentPlan?.display_price || '₹399'}<span className="text-xs text-primary/40 font-sans">{currentPlan?.display_period || '/month'}</span></span>
                       </div>
                       <ul className="space-y-2">
-                        {['Instant WhatsApp alerts (<10s)', 'Price drop notifications', 'New collection drops', 'Choose your brands', 'Digital membership card'].map((f, i) => (
-                          <li key={i} className="flex items-center gap-2 text-xs text-primary/50">
-                            <Check className="w-3.5 h-3.5 text-accent flex-shrink-0" strokeWidth={1.5} />{f}
+                        {(currentPlan?.benefits || ['WhatsApp alerts within 10 seconds', 'Price drop notifications', 'New collection drops', 'Follow up to 5 brands', 'Digital membership card']).map((f, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-primary/60">
+                            <Check className="w-3.5 h-3.5 text-accent flex-shrink-0 mt-0.5" strokeWidth={1.5} />{f}
                           </li>
                         ))}
                       </ul>
                     </div>
                     <button onClick={createOrder} disabled={loading || !name.trim() || !email.trim() || !address.trim() || !dob}
                       className="w-full bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300 disabled:opacity-40" data-testid="proceed-payment-btn">
-                      {loading ? 'Processing...' : 'Pay ₹399 via UPI'}
+                      {loading ? 'Processing...' : `Pay ${currentPlan?.display_price || '₹399'} via UPI`}
                       <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
                     </button>
                   </div>
@@ -828,8 +968,8 @@ export default function SubscribePage() {
                   <div className="max-w-md space-y-6">
                     <div className="bg-primary/[0.03] border border-primary/10 p-6 text-center">
                       <p className="text-xs text-primary/40 uppercase tracking-widest mb-2">Amount</p>
-                      <p className="font-serif text-4xl mb-1">₹399</p>
-                      <p className="text-xs text-primary/30">Monthly Membership</p>
+                      <p className="font-serif text-4xl mb-1">{currentPlan?.display_price || '₹399'}</p>
+                      <p className="text-xs text-primary/30">{currentPlan?.label || 'Regular'} Membership{currentPlan?.display_period ? ` · ${currentPlan.display_period.replace('/', '')}` : ''}</p>
                     </div>
 
                     {/* WhatsApp Consent Disclaimer */}
@@ -1479,8 +1619,12 @@ export default function SubscribePage() {
                   </div>
                 </div>
                 <div className="text-center py-6">
-                  <p className="font-serif text-3xl mb-1">₹399<span className="text-sm text-primary/30 font-sans">/month</span></p>
-                  <p className="text-xs text-primary/30">Cancel anytime. No commitments.</p>
+                  <p className="font-serif text-3xl mb-1">{currentPlan?.display_price || '₹399'}<span className="text-sm text-primary/30 font-sans">{currentPlan?.display_period || '/month'}</span></p>
+                  <p className="text-xs text-primary/30">
+                    {currentPlan?.tier === 'vip'
+                      ? 'VIP membership · all brands · cancel anytime'
+                      : 'Cancel anytime. No commitments.'}
+                  </p>
                 </div>
               </div>
             </div>

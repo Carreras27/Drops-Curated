@@ -134,7 +134,7 @@ class SecurityTracker:
         logger.warning(f"[Security] Blocked IP {ip} for {hours}h - Reason: {reason}")
         
         # Log to database asynchronously
-        if self._db:
+        if self._db is not None:
             import asyncio
             asyncio.create_task(self._log_security_event(
                 event_type="ip_blocked",
@@ -171,7 +171,7 @@ class SecurityTracker:
     
     async def _log_security_event(self, event_type: str, ip: str, details: Dict = None):
         """Log security event to database."""
-        if not self._db:
+        if self._db is None:
             return
         
         try:
@@ -696,7 +696,7 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) 
     security_tracker.record_rate_limit_hit(ip, endpoint)
     
     # Log to database
-    if security_tracker._db:
+    if security_tracker._db is not None:
         await security_tracker.log_rate_limit(ip, endpoint)
     
     # Calculate retry time

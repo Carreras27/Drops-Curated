@@ -68,16 +68,27 @@ curl "$API_URL/api/scheduler/status"
 ## API Endpoints
 - POST `/api/otp/send` - Send OTP to phone
 - POST `/api/otp/verify` - Verify OTP
-- POST `/api/payment/create-order` - Create order (requires: phone, name, email, address)
-- POST `/api/payment/verify` - Verify payment
+- GET  `/api/plans` - Public plan catalog (Regular / VIP Monthly / VIP 6mo / VIP Yearly)
+- GET  `/api/subscribers/{phone}/status` - Subscriber tier/expiry lookup (for upgrade banner)
+- POST `/api/payment/create-order` - Create order (accepts `plan: "monthly" | "vip_monthly" | "vip_6mo" | "vip_yearly"`)
+- POST `/api/payment/verify` - Verify payment (expiry derived from plan.duration_days)
 - POST `/api/preferences` - Save user preferences (full preference funnel)
 - GET `/api/preferences/{phone}` - Get user preferences
 - GET `/api/membership/{phone}` - Get membership (returns email, address)
 - POST `/api/wallet/apple` - Generate Apple Wallet pass
 - POST `/api/wallet/google` - Generate Google Wallet pass
+- GET `/api/savings/active` - Cross-store savings feed (filters: brand, category, min_savings_pct)
 - GET `/api/scheduler/status` - Get scheduler status (shows auto_scrape and daily_digest jobs)
 - GET `/api/alerts/digest/{phone}` - Get pending daily digest for a user
 - POST `/api/alerts/send-digests` - Trigger daily digest send
+
+## Subscription Plans
+| Code          | Tier    | Amount (paise) | Display    | Duration | Brand Limit |
+|---------------|---------|----------------|------------|----------|-------------|
+| `monthly`     | regular | 39,900         | ₹399 / mo  | 30 days  | 5           |
+| `vip_monthly` | vip     | 299,900        | ₹2,999 / mo| 30 days  | 0 (unltd)   |
+| `vip_6mo`     | vip     | 1,619,500      | ₹16,195    | 180 days | 0 (unltd)   |
+| `vip_yearly`  | vip     | 2,879,000      | ₹28,790    | 365 days | 0 (unltd)   |
 
 ## Scheduler Jobs
 - **auto_scrape**: Runs every 15 minutes to scrape all 23 brands
