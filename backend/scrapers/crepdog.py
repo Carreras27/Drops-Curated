@@ -81,7 +81,19 @@ class CrepDogCrewScraper(AetherBaseScraper):
         available_sizes = []
         for v in variants:
             if v.get("available"):
-                size = v.get("option2") or v.get("option1") or v.get("title", "")
+                # option1 is almost always the actual size
+                opt1 = v.get("option1", "")
+                opt2 = v.get("option2", "")
+                vtitle = v.get("title", "")
+                
+                size = ""
+                if opt1 and opt1 != "Default Title":
+                    size = opt1
+                elif opt2 and opt2 != "Default Title":
+                    size = opt2
+                elif vtitle and vtitle != "Default Title":
+                    size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
+                
                 if size:
                     available_sizes.append(size)
 

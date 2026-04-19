@@ -2807,6 +2807,14 @@ async def partner_inquiry(data: PartnerInquiry):
 # ============ REAL-TIME SCRAPING ============
 from scrapers import SCRAPERS
 
+
+_SHIPPING_KEYWORDS = ['ship', 'shipping', 'delivery', 'dispatch', 'days', 'week', 'lead time', 'express', 'standard', 'business']
+
+def _filter_shipping_from_sizes(sizes: list) -> list:
+    """Remove shipping-related strings from size arrays before storing."""
+    return [s for s in sizes if not any(kw in str(s).lower() for kw in _SHIPPING_KEYWORDS)]
+
+
 async def _store_scraped_products(scraped_products: list[dict], brand_key: str) -> dict:
     """Store scraped products and prices in MongoDB"""
     products_added = 0
@@ -2842,7 +2850,7 @@ async def _store_scraped_products(scraped_products: list[dict], brand_key: str) 
                 "description": f'{item["brand"]} {item["category"].lower()} from {item["store"].replace("_", " ").title()}',
                 "imageUrl": item["image_url"],
                 "additionalImages": [],
-                "attributes": {"sizes": item.get("available_sizes", [])},
+                "attributes": {"sizes": _filter_shipping_from_sizes(item.get("available_sizes", []))},
                 "tags": item.get("tags", []) + [item["brand"].lower(), item["category"].lower()],
                 "store": item["store"],
                 "isActive": True,

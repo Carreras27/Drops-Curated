@@ -141,8 +141,22 @@ class ShopifyScraper(AetherBaseScraper):
         available_sizes = []
         for v in variants:
             if v.get("available"):
-                size = v.get("option2") or v.get("option1") or v.get("title", "")
-                if size and size != "Default Title":
+                # option1 is almost always the size, option2 is often shipping/color
+                opt1 = v.get("option1", "")
+                opt2 = v.get("option2", "")
+                vtitle = v.get("title", "")
+                
+                # Pick the best size value: prefer option1, skip shipping strings
+                size = ""
+                if opt1 and opt1 != "Default Title":
+                    size = opt1
+                elif opt2 and opt2 != "Default Title":
+                    size = opt2
+                elif vtitle and vtitle != "Default Title":
+                    # From title, extract just the size part (before any " / ")
+                    size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
+                
+                if size:
                     available_sizes.append(size)
 
         compare_prices = []
