@@ -33,6 +33,7 @@ from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplic
 from scraper_agent import scraper_agent, ErrorContext, init_scraper_agent
 from aether_master import aether_master, init_aether_master
 from catalog_auditor import catalog_auditor, init_catalog_auditor
+from data_quality_validator import data_quality_validator, init_data_quality_validator
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,9 @@ def init_scheduler(db):
 
     # Initialize Catalog Auditor
     asyncio.create_task(init_catalog_auditor(db))
+
+    # Initialize Data Quality Validator
+    asyncio.create_task(init_data_quality_validator(db))
 
     # Auto-scrape job — base interval 90 minutes with dynamic jitter
     # After each run, the next run is rescheduled with a random offset (±15 min)
@@ -133,6 +137,16 @@ def init_scheduler(db):
         replace_existing=True,
     )
 
+    # DATA QUALITY VALIDATOR — check field contents every 2 hours
+    scheduler.add_job(
+        _run_data_quality_check,
+        'interval',
+        minutes=120,
+        id='data_quality',
+        max_instances=1,
+        replace_existing=True,
+    )
+
     
     # Dead-man's switch - check if scraper is stuck
     scheduler.add_job(
@@ -163,6 +177,15 @@ async def _run_catalog_audit():
         logger.info(f"[CatalogAuditor] Completed: {result.get('ok', 0)} OK, {result.get('auto_fixes', 0)} auto-fixed")
     except Exception as e:
         logger.error(f"[CatalogAuditor] Audit failed: {e}")
+
+
+async def _run_data_quality_check():
+    """Run data quality validation and auto-fix bad data."""
+    try:
+        result = await data_quality_validator.run_full_audit()
+        logger.info(f"[DataQuality] Completed: {result.get('issues_found', 0)} issues, {result.get('auto_fixed', 0)} auto-fixed")
+    except Exception as e:
+        logger.error(f"[DataQuality] Check failed: {e}")
 
 
 
@@ -363,6 +386,14 @@ async def scrape_all_brands():
     
     logger.info(f"[Scheduler] === Cycle complete: {brands_succeeded}/{len(brand_keys)} succeeded, {total_new} new, {total_drops} drops, {total_alerts} alerts ===")
     _is_running = False
+
+    # Post-scrape data quality check
+    try:
+        dq_result = await data_quality_validator.run_full_audit()
+        if dq_result.get("issues_found", 0) > 0:
+            logger.warning(f"[Scheduler] Post-scrape quality check: {dq_result['issues_found']} issues, {dq_result['auto_fixed']} auto-fixed")
+    except Exception as e:
+        logger.error(f"[Scheduler] Post-scrape quality check failed: {e}")
 
 
 async def _store_products(db, scraped_products: list[dict], brand_key: str) -> dict:

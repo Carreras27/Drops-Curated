@@ -2289,6 +2289,20 @@ async def trigger_catalog_audit():
     result = await catalog_auditor.run_audit()
     return result
 
+@api_router.get('/admin/data-quality')
+async def get_data_quality():
+    """Get data quality check history."""
+    from data_quality_validator import data_quality_validator
+    history = await data_quality_validator.get_history(limit=10)
+    return {'history': history}
+
+@api_router.post('/admin/data-quality/run')
+async def trigger_data_quality_check():
+    """Manually trigger a data quality validation."""
+    from data_quality_validator import data_quality_validator
+    result = await data_quality_validator.run_full_audit()
+    return result
+
 
 
 # ============ AI PRODUCT CLASSIFICATION ============
@@ -3187,6 +3201,7 @@ async def startup_scheduler():
     from scrapers import aether_brain
     from aether_master import init_aether_master
     from catalog_auditor import init_catalog_auditor
+    from data_quality_validator import init_data_quality_validator
     
     # Initialize security module
     await init_security(app, db)
@@ -3216,6 +3231,10 @@ async def startup_scheduler():
     # Initialize Catalog Auditor
     await init_catalog_auditor(db)
     logger.info("Catalog Auditor initialized")
+
+    # Initialize Data Quality Validator
+    await init_data_quality_validator(db)
+    logger.info("Data Quality Validator initialized")
     
     # Seed default admin user
     await seed_admin_user()
