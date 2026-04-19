@@ -103,6 +103,16 @@ class DataQualityValidator:
             "duplicate_sizes": 0,
         }
 
+
+        # ── CHECK: Products missing productUrl — auto-fix from Shopify API ──
+        missing_url_count = await self._db.products.count_documents(
+            {**query, "$or": [{"productUrl": {"$exists": False}}, {"productUrl": None}]}
+        )
+        if missing_url_count > 0:
+            findings["missing_product_urls"] = missing_url_count
+            unfixable += missing_url_count  # Needs full re-scrape or bulk migration to fix
+
+
         # ── Check attributes.sizes for shipping strings ──
         shipping_cursor = self._db.products.find(
             {**query, "attributes.sizes": {"$elemMatch": {"$regex": "ship|days|dispatch|delivery|week|business", "$options": "i"}}},
