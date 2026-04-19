@@ -410,9 +410,13 @@ async def health_check():
 # ============ PUBLIC STATS (Fix #10 - Social Proof) ============
 @api_router.get('/stats/public')
 async def get_public_stats():
-    """Get public statistics for social proof on landing page"""
+    """Get public statistics for social proof on landing page.
+    Note: total_products counts only isActive products — must match /scrape/status and
+    what a user can actually browse on the site. Do NOT change without also updating
+    the scrape status endpoint, or the landing page will show mismatched numbers.
+    """
     active_members = await db.subscribers.count_documents({'isActive': True, 'isPaid': True})
-    total_products = await db.products.count_documents({})
+    total_products = await db.products.count_documents({'isActive': True})
     total_brands = await db.brands.count_documents({'isActive': {'$ne': False}})
     alerts_sent = await db.alert_log.count_documents({})
     

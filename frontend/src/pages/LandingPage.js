@@ -8,6 +8,22 @@ import { useTrial, StartTrialButton } from '../context/TrialContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
+// ============ SHARED FORMATTERS ============
+// Single source of truth for user-facing counts. Prevents mismatched formats
+// like "17.9K products" in one section vs "17,401+ Products" in another.
+export const formatProductCount = (n) => {
+  if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) return '0';
+  return n.toLocaleString('en-IN');
+};
+
+export const formatAlertCount = (n) => {
+  if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) return '0';
+  // Keep K/M shortform for alert counts only (space-constrained inline badge)
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toString();
+};
+
 // ============ LIVE STATS SOCIAL PROOF (Fix #10) ============
 const LiveStats = () => {
   const [stats, setStats] = useState({
@@ -33,18 +49,13 @@ const LiveStats = () => {
       // Use fallback stats if API fails
       setStats({
         activeMembers: 35,
-        productsTracked: 11000,
-        brandsMonitored: 23,
+        productsTracked: 17000,
+        brandsMonitored: 24,
         alertsSent: 1500
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatNumber = (num) => {
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
   };
 
   if (loading) return null;
@@ -58,7 +69,7 @@ const LiveStats = () => {
       </div>
       <div className="flex items-center gap-1.5 text-primary/50">
         <Package className="w-3.5 h-3.5 text-accent" />
-        <span className="font-medium text-primary">{formatNumber(stats.productsTracked)}</span>
+        <span className="font-medium text-primary tabular-nums">{formatProductCount(stats.productsTracked)}</span>
         <span>products</span>
       </div>
       <div className="flex items-center gap-1.5 text-primary/50">
@@ -68,7 +79,7 @@ const LiveStats = () => {
       </div>
       <div className="hidden md:flex items-center gap-1.5 text-primary/50">
         <Activity className="w-3.5 h-3.5 text-green-500" />
-        <span className="font-medium text-green-500">{formatNumber(stats.alertsSent)}</span>
+        <span className="font-medium text-green-500 tabular-nums">{formatAlertCount(stats.alertsSent)}</span>
         <span>alerts sent</span>
       </div>
     </div>
@@ -418,7 +429,7 @@ export default function LandingPage() {
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 border border-accent/30 px-4 py-1.5 mb-8 animate-fade-up">
                 <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live — {stats.products}+ Products Observed</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Live — {formatProductCount(stats.products)}+ Products Observed</span>
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }} data-testid="hero-heading">
                 Curated Excellence.<br />Delivered Instantly.
@@ -472,7 +483,7 @@ export default function LandingPage() {
                 
                 {/* Animated counter effect */}
                 <p className="font-serif text-lg flex items-baseline gap-1">
-                  <span className="tabular-nums">{stats.products?.toLocaleString() || '9,355'}</span>
+                  <span className="tabular-nums">{stats.products ? formatProductCount(stats.products) : '17,000'}</span>
                   <span className="text-accent animate-pulse">+</span>
                   <span className="text-sm font-normal text-primary/60">Products</span>
                 </p>
@@ -569,7 +580,7 @@ export default function LandingPage() {
             {[
               { stat: '<10s', label: 'Alert delivery speed. Fastest in India.' },
               { stat: '₹399', label: 'Per month. No hidden fees. Cancel anytime.' },
-              { stat: `${stats.products || '9,300'}+`, label: 'Products observed across premium Indian brands.' },
+              { stat: `${stats.products ? formatProductCount(stats.products) : '17,000'}+`, label: 'Products observed across premium Indian brands.' },
               { stat: '0%', label: 'Commission on your purchases. We never take a cut.' },
             ].map((s, i) => (
               <div key={i} className="animate-fade-up text-center" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`stat-${i}`}>
