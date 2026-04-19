@@ -32,6 +32,7 @@ from classifier import classify_product, clean_product_title
 from duplicate_detector import filter_duplicates, merge_duplicate_prices, duplicate_stats
 from scraper_agent import scraper_agent, ErrorContext, init_scraper_agent
 from aether_master import aether_master, init_aether_master
+from catalog_auditor import catalog_auditor, init_catalog_auditor
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,9 @@ def init_scheduler(db):
     # Initialize Aether Master site guardian
     asyncio.create_task(init_aether_master(db))
 
+    # Initialize Catalog Auditor
+    asyncio.create_task(init_catalog_auditor(db))
+
     # Auto-scrape job every 15 minutes
     scheduler.add_job(
         scrape_all_brands,
@@ -116,6 +120,17 @@ def init_scheduler(db):
         max_instances=1,
         replace_existing=True,
     )
+
+    # CATALOG AUDITOR — check completeness every 30 min, auto-fix gaps
+    scheduler.add_job(
+        _run_catalog_audit,
+        'interval',
+        minutes=30,
+        id='catalog_audit',
+        max_instances=1,
+        replace_existing=True,
+    )
+
     
     # Dead-man's switch - check if scraper is stuck
     scheduler.add_job(
@@ -137,6 +152,16 @@ async def _run_aether_master_cycle():
         await aether_master.run_cycle()
     except Exception as e:
         logger.error(f"[AetherMaster] Cycle failed: {e}")
+
+
+async def _run_catalog_audit():
+    """Run catalog completeness audit and auto-fix gaps."""
+    try:
+        result = await catalog_auditor.run_audit()
+        logger.info(f"[CatalogAuditor] Completed: {result.get('ok', 0)} OK, {result.get('auto_fixes', 0)} auto-fixed")
+    except Exception as e:
+        logger.error(f"[CatalogAuditor] Audit failed: {e}")
+
 
 
 

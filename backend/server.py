@@ -2272,6 +2272,23 @@ async def trigger_aether_cycle():
     report = await aether_master.run_cycle()
     return aether_master.get_status()
 
+@api_router.get('/admin/catalog-audit')
+async def get_catalog_audit():
+    """Get latest catalog completeness audit results."""
+    from catalog_auditor import catalog_auditor
+    history = await catalog_auditor.get_history(limit=10)
+    return {
+        'status': catalog_auditor.get_status(),
+        'history': history,
+    }
+
+@api_router.post('/admin/catalog-audit/run')
+async def trigger_catalog_audit():
+    """Manually trigger a catalog completeness audit."""
+    from catalog_auditor import catalog_auditor
+    result = await catalog_auditor.run_audit()
+    return result
+
 
 
 # ============ AI PRODUCT CLASSIFICATION ============
@@ -3161,6 +3178,7 @@ async def startup_scheduler():
     from scraper_agent import init_scraper_agent
     from scrapers import aether_brain
     from aether_master import init_aether_master
+    from catalog_auditor import init_catalog_auditor
     
     # Initialize security module
     await init_security(app, db)
@@ -3186,6 +3204,10 @@ async def startup_scheduler():
     # Initialize Aether Master site guardian
     await init_aether_master(db)
     logger.info("Aether Master site guardian initialized")
+    
+    # Initialize Catalog Auditor
+    await init_catalog_auditor(db)
+    logger.info("Catalog Auditor initialized")
     
     # Seed default admin user
     await seed_admin_user()
