@@ -78,40 +78,61 @@ class CrepDogCrewScraper(AetherBaseScraper):
         elif any(t.lower() in ["apparel", "tshirt", "hoodie", "jacket"] for t in tags):
             category = "CLOTHES"
 
+        product_id = str(raw.get("id", ""))
+        if not product_id:
+            return None
+
+        # Build size_prices map
+        size_prices = {}
+        available_prices = []
         available_sizes = []
         for v in variants:
-            if v.get("available"):
-                # option1 is almost always the actual size
-                opt1 = v.get("option1", "")
-                opt2 = v.get("option2", "")
-                vtitle = v.get("title", "")
-                
-                size = ""
-                if opt1 and opt1 != "Default Title":
-                    size = opt1
-                elif opt2 and opt2 != "Default Title":
-                    size = opt2
-                elif vtitle and vtitle != "Default Title":
-                    size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
-                
-                if size:
-                    available_sizes.append(size)
+            opt1 = v.get("option1", "")
+            opt2 = v.get("option2", "")
+            vtitle = v.get("title", "")
+            
+            size = ""
+            if opt1 and opt1 != "Default Title":
+                size = opt1
+            elif opt2 and opt2 != "Default Title":
+                size = opt2
+            elif vtitle and vtitle != "Default Title":
+                size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
+            
+            try:
+                vprice = float(v.get("price", 0))
+            except (ValueError, TypeError):
+                vprice = 0
+            
+            if v.get("available") and size:
+                available_sizes.append(size)
+                if vprice > 0:
+                    size_prices[size] = vprice
+                    available_prices.append(vprice)
 
         # Filter out shipping-related tags and sizes
         filtered_tags = self._filter_shipping_tags([t.lower() for t in tags[:15]])
         filtered_sizes = self._filter_shipping_sizes(available_sizes)
 
+        display_price = available_prices[0] if available_prices else min(prices)
+        compare_prices = [float(v.get("compare_at_price", 0) or 0) for v in variants if v.get("compare_at_price")]
+
         return {
+            "id": f"prod_{self.store_key}_{product_id}",
+            "shopify_id": product_id,
             "name": title,
             "brand": vendor or self._extract_brand(title),
             "category": category,
-            "price": min(prices),
-            "original_price": max(prices) if len(prices) > 1 else min(prices),
+            "price": display_price,
+            "lowest_price": min(available_prices) if available_prices else min(prices),
+            "highest_price": max(available_prices) if available_prices else max(prices),
+            "original_price": max(compare_prices) if compare_prices else display_price,
             "image_url": image_url,
             "product_url": f"{self.base_url}/products/{handle}",
             "store": self.store_key,
             "in_stock": any(v.get("available") for v in variants),
             "available_sizes": filtered_sizes,
+            "size_prices": size_prices,
             "tags": filtered_tags[:10],
             "scraped_at": self.now_iso(),
         }

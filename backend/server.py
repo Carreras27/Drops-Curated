@@ -2966,9 +2966,9 @@ async def _store_scraped_products(scraped_products: list[dict], brand_key: str) 
     prices_added = 0
 
     for item in scraped_products:
-        # Generate a stable product ID from name + store
-        slug = item["name"].lower().replace(" ", "-").replace("'", "")[:80]
-        product_id = f"prod_{item['store']}_{hash(item['name']) % 100000}"
+        # Use the scraper-provided ID if available, otherwise generate one
+        product_id = item.get("id") or f"prod_{item['store']}_{abs(hash(item['name'])) % 1000000}"
+        product_url = item.get("product_url", "")
 
         existing = await db.products.find_one({"name": item["name"], "store": item["store"]})
 
@@ -2981,24 +2981,39 @@ async def _store_scraped_products(scraped_products: list[dict], brand_key: str) 
                 "updatedAt": item["scraped_at"],
                 "attributes.sizes": _filter_shipping_from_sizes(item.get("available_sizes", [])),
             }
+            if product_url:
+                update_fields["productUrl"] = product_url
             if size_prices_clean:
                 update_fields["attributes.size_prices"] = size_prices_clean
+            
+            old_product_id = existing.get("id")
+            
+            # Update product ID if scraper provides a better one
+            if item.get("id") and old_product_id != item["id"]:
+                update_fields["id"] = item["id"]
+                product_id = item["id"]
+                # Migrate old price records to the new ID
+                await db.prices.update_many(
+                    {"productId": old_product_id, "store": item["store"]},
+                    {"$set": {"productId": item["id"]}}
+                )
+            else:
+                product_id = old_product_id
             
             await db.products.update_one(
                 {"_id": existing["_id"]},
                 {"$set": update_fields}
             )
-            product_id = existing["id"]
             products_updated += 1
         else:
             product_doc = {
                 "id": product_id,
                 "name": item["name"],
-                "slug": slug,
                 "brand": item["brand"],
                 "category": item["category"],
                 "description": f'{item["brand"]} {item["category"].lower()} from {item["store"].replace("_", " ").title()}',
                 "imageUrl": item["image_url"],
+                "productUrl": item.get("product_url", ""),
                 "additionalImages": [],
                 "attributes": {
                     "sizes": _filter_shipping_from_sizes(item.get("available_sizes", [])),
