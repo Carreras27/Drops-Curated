@@ -49,7 +49,7 @@ export default function PartnersPage() {
               { icon: <Users strokeWidth={1.5} />, title: 'Engaged Audience', desc: 'Direct access to verified streetwear enthusiasts who are ready to buy.' },
               { icon: <Megaphone strokeWidth={1.5} />, title: 'Collection Spotlight', desc: 'Feature your upcoming drops on our platform before they go live.' },
               { icon: <Gift strokeWidth={1.5} />, title: 'Bulk Memberships', desc: 'Buy memberships at a discount and gift them to your premium customers.' },
-              { icon: <BarChart3 strokeWidth={1.5} />, title: 'Analytics', desc: 'See how your products perform — views, interest, and price tracking.' },
+              { icon: <BarChart3 strokeWidth={1.5} />, title: 'Analytics', desc: 'See how your products perform — views, interest, and price intelligence.' },
             ].map((item, i) => (
               <div key={i} className="animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`partner-feature-${i}`}>
                 <div className="w-12 h-12 border border-accent/30 flex items-center justify-center mb-5 text-accent">
@@ -68,7 +68,7 @@ export default function PartnersPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
               {[
                 { step: '01', title: 'Connect', desc: 'Tell us about your brand and upcoming collections. We\'ll set up your profile.' },
-                { step: '02', title: 'Feature', desc: 'Your drops get featured to our audience. We track prices and alert subscribers.' },
+                { step: '02', title: 'Feature', desc: 'Your drops get featured to our audience. We curate prices and alert subscribers.' },
                 { step: '03', title: 'Grow', desc: 'Gift memberships to your top customers. They get alerts — you get loyalty.' },
               ].map((s, i) => (
                 <div key={i} className="animate-fade-up" style={{ animationDelay: `${i * 0.15}s` }}>

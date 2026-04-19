@@ -113,7 +113,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
           "Sneakers",
           "Indian Fashion",
           "Limited Edition Releases",
-          "Price Tracking"
+          "Price Intelligence"
         ]
       },
       // WebSite
@@ -123,7 +123,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
         "name": SITE_NAME,
         "alternateName": `${SITE_NAME} - ${SITE_TAGLINE}`,
         "url": SITE_URL,
-        "description": `${SITE_TAGLINE} Track ${prodCount.toLocaleString()}+ products from ${brandCount} premium Indian streetwear brands. Instant WhatsApp alerts for price drops and new releases.`,
+        "description": `${SITE_TAGLINE} Curating intelligence on ${prodCount.toLocaleString()}+ products from ${brandCount} premium Indian streetwear brands. Instant WhatsApp alerts for price drops and new releases.`,
         "inLanguage": "en-IN",
         "publisher": { "@id": `${SITE_URL}/#organization` },
         "potentialAction": {
@@ -145,15 +145,15 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
             "name": "How fast are the WhatsApp alerts?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": `Our alerts are delivered to your WhatsApp within 10 seconds of a price drop or new release being detected. We observe ${brandCount} premium brands every 15 minutes, tracking ${prodCount.toLocaleString()}+ products.`
+              "text": `Our alerts are delivered to your WhatsApp within 10 seconds of a price drop or new release being detected. We observe ${brandCount} premium brands continuously, curating intelligence on ${prodCount.toLocaleString()}+ products.`
             }
           },
           {
             "@type": "Question",
-            "name": "What brands do you track?",
+            "name": "What brands do you cover?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": `We track ${brandCount}+ premium Indian and global streetwear brands including Crep Dog Crew, Huemn, Urban Monkey, VegNonVeg, Superkicks, and more. Total of ${prodCount.toLocaleString()}+ products tracked in real-time.`
+              "text": `We curate intelligence from ${brandCount}+ premium Indian and global streetwear brands including Crep Dog Crew, Huemn, Urban Monkey, VegNonVeg, Superkicks, and more. Our database covers ${prodCount.toLocaleString()}+ products updated in real-time.`
             }
           },
           {
@@ -166,10 +166,10 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
           },
           {
             "@type": "Question",
-            "name": "What types of products do you track?",
+            "name": "What types of products do you cover?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "We track sneakers, hoodies, t-shirts, jackets, accessories, collectibles, watches, and more from premium streetwear brands. Categories include limited editions, new releases, and price drops across all sizes."
+              "text": "We curate sneakers, hoodies, t-shirts, jackets, accessories, collectibles, watches, and more from premium streetwear brands. Our database includes limited editions, new releases, and price intelligence across all sizes."
             }
           },
           {
@@ -196,7 +196,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
         "@id": `${SITE_URL}/#service`,
         "name": "Drops Curated Premium Membership",
         "serviceType": "Streetwear Intelligence & Alert Service",
-        "description": `Premium WhatsApp alerts for streetwear drops and price reductions. Track ${prodCount.toLocaleString()}+ products from ${brandCount} brands. Curated excellence, delivered instantly.`,
+        "description": `Premium WhatsApp alerts for streetwear drops and price reductions. Curating ${prodCount.toLocaleString()}+ products from ${brandCount} brands. Curated excellence, delivered instantly.`,
         "provider": { "@id": `${SITE_URL}/#organization` },
         "areaServed": {
           "@type": "Country",

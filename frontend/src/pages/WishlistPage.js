@@ -487,7 +487,7 @@ function EmptyState() {
         Your portfolio is empty
       </h3>
       <p style={{ color: "#64748b", fontSize: 14, margin: "0 0 24px" }}>
-        Start adding drops to track prices like a pro
+        Start adding drops to discover price movements like a pro
       </p>
       <Link 
         to="/browse"
@@ -654,7 +654,7 @@ export default function WishlistPage() {
                   { dot: "#16a34a", label: "Price down (save!)" },
                   { dot: "#dc2626", label: "Price up" },
                   { dot: "#ea580c", label: "Low stock" },
-                  { dot: "#c9a84c", label: "Your tracked items" },
+                  { dot: "#c9a84c", label: "Your curated items" },
                 ].map(l => (
                   <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{

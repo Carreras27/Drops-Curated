@@ -280,7 +280,7 @@ export default function BrandsPage() {
             <p className="text-[10px] uppercase tracking-[0.3em] text-accent mb-4">Shop By Store</p>
             <h1 className="font-serif text-4xl md:text-6xl mb-4">All Brands</h1>
             <p className="text-primary/50 text-sm">
-              {brands.length} premium Indian streetwear brands • {totalProducts.toLocaleString()} products tracked
+              {brands.length} premium Indian streetwear brands • {totalProducts.toLocaleString()} products observed
             </p>
           </div>
 

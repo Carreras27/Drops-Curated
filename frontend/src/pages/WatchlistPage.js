@@ -17,7 +17,7 @@ const WatchlistPage = () => {
         <div className="text-center py-20">
           <Heart className="w-16 h-16 text-primary mx-auto mb-4" />
           <h1 className="text-3xl font-bold mb-4">Your Watchlist</h1>
-          <p className="text-gray-600">Track your favorite products and get price alerts</p>
+          <p className="text-gray-600">Curate your favorite products and get price alerts</p>
         </div>
       </main>
     </div>

@@ -1294,7 +1294,7 @@ export default function BrowsePage() {
               isRefreshing={isRefreshing}
               onRefresh={handleManualRefresh}
             />
-            <p className="text-xs text-primary/30">{totalProducts.toLocaleString()} products tracked</p>
+            <p className="text-xs text-primary/30">{totalProducts.toLocaleString()} products observed</p>
           </div>
         </div>
       </div>

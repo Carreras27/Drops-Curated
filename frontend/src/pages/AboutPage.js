@@ -19,7 +19,7 @@ export default function AboutPage() {
           </h1>
           <p className="text-lg text-primary/60 max-w-2xl mx-auto">
             We built Drops Curated because we were tired of missing out on limited drops. 
-            Now, over 11,000 products from 23 premium brands are tracked in real-time — 
+            Now, over 11,000 products from 23 premium brands are curated in our database — 
             and you get alerts before anyone else.
           </p>
         </div>
@@ -38,12 +38,12 @@ export default function AboutPage() {
                   And that limited AMIRI collab that sold out while we were sleeping.
                 </p>
                 <p>
-                  We realized the problem: Indian streetwear enthusiasts had no reliable way to track drops 
+                  We realized the problem: Indian streetwear enthusiasts had no reliable way to discover drops 
                   across multiple stores. By the time news spread on Instagram or Discord, the best pieces were gone.
                 </p>
                 <p>
-                  So we built Drops Curated — a platform that scans 23 premium streetwear stores every 15 minutes 
-                  and sends WhatsApp alerts within 10 seconds of detecting a new drop or price change.
+                  So we built Drops Curated — a discovery platform that observes 23 premium streetwear stores 
+                  and sends WhatsApp alerts within 10 seconds of a new drop or price change being detected.
                 </p>
                 <p className="font-medium text-primary">
                   No more FOMO. No more L's. Just instant alerts for the drops you care about.
@@ -96,8 +96,8 @@ export default function AboutPage() {
               <div className="w-12 h-12 bg-accent/10 flex items-center justify-center mx-auto mb-4">
                 <TrendingUp className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="font-medium mb-2">Price Tracking</h3>
-              <p className="text-sm text-primary/60">We track prices across stores and alert you the moment something drops in price.</p>
+              <h3 className="font-medium mb-2">Price Intelligence</h3>
+              <p className="text-sm text-primary/60">We observe prices across stores and alert you the moment something drops in price.</p>
             </div>
             
             <div className="text-center">
@@ -105,7 +105,7 @@ export default function AboutPage() {
                 <Shield className="w-6 h-6 text-accent" />
               </div>
               <h3 className="font-medium mb-2">Verified Stores Only</h3>
-              <p className="text-sm text-primary/60">We only track authorized retailers and verified resellers. No fakes, no scams.</p>
+              <p className="text-sm text-primary/60">We only feature authorized retailers and verified partners. No fakes, no scams.</p>
             </div>
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function AboutPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
               <p className="text-4xl md:text-5xl font-serif text-accent mb-2">11,400+</p>
-              <p className="text-sm text-primary/60 uppercase tracking-wider">Products Tracked</p>
+              <p className="text-sm text-primary/60 uppercase tracking-wider">Products Observed</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-serif text-accent mb-2">23</p>
@@ -125,7 +125,7 @@ export default function AboutPage() {
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-serif text-accent mb-2">15 min</p>
-              <p className="text-sm text-primary/60 uppercase tracking-wider">Scan Interval</p>
+              <p className="text-sm text-primary/60 uppercase tracking-wider">Refresh Interval</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-serif text-accent mb-2">&lt;10s</p>
@@ -135,12 +135,12 @@ export default function AboutPage() {
         </div>
       </section>
       
-      {/* Brands We Track */}
+      {/* Brands We Curate */}
       <section className="py-16 md:py-24 bg-surface">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent mb-4 block">Our Network</span>
-            <h2 className="text-3xl md:text-4xl font-serif mb-4">Brands We Track</h2>
+            <h2 className="text-3xl md:text-4xl font-serif mb-4">Brands We Curate</h2>
             <p className="text-primary/60">Premium Indian and international streetwear, all in one place.</p>
           </div>
           

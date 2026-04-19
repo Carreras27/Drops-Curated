@@ -569,7 +569,7 @@ export default function LandingPage() {
             {[
               { stat: '<10s', label: 'Alert delivery speed. Fastest in India.' },
               { stat: '₹399', label: 'Per month. No hidden fees. Cancel anytime.' },
-              { stat: `${stats.products || '9,300'}+`, label: 'Products tracked in real-time across brands.' },
+              { stat: `${stats.products || '9,300'}+`, label: 'Products observed across premium Indian brands.' },
               { stat: '0%', label: 'Commission on your purchases. We never take a cut.' },
             ].map((s, i) => (
               <div key={i} className="animate-fade-up text-center" style={{ animationDelay: `${i * 0.1}s` }} data-testid={`stat-${i}`}>

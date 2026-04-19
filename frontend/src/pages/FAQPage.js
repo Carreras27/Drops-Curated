@@ -11,15 +11,15 @@ const FAQ_DATA = [
     questions: [
       {
         q: 'What is Drops Curated?',
-        a: 'Drops Curated is India\'s fastest streetwear alert service. We track 11,400+ products from 23 premium brands and send you instant WhatsApp alerts when new drops are released or prices change. Think of us as your personal streetwear scout — we do the watching, you do the copping.'
+        a: 'Drops Curated is India\'s most refined streetwear intelligence platform. We observe 11,400+ products from 23 premium brands and send you instant WhatsApp alerts when new drops are released or prices change. Think of us as your personal streetwear concierge — we curate the intelligence, you make the calls.'
       },
       {
         q: 'How does it work?',
-        a: 'Our system scans 23 streetwear stores every 15 minutes. When we detect a new product, price drop, or restock, we send you a WhatsApp message within 10 seconds. You set your preferences (brands, sizes, price range) and we only alert you about drops you actually care about.'
+        a: 'Our intelligent platform continuously observes 23 streetwear stores. When we detect a new product, price change, or restock, we send you a WhatsApp message within 10 seconds. You set your preferences (brands, sizes, price range) and we only alert you about drops you actually care about.'
       },
       {
-        q: 'What brands do you track?',
-        a: 'We track premium Indian brands like Crep Dog Crew, Superkicks, Urban Monkey, Huemn, VegNonVeg, Capsul, and more. Plus international brands available in India: Nike, Jordan, Adidas, ON Running, New Balance, AMIRI, Off-White, Supreme, Palace, Fear of God, and others.'
+        q: 'What brands do you cover?',
+        a: 'We curate intelligence from premium Indian brands like Crep Dog Crew, Superkicks, Urban Monkey, Huemn, VegNonVeg, Capsul, and more. Plus international brands available in India: Nike, Jordan, Adidas, ON Running, New Balance, AMIRI, Off-White, Supreme, Palace, Fear of God, and others.'
       },
       {
         q: 'Why WhatsApp and not an app?',
@@ -45,7 +45,7 @@ const FAQ_DATA = [
       },
       {
         q: 'How many alerts will I get per day?',
-        a: 'It depends on your preferences. If you\'re tracking all brands and categories, expect 10-30 alerts on busy days. If you\'ve narrowed it down to specific brands and sizes, maybe 2-5. You\'re always in control.'
+        a: 'It depends on your preferences. If you\'re following all brands and categories, expect 10-30 alerts on busy days. If you\'ve narrowed it down to specific brands and sizes, maybe 2-5. You\'re always in control.'
       },
       {
         q: 'Can I pause alerts temporarily?',
@@ -63,7 +63,7 @@ const FAQ_DATA = [
       },
       {
         q: 'Is there a free trial?',
-        a: 'We don\'t offer a traditional free trial, but you can browse all 11,400+ products on our site for free. You\'ll see exactly what we track. The subscription is just for the instant WhatsApp alerts.'
+        a: 'We offer a 7-day free trial so you can experience the full platform. After that, you can browse all 11,400+ products on our site for free. You\'ll see exactly what we curate. The subscription unlocks instant WhatsApp alerts, advanced filters, and full pricing intelligence.'
       },
       {
         q: 'How do I pay?',
@@ -93,7 +93,7 @@ const FAQ_DATA = [
       },
       {
         q: 'What data do you collect?',
-        a: 'Just what we need: your phone number (for alerts), email (for receipts), and preferences (brands, sizes, etc.). We don\'t track your browsing, don\'t use cookies for advertising, and don\'t build profiles to sell.'
+        a: 'Just what we need: your phone number (for alerts), email (for receipts), and preferences (brands, sizes, etc.). We don\'t observe your browsing, don\'t use cookies for advertising, and don\'t build profiles to sell.'
       }
     ]
   },
@@ -102,20 +102,20 @@ const FAQ_DATA = [
     icon: Clock,
     questions: [
       {
-        q: 'How often do you scan for new drops?',
-        a: 'Every 15 minutes, 24/7. That\'s 96 scans per day across all 23 stores. When something changes, you know within seconds.'
+        q: 'How often is your database refreshed?',
+        a: 'Our platform continuously observes the market, refreshing intelligence across all 23 stores around the clock. When something changes, you know within seconds.'
       },
       {
         q: 'What if a drop sells out before I see the alert?',
         a: 'We can\'t guarantee stock — that\'s up to the stores and how fast you act. But we give you the best possible chance by alerting you faster than any other service. Many of our members have copped drops that sold out in minutes.'
       },
       {
-        q: 'Do you track restocks?',
+        q: 'Do you detect restocks?',
         a: 'Yes! When a previously sold-out item comes back in stock, we detect it and send an alert. Restock alerts are included in your subscription at no extra cost.'
       },
       {
-        q: 'Why isn\'t [brand/store] tracked?',
-        a: 'We\'re always adding new stores. If there\'s a brand you want us to track, let us know! We prioritize based on member requests. Some stores are technically difficult to track, but we\'re working on it.'
+        q: 'Why isn\'t [brand/store] listed?',
+        a: 'We\'re always expanding our network. If there\'s a brand you want us to cover, let us know! We prioritize based on member requests. Some stores are in the process of being onboarded.'
       }
     ]
   }

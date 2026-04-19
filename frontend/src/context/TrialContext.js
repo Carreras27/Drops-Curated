@@ -114,7 +114,7 @@ const UpgradeModal = ({ onClose }) => {
           <h3 className="font-serif text-2xl mb-3">Your Trial Has Ended</h3>
           <p className="text-primary/60 text-sm mb-6 leading-relaxed">
             Upgrade to Premium to unlock all features including real-time price alerts, 
-            advanced filters, wishlist tracking, and instant WhatsApp notifications.
+            advanced filters, wishlist curation, and instant WhatsApp notifications.
           </p>
           
           <div className="bg-primary/[0.03] border border-primary/10 p-4 mb-6">
