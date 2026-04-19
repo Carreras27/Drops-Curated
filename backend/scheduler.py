@@ -80,14 +80,16 @@ def init_scheduler(db):
     # Initialize Catalog Auditor
     asyncio.create_task(init_catalog_auditor(db))
 
-    # Auto-scrape job every 15 minutes
+    # Auto-scrape job — base interval 90 minutes with dynamic jitter
+    # After each run, the next run is rescheduled with a random offset (±15 min)
     scheduler.add_job(
         scrape_all_brands,
         'interval',
-        minutes=15,
+        minutes=90,
         id='auto_scrape',
         max_instances=1,
         replace_existing=True,
+        jitter=900,  # APScheduler built-in: adds random ±15 min (900 seconds) jitter
     )
     
     # Daily digest job at 8 PM IST (14:30 UTC)
@@ -121,11 +123,11 @@ def init_scheduler(db):
         replace_existing=True,
     )
 
-    # CATALOG AUDITOR — check completeness every 30 min, auto-fix gaps
+    # CATALOG AUDITOR — check completeness after each scrape cycle
     scheduler.add_job(
         _run_catalog_audit,
         'interval',
-        minutes=30,
+        minutes=95,  # Slightly offset from 90-min scrape to avoid overlap
         id='catalog_audit',
         max_instances=1,
         replace_existing=True,
@@ -143,7 +145,7 @@ def init_scheduler(db):
     )
     
     scheduler.start()
-    logger.info("[Scheduler] Started — scraping every 15 minutes with staggered brand delays")
+    logger.info("[Scheduler] Started — scraping every 90 minutes (±15 min jitter) with staggered brand delays")
 
 
 async def _run_aether_master_cycle():
@@ -210,7 +212,7 @@ async def scrape_all_brands():
     brands_succeeded = 0
     brands_failed = 0
 
-    logger.info("[Scheduler] === Auto-scrape cycle starting (staggered) ===")
+    logger.info("[Scheduler] === Auto-scrape cycle starting (90-min interval, staggered) ===")
 
     # Randomize brand order to appear more natural
     brand_keys = list(SCRAPERS.keys())
@@ -477,7 +479,7 @@ def get_scheduler_status():
         "results": _run_results,
         "next_scrape": str(scheduler.get_job('auto_scrape').next_run_time) if scheduler.get_job('auto_scrape') else None,
         "next_digest": str(scheduler.get_job('daily_digest').next_run_time) if scheduler.get_job('daily_digest') else None,
-        "interval_minutes": 15,
+        "interval_minutes": 90,
         "digest_time": "8:00 PM IST",
         "consecutive_failures": _consecutive_failures,
         "blocked_brands": health_tracker.get_blocked_brands(),
@@ -618,13 +620,13 @@ async def check_dead_mans_switch():
     """Check if scraper has been stuck for too long and alert."""
     global _consecutive_failures, _last_success
     
-    # If no successful scrape in 2 hours, alert
+    # If no successful scrape in 3 hours (2 missed cycles), alert
     if _last_success:
         try:
             last_success_time = datetime.fromisoformat(_last_success.replace('Z', '+00:00'))
             age_hours = (datetime.now(timezone.utc) - last_success_time).total_seconds() / 3600
             
-            if age_hours > 2:
+            if age_hours > 3:
                 logger.warning(f"[DeadMansSwitch] No successful scrape in {age_hours:.1f} hours!")
                 
                 # Send alert

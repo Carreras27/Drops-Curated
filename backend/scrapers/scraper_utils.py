@@ -164,8 +164,8 @@ async def product_delay() -> float:
     return await random_delay(1.5, 4.0)
 
 async def stagger_delay() -> float:
-    """Delay for staggering scrapers (15-35 seconds)."""
-    return await random_delay(15.0, 35.0)
+    """Delay between brands — wider gaps to appear more natural (30-90 seconds)."""
+    return await random_delay(30.0, 90.0)
 
 async def retry_delay(attempt: int) -> float:
     """Exponential backoff delay (30-60 seconds base, doubles each attempt)."""
