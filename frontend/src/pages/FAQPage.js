@@ -11,11 +11,11 @@ const FAQ_DATA = [
     questions: [
       {
         q: 'What is Drops Curated?',
-        a: 'Drops Curated is India\'s most refined streetwear intelligence platform. We observe 11,400+ products from 23 premium brands and send you instant WhatsApp alerts when new drops are released or prices change. Think of us as your personal streetwear concierge — we curate the intelligence, you make the calls.'
+        a: 'Drops Curated is India\'s most refined streetwear intelligence platform. We observe thousands of products from the country\'s finest premium brands and send you instant WhatsApp alerts when new drops are released or prices change. Think of us as your personal streetwear concierge — we curate the intelligence, you make the calls.'
       },
       {
         q: 'How does it work?',
-        a: 'Our intelligent platform continuously observes 23 streetwear stores. When we detect a new product, price change, or restock, we send you a WhatsApp message within 10 seconds. You set your preferences (brands, sizes, price range) and we only alert you about drops you actually care about.'
+        a: 'Our intelligent platform continuously observes India\'s most respected streetwear stores. When we detect a new product, price change, or restock, we send you a WhatsApp message within 10 seconds. You set your preferences (brands, sizes, price range) and we only alert you about drops you actually care about.'
       },
       {
         q: 'What brands do you cover?',
@@ -63,7 +63,7 @@ const FAQ_DATA = [
       },
       {
         q: 'Is there a free trial?',
-        a: 'We offer a 7-day free trial so you can experience the full platform. After that, you can browse all 11,400+ products on our site for free. You\'ll see exactly what we curate. The subscription unlocks instant WhatsApp alerts, advanced filters, and full pricing intelligence.'
+        a: 'We offer a 7-day free trial so you can experience the full platform. After that, you can browse thousands of products on our site for free. You\'ll see exactly what we curate. The subscription unlocks instant WhatsApp alerts, advanced filters, and full pricing intelligence.'
       },
       {
         q: 'How do I pay?',
@@ -103,7 +103,7 @@ const FAQ_DATA = [
     questions: [
       {
         q: 'How often is your database refreshed?',
-        a: 'Our platform continuously observes the market, refreshing intelligence across all 23 stores around the clock. When something changes, you know within seconds.'
+        a: 'Our platform continuously observes the market, refreshing intelligence across all partner stores around the clock. When something changes, you know within seconds.'
       },
       {
         q: 'What if a drop sells out before I see the alert?',

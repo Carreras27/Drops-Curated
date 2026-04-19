@@ -1408,7 +1408,7 @@ export default function SubscribePage() {
                       <p className="text-sm font-medium text-primary mb-2">Your Alert Preferences</p>
                       <div className="text-xs text-primary/60 space-y-1">
                         <p>• Alerts: {alertTypes.map(t => t === 'price_drop' ? 'Price Drops' : t === 'new_release' ? 'New Releases' : 'Restocks').join(', ') || 'None'}</p>
-                        <p>• Brands: {selectedBrands.length === 0 ? 'All 23 brands' : `${selectedBrands.length} brand${selectedBrands.length > 1 ? 's' : ''} selected`}</p>
+                        <p>• Brands: {selectedBrands.length === 0 ? 'All brands' : `${selectedBrands.length} brand${selectedBrands.length > 1 ? 's' : ''} selected`}</p>
                         <p>• Gender: {selectedGender === 'all' ? 'All collections' : selectedGender.charAt(0).toUpperCase() + selectedGender.slice(1)}</p>
                         <p>• Categories: {selectedCategories.length === 0 ? 'All categories' : selectedCategories.join(', ')}</p>
                         <p>• Sizes: {selectedSizes.length === 0 ? 'All sizes' : selectedSizes.join(', ')}</p>

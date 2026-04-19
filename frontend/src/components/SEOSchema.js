@@ -123,7 +123,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
         "name": SITE_NAME,
         "alternateName": `${SITE_NAME} - ${SITE_TAGLINE}`,
         "url": SITE_URL,
-        "description": `${SITE_TAGLINE} Curating intelligence on ${prodCount.toLocaleString()}+ products from ${brandCount} premium Indian streetwear brands. Instant WhatsApp alerts for price drops and new releases.`,
+        "description": `${SITE_TAGLINE} Curating intelligence on thousands of products from India's finest premium streetwear brands. Instant WhatsApp alerts for price drops and new releases.`,
         "inLanguage": "en-IN",
         "publisher": { "@id": `${SITE_URL}/#organization` },
         "potentialAction": {
@@ -145,7 +145,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
             "name": "How fast are the WhatsApp alerts?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": `Our alerts are delivered to your WhatsApp within 10 seconds of a price drop or new release being detected. We observe ${brandCount} premium brands continuously, curating intelligence on ${prodCount.toLocaleString()}+ products.`
+              "text": `Our alerts are delivered to your WhatsApp within 10 seconds of a price drop or new release being detected. We observe India's finest premium brands continuously, curating intelligence on thousands of products.`
             }
           },
           {
@@ -153,7 +153,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
             "name": "What brands do you cover?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": `We curate intelligence from ${brandCount}+ premium Indian and global streetwear brands including Crep Dog Crew, Huemn, Urban Monkey, VegNonVeg, Superkicks, and more. Our database covers ${prodCount.toLocaleString()}+ products updated in real-time.`
+              "text": `We curate intelligence from India's finest premium Indian and global streetwear brands including Crep Dog Crew, Huemn, Urban Monkey, VegNonVeg, Superkicks, and more. Our database covers thousands of products updated in real-time.`
             }
           },
           {
@@ -196,7 +196,7 @@ export const HomepageSchemas = ({ totalProducts, totalBrands }) => {
         "@id": `${SITE_URL}/#service`,
         "name": "Drops Curated Premium Membership",
         "serviceType": "Streetwear Intelligence & Alert Service",
-        "description": `Premium WhatsApp alerts for streetwear drops and price reductions. Curating ${prodCount.toLocaleString()}+ products from ${brandCount} brands. Curated excellence, delivered instantly.`,
+        "description": `Premium WhatsApp alerts for streetwear drops and price reductions. Curating thousands of products from India's top brands. Curated excellence, delivered instantly.`,
         "provider": { "@id": `${SITE_URL}/#organization` },
         "areaServed": {
           "@type": "Country",

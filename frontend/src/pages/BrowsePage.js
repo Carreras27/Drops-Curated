@@ -1131,7 +1131,7 @@ export default function BrowsePage() {
           <div>
             <h1 className="font-serif text-2xl md:text-3xl mb-2">Never Miss a Drop Again</h1>
             <p className="text-background/70 text-sm md:text-base max-w-xl">
-              India's fastest streetwear alerts. Price drops & new releases from {totalProducts.toLocaleString()}+ products across 23 brands — delivered to WhatsApp in under 10 seconds.
+              India's finest streetwear intelligence. Price drops & new releases from {totalProducts.toLocaleString()}+ products across India's top brands — delivered to WhatsApp in under 10 seconds.
             </p>
           </div>
           <Link

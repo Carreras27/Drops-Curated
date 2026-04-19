@@ -7,7 +7,7 @@ import { Helmet } from 'react-helmet';
  */
 const SEO = ({
   title = "Drops Curated - India's #1 Streetwear Alerts",
-  description = "Get instant WhatsApp alerts for price drops and new streetwear collections from 23+ premium Indian brands. ₹399/month.",
+  description = "Get instant WhatsApp alerts for price drops and new streetwear collections from India's finest premium brands. ₹399/month.",
   image = "https://drops-curated.preview.emergentagent.com/og-image.jpg",
   url = "https://drops-curated.preview.emergentagent.com",
   type = "website",

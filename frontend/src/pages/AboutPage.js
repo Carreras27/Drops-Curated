@@ -19,7 +19,7 @@ export default function AboutPage() {
           </h1>
           <p className="text-lg text-primary/60 max-w-2xl mx-auto">
             We built Drops Curated because we were tired of missing out on limited drops. 
-            Now, over 11,000 products from 23 premium brands are curated in our database — 
+            Now, thousands of products from India's finest brands are curated in our database — 
             and you get alerts before anyone else.
           </p>
         </div>
@@ -42,7 +42,7 @@ export default function AboutPage() {
                   across multiple stores. By the time news spread on Instagram or Discord, the best pieces were gone.
                 </p>
                 <p>
-                  So we built Drops Curated — a discovery platform that observes 23 premium streetwear stores 
+                  So we built Drops Curated — a discovery platform that observes India's finest streetwear stores 
                   and sends WhatsApp alerts within 10 seconds of a new drop or price change being detected.
                 </p>
                 <p className="font-medium text-primary">
@@ -59,7 +59,7 @@ export default function AboutPage() {
                 />
               </div>
               <div className="absolute -bottom-4 -left-4 bg-accent text-primary p-4">
-                <p className="text-2xl font-serif">23+</p>
+                <p className="text-2xl font-serif">20+</p>
                 <p className="text-xs uppercase tracking-wider">Premium Brands</p>
               </div>
             </div>
@@ -116,7 +116,7 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <p className="text-4xl md:text-5xl font-serif text-accent mb-2">11,400+</p>
+              <p className="text-4xl md:text-5xl font-serif text-accent mb-2">11,000+</p>
               <p className="text-sm text-primary/60 uppercase tracking-wider">Products Observed</p>
             </div>
             <div>
