@@ -17,6 +17,29 @@ logger = logging.getLogger(__name__)
 
 SHIPPING_RE = re.compile(r'ship|delivery|dispatch|days|week|business|express|standard|lead\s*time', re.IGNORECASE)
 
+SIZE_PATTERN = re.compile(
+    r'^(UK|US|EU|CM)[\s\-]?\d|'       # UK 8, US 10, EU 44
+    r'^\d+(\.\d+)?$|'                  # Pure number: 8, 10.5
+    r'^(XXS|XS|S|M|L|XL|XXL|XXXL|'    # Letter sizes
+    r'Free\s*Size|One\s*Size)$',       # Universal
+    re.IGNORECASE,
+)
+
+
+def _is_size_value(val: str) -> bool:
+    """Check if a string looks like a size (UK 8, S, M, 42, etc.) not a color."""
+    if not val or val == "Default Title":
+        return False
+    val = val.strip()
+    if SIZE_PATTERN.match(val):
+        return True
+    if SHIPPING_RE.search(val):
+        return False
+    # Colors are typically single words; sizes have numbers or known prefixes
+    if any(c.isdigit() for c in val):
+        return True
+    return False
+
 
 class ShopifyScraper(AetherBaseScraper):
     """
@@ -141,23 +164,58 @@ class ShopifyScraper(AetherBaseScraper):
 
         category = self._guess_category(title, product_type, tags)
 
+        # Determine which option field contains sizes vs colors
+        # Shopify products have an "options" array: [{"name": "Color"}, {"name": "Size"}]
+        options = raw.get("options", [])
+        size_option_index = None  # Which option1/option2/option3 holds the size
+        
+        size_keywords = {'size', 'shoe size', 'uk size', 'us size', 'eu size', 'taille', 'length', 'waist'}
+        for i, opt in enumerate(options):
+            opt_name = (opt.get("name") or "").lower().strip()
+            if opt_name in size_keywords:
+                size_option_index = i + 1  # option1, option2, option3
+                break
+        
+        # If no explicit size option found, detect by checking option values
+        if size_option_index is None:
+            for i, opt in enumerate(options):
+                values = opt.get("values", [])
+                if values:
+                    # Check if values look like sizes (UK 8, US 10, S, M, L, 42, etc.)
+                    size_like = sum(1 for v in values if _is_size_value(v))
+                    if size_like > len(values) * 0.5:
+                        size_option_index = i + 1
+                        break
+
         available_sizes = []
-        size_prices = {}  # Map: size -> price for per-size pricing
-        available_prices = []  # Only prices of available variants
+        size_prices = {}
+        available_prices = []
         
         for v in variants:
             opt1 = v.get("option1", "")
             opt2 = v.get("option2", "")
-            vtitle = v.get("title", "")
+            opt3 = v.get("option3", "")
             
-            # Determine size
+            # Pick the size from the correct option field
             size = ""
-            if opt1 and opt1 != "Default Title":
+            if size_option_index == 1 and opt1 and opt1 != "Default Title":
                 size = opt1
-            elif opt2 and opt2 != "Default Title":
+            elif size_option_index == 2 and opt2 and opt2 != "Default Title":
                 size = opt2
-            elif vtitle and vtitle != "Default Title":
-                size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
+            elif size_option_index == 3 and opt3 and opt3 != "Default Title":
+                size = opt3
+            else:
+                # Fallback: pick the first option that looks like a size
+                for opt in [opt1, opt2, opt3]:
+                    if opt and opt != "Default Title" and _is_size_value(opt):
+                        size = opt
+                        break
+                # Last resort: first non-default option
+                if not size:
+                    for opt in [opt1, opt2, opt3]:
+                        if opt and opt != "Default Title":
+                            size = opt
+                            break
             
             try:
                 vprice = float(v.get("price", 0))

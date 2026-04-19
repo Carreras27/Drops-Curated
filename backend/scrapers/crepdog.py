@@ -82,6 +82,25 @@ class CrepDogCrewScraper(AetherBaseScraper):
         if not product_id:
             return None
 
+        # Determine which option is "Size" vs "Color"
+        from .shopify import _is_size_value
+        options = raw.get("options", [])
+        size_option_index = None
+        size_keywords = {'size', 'shoe size', 'uk size', 'us size', 'eu size', 'taille', 'length', 'waist'}
+        for i, opt in enumerate(options):
+            opt_name = (opt.get("name") or "").lower().strip()
+            if opt_name in size_keywords:
+                size_option_index = i + 1
+                break
+        if size_option_index is None:
+            for i, opt in enumerate(options):
+                values = opt.get("values", [])
+                if values:
+                    size_like = sum(1 for v in values if _is_size_value(v))
+                    if size_like > len(values) * 0.5:
+                        size_option_index = i + 1
+                        break
+
         # Build size_prices map
         size_prices = {}
         available_prices = []
@@ -89,15 +108,26 @@ class CrepDogCrewScraper(AetherBaseScraper):
         for v in variants:
             opt1 = v.get("option1", "")
             opt2 = v.get("option2", "")
-            vtitle = v.get("title", "")
+            opt3 = v.get("option3", "")
             
+            # Pick size from the correct option field
             size = ""
-            if opt1 and opt1 != "Default Title":
+            if size_option_index == 1 and opt1 and opt1 != "Default Title":
                 size = opt1
-            elif opt2 and opt2 != "Default Title":
+            elif size_option_index == 2 and opt2 and opt2 != "Default Title":
                 size = opt2
-            elif vtitle and vtitle != "Default Title":
-                size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
+            elif size_option_index == 3 and opt3 and opt3 != "Default Title":
+                size = opt3
+            else:
+                for opt in [opt1, opt2, opt3]:
+                    if opt and opt != "Default Title" and _is_size_value(opt):
+                        size = opt
+                        break
+                if not size:
+                    for opt in [opt1, opt2, opt3]:
+                        if opt and opt != "Default Title":
+                            size = opt
+                            break
             
             try:
                 vprice = float(v.get("price", 0))
