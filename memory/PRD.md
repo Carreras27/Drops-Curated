@@ -71,6 +71,17 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 - Daily digest sender includes "🔀 Cheaper Elsewhere" section
 - APIs: `GET /api/savings/active` (public feed, filters: brand/category/min_savings_pct), `POST /api/admin/savings/run-scan`, `GET /api/admin/savings/status`
 
+### VIP Subscription Tier (COMPLETE — Apr 2026)
+- **Plans**: Regular ₹399/mo (5 brands cap) · VIP ₹2,999/mo · VIP ₹16,195/6mo (−10%) · VIP ₹28,790/yr (−20%)
+- **VIP benefits**: alerts for ALL 24+ brands (unlimited), cross-store savings feed, 15-min early-access, exclusive raffle entries, priority concierge, premium wallet card
+- Central `PLAN_CATALOG` in `server.py` — single source of truth (tier, amount_paise, duration_days, brand_limit, benefits)
+- New APIs: `GET /api/plans`, `GET /api/subscribers/{phone}/status`
+- `create_payment_order` + `verify_payment` now derive amount/expiry from plan catalog; expiry stacks onto existing subscription (upgrade-friendly)
+- Subscriber doc carries `tier` (`regular`/`vip`) + `brandLimit` (5 or 0=unlimited)
+- **Landing page**: new Pricing section with side-by-side Regular + VIP cards, "Most Popular" VIP badge, 6-mo/yearly savings tiles
+- **Subscribe page**: plan-selector with 4 radio cards, reads `?plan=` URL param, dynamic "Pay ₹X via UPI" button, upgrade-to-VIP banner for existing Regular subscribers (stacks remaining days)
+- **Bug fix by testing agent**: `security.py` Motor `if db:` truth-test → `is not None` (was causing 500s on rate-limit paths)
+
 ## Prioritized Backlog
 
 ### P0 (In Progress)
