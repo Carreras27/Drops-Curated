@@ -724,124 +724,201 @@ async def get_product(product_id: str):
     return {'product': product, 'prices': prices}
 
 
-async def _find_cross_store_prices(product: dict, existing_prices: list) -> list:
-    """Find the same product at other stores using fuzzy name matching."""
+# Token sets used by cross-store product matching
+_CS_TYPE_WORDS = {
+    'slide', 'slides', 'mules', 'pregame', 'sneaker', 'sneakers',
+    'shoe', 'shoes', 'boot', 'boots', 'sandal', 'sandals', 'slipper',
+    'hoodie', 'hoody', 'sweatshirt', 'sweater', 'pullover', 'crewneck',
+    'tee', 'tshirt', 't-shirt', 'shirt', 'top', 'jersey',
+    'jacket', 'coat', 'parka', 'vest', 'bomber', 'windbreaker',
+    'pants', 'trouser', 'trousers', 'pant', 'shorts', 'jean', 'jeans',
+    'cap', 'hat', 'beanie', 'bag', 'backpack', 'tote', 'sling',
+    'sock', 'socks', 'belt', 'wallet',
+    'men', 'women', 'mens', 'womens', 'unisex', 'male', 'female',
+    'low', 'mid', 'high', 'retro', 'og', 'se', 'premium', 'essential', 'essentials',
+    'clothes', 'clothing', 'apparel',
+}
+
+# Fit / cut descriptors that may differ across retailer listings
+_CS_FIT_WORDS = {
+    'boxy', 'oversized', 'regular', 'slim', 'relaxed', 'cropped', 'crop',
+    'loose', 'straight', 'skinny', 'tapered', 'baggy', 'fitted', 'fit',
+    'wide', 'long', 'short', 'tall', 'mini', 'midi', 'maxi',
+    'patched', 'distressed', 'washed', 'raw', 'faded', 'bleached',
+}
+
+_CS_COLOR_WORDS = {
+    'black', 'white', 'red', 'blue', 'green', 'grey', 'gray', 'pink', 'yellow',
+    'orange', 'purple', 'brown', 'navy', 'cream', 'ivory', 'teal', 'silver',
+    'gold', 'crimson', 'coral', 'mint', 'menta', 'smoke', 'chrome', 'canary',
+    'geode', 'arctic', 'sand', 'ice', 'lime', 'salmon', 'photon', 'dust',
+    'pale', 'light', 'dark', 'hyper', 'solar', 'frosted', 'blackened', 'beige',
+    'olive', 'khaki', 'maroon', 'burgundy', 'charcoal', 'stone', 'rust',
+    'turquoise', 'aqua', 'lilac', 'lavender', 'magenta', 'tan', 'camo',
+}
+
+_CS_STOPWORDS = {
+    'the', 'a', 'an', 'of', 'and', 'for', 'with', 'in', 'on', 'by', 'to',
+    'from', 'at', 'as', 'is',
+}
+
+# Broad product-type buckets used to ensure a Tee doesn't match a Cap, etc.
+_CS_TYPE_BUCKETS = {
+    'footwear': {'sneaker', 'sneakers', 'shoe', 'shoes', 'boot', 'boots', 'sandal', 'sandals',
+                 'slide', 'slides', 'mule', 'mules', 'slipper', 'slippers', 'trainer', 'trainers',
+                 'runner', 'runners'},
+    'top': {'tee', 'tshirt', 't-shirt', 'shirt', 'top', 'jersey', 'polo', 'tank', 'singlet',
+            'blouse'},
+    'outerwear': {'hoodie', 'hoody', 'sweatshirt', 'sweater', 'pullover', 'crewneck',
+                  'jacket', 'coat', 'parka', 'vest', 'bomber', 'windbreaker', 'cardigan',
+                  'zipup', 'zip-up'},
+    'bottom': {'pants', 'pant', 'trouser', 'trousers', 'shorts', 'short', 'jean', 'jeans',
+               'skirt', 'legging', 'leggings', 'joggers', 'jogger', 'sweatpant', 'sweatpants',
+               'cargo', 'cargos', 'chino', 'chinos'},
+    'headwear': {'cap', 'hat', 'beanie', 'bucket', 'visor'},
+    'bag': {'bag', 'backpack', 'tote', 'sling', 'duffel', 'crossbody', 'pouch'},
+    'accessory': {'sock', 'socks', 'belt', 'wallet', 'scarf', 'gloves', 'glasses',
+                  'sunglasses', 'bracelet', 'necklace', 'ring', 'keychain'},
+}
+
+def _cs_detect_bucket(tokens: list) -> str:
+    """Return the broad product-type bucket for a list of name tokens, or '' if undetected."""
+    for bucket, words in _CS_TYPE_BUCKETS.items():
+        for t in tokens:
+            if t in words:
+                return bucket
+    return ''
+
+
+def _cs_tokenize(name: str, brand: str) -> tuple:
+    """Return (distinctive_tokens, colors_found, type_bucket) for a product name.
+    Distinctive tokens exclude brand words, type words, fit words, colors, stopwords and pure size tokens.
+    """
     import re
-    
+    if not name:
+        return set(), set(), ''
+    # Normalize punctuation to spaces but preserve alphanumerics (so "Cloud X 4" stays)
+    cleaned = re.sub(r'[^a-zA-Z0-9]+', ' ', name).lower()
+    tokens = [t for t in cleaned.split() if t]
+    brand_tokens = set()
+    if brand:
+        brand_tokens = set(re.sub(r'[^a-zA-Z0-9]+', ' ', brand).lower().split())
+    size_pattern = re.compile(r'^(xx?x?s|xx?x?l|xxs|xxxl|2xl|3xl|4xl|s|m|l|uk|us|eu)$')
+    distinctive = set()
+    colors = set()
+    for t in tokens:
+        if t in _CS_COLOR_WORDS:
+            colors.add(t)
+            continue
+        if t in brand_tokens:
+            continue
+        if t in _CS_TYPE_WORDS or t in _CS_FIT_WORDS or t in _CS_STOPWORDS:
+            continue
+        if size_pattern.match(t):
+            continue
+        if len(t) < 2:
+            continue
+        distinctive.add(t)
+    bucket = _cs_detect_bucket(tokens)
+    return distinctive, colors, bucket
+
+
+async def _find_cross_store_prices(product: dict, existing_prices: list) -> list:
+    """Find the same product at other stores using token-overlap fuzzy matching."""
+    import re
+
     name = product.get('name', '')
     brand = product.get('brand', '')
     store = product.get('store', '')
-    
+
     if not name or not brand:
         return []
-    
-    # Already-seen stores
+
+    src_tokens, src_colors, src_bucket = _cs_tokenize(name, brand)
+    if len(src_tokens) < 1:
+        return []
+
     existing_stores = {p.get('store') for p in existing_prices}
     existing_stores.add(store)
-    
-    # Build a smart matching query:
-    # 1. Same brand
-    # 2. Name contains the key product words (ignore color/size suffixes)
-    
-    # Extract core product name — remove brand prefix
-    core = name
-    if brand.upper() != 'UNKNOWN':
-        core = re.sub(rf'^{re.escape(brand)}\s*', '', core, flags=re.IGNORECASE).strip()
-    
-    words = core.split()
-    
-    # Words that indicate product TYPE (not model) — skip these for matching
-    type_words = {
-        'slide', 'slides', 'mules', 'pregame', 'sneaker', 'sneakers',
-        'shoe', 'shoes', 'boot', 'boots', 'sandal', 'sandals', 'slipper',
-        'hoodie', 'tee', 't-shirt', 'jacket', 'pants', 'shorts',
-        'cap', 'hat', 'bag', 'backpack', 'sock', 'socks',
-        'men', 'women', 'mens', 'womens', 'unisex',
-        'low', 'mid', 'high', 'retro', 'og', 'se', 'premium', 'essential',
-    }
-    
-    # Common color words to stop at
-    color_words = {
-        'black', 'white', 'red', 'blue', 'green', 'grey', 'gray', 'pink', 'yellow',
-        'orange', 'purple', 'brown', 'navy', 'cream', 'ivory', 'teal', 'silver',
-        'gold', 'crimson', 'coral', 'mint', 'menta', 'smoke', 'chrome', 'canary',
-        'geode', 'arctic', 'sand', 'ice', 'lime', 'salmon', 'photon', 'dust',
-        'pale', 'light', 'dark', 'hyper', 'solar', 'frosted', 'blackened',
-    }
-    
-    # Extract model identifier: words that are NOT types and NOT colors
-    # e.g. "Mind 001 Slide Geode Teal" → "Mind 001"
-    # e.g. "Cloud X 4 INK IVORY" → "Cloud X 4"
-    # e.g. "Air Force 1 07 Pale Ivory" → "Air Force 1 07"
-    model_words = []
-    for w in words:
-        clean = re.sub(r'[^a-zA-Z0-9]', '', w).lower()
-        if clean in color_words or w.startswith('(') or w.startswith('/'):
-            break
-        if clean not in type_words:
-            model_words.append(w)
-        if len(model_words) >= 5:
-            break
-    
-    if len(model_words) < 2:
-        model_words = [w for w in words[:4] if re.sub(r'[^a-zA-Z0-9]', '', w).lower() not in color_words]
-    
-    model_query = ' '.join(model_words)
-    if len(model_query) < 4:
+
+    # Query by same brand + at least one distinctive token present (keeps candidate set small)
+    # Build an $or across distinctive tokens — each as a case-insensitive regex.
+    token_regexes = [
+        {'name': {'$regex': rf'(^|[^a-zA-Z0-9]){re.escape(tok)}([^a-zA-Z0-9]|$)', '$options': 'i'}}
+        for tok in list(src_tokens)[:8]
+    ]
+    if not token_regexes:
         return []
-    
-    # Escape regex special chars and build a flexible pattern
-    escaped = re.escape(model_query)
-    # Allow flexible spacing/punctuation between words
-    flexible = re.sub(r'\\ ', r'[\\s\\-/]*', escaped)
-    
-    # Also extract a distinguishing color word for secondary matching
-    name_lower = name.lower()
-    found_colors = [c for c in color_words if c in name_lower]
-    
+
+    query_filter = {
+        'brand': {'$regex': f'^{re.escape(brand)}$', '$options': 'i'},
+        'store': {'$nin': list(existing_stores)},
+        'isActive': True,
+        '$or': token_regexes,
+    }
+
     try:
-        query_filter = {
-            'brand': {'$regex': f'^{re.escape(brand)}$', '$options': 'i'},
-            'name': {'$regex': flexible, '$options': 'i'},
-            'store': {'$nin': list(existing_stores)},
-            'isActive': True,
-        }
-        matches = await db.products.find(
+        candidates = await db.products.find(
             query_filter,
             {'_id': 0, 'id': 1, 'name': 1, 'store': 1}
-        ).limit(10).to_list(10)
-        
-        # Filter by at least one shared color word if colors were found
-        if found_colors and len(matches) > 1:
-            scored = []
-            for m in matches:
-                m_lower = m['name'].lower()
-                shared = sum(1 for c in found_colors if c in m_lower)
-                scored.append((shared, m))
-            # Keep only those with the highest color overlap
-            max_score = max(s for s, _ in scored)
-            if max_score > 0:
-                matches = [m for s, m in scored if s >= max(1, max_score - 1)]
+        ).limit(50).to_list(50)
     except Exception:
         return []
-    
-    if not matches:
+
+    if not candidates:
         return []
-    
-    # Fetch prices for matched products
+
+    # Score candidates by token overlap + color agreement + type-bucket agreement
+    scored = []
+    for cand in candidates:
+        cand_tokens, cand_colors, cand_bucket = _cs_tokenize(cand.get('name', ''), brand)
+        if not cand_tokens:
+            continue
+        shared = src_tokens & cand_tokens
+        if not shared:
+            continue
+        # Type-bucket guard: when both sides have a detectable product-type bucket,
+        # they MUST match. Prevents a "Tee" matching a "Cap" just because both
+        # share the distinctive name words ("arcana", "jacquard").
+        if src_bucket and cand_bucket and src_bucket != cand_bucket:
+            continue
+        # Jaccard over distinctive tokens
+        union = src_tokens | cand_tokens
+        jaccard = len(shared) / max(1, len(union))
+        # Color compatibility: if both have colors, require at least one overlap
+        if src_colors and cand_colors and not (src_colors & cand_colors):
+            continue
+        scored.append((len(shared), jaccard, cand))
+
+    if not scored:
+        return []
+
+    # Require at least 2 shared distinctive tokens OR (1 shared token + jaccard >= 0.5)
+    strong = [c for (n, j, c) in scored if n >= 2 or (n >= 1 and j >= 0.5)]
+    if not strong:
+        return []
+
+    # Dedupe by store: keep the candidate with highest score per store
+    by_store = {}
+    for n, j, c in scored:
+        if c not in strong:
+            continue
+        key = c.get('store')
+        prev = by_store.get(key)
+        if not prev or (n, j) > (prev[0], prev[1]):
+            by_store[key] = (n, j, c)
+
     cross_prices = []
-    for match in matches:
+    for n, j, match in by_store.values():
         match_prices = await db.prices.find(
             {'productId': match['id']},
             {'_id': 0}
         ).to_list(5)
-        
         for mp in match_prices:
-            # Add matched product info for frontend display
             mp['matchedFrom'] = match['name']
             mp['matchedProductId'] = match['id']
             cross_prices.append(mp)
-    
+
     return cross_prices
 
 @api_router.get('/drops/curated')

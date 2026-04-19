@@ -366,6 +366,11 @@ export default function SubscribePage() {
   const [alertFrequency, setAlertFrequency] = useState('daily'); // instant, daily - daily recommended
   const [brandLimit, setBrandLimit] = useState(10); // 5, 10, or 0 (unlimited)
   const [selectedGender, setSelectedGender] = useState('all'); // men, women, unisex, all
+  
+  // Notification channel
+  const [notificationChannel, setNotificationChannel] = useState('email'); // email, whatsapp, telegram
+  const [showWhatsAppWarning, setShowWhatsAppWarning] = useState(false);
+  const [telegramUsername, setTelegramUsername] = useState('');
 
   const addKeyword = () => {
     const kw = keywordInput.trim().toLowerCase();
@@ -613,6 +618,9 @@ export default function SubscribePage() {
         drop_threshold: dropThreshold,
         // Notification frequency
         alert_frequency: alertFrequency,
+        // Notification channel
+        notification_channel: notificationChannel,
+        telegram_username: notificationChannel === 'telegram' ? telegramUsername : null,
       });
       toast.success('Preferences saved! Your alerts are now customized.');
       setStep('success');
