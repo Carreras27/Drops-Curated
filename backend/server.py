@@ -710,9 +710,139 @@ async def get_product(product_id: str):
     if not product:
         raise HTTPException(status_code=404, detail='Product not found')
     
+    # Get direct prices for this product
     prices = await db.prices.find({'productId': product_id}, {'_id': 0}).sort('currentPrice', 1).to_list(100)
     
+    # Cross-store matching: find the same product at other stores
+    # Build a flexible regex from the product name — extract key terms
+    cross_prices = await _find_cross_store_prices(product, prices)
+    if cross_prices:
+        prices = prices + cross_prices
+        # Sort all prices by currentPrice
+        prices.sort(key=lambda p: p.get('currentPrice', float('inf')))
+    
     return {'product': product, 'prices': prices}
+
+
+async def _find_cross_store_prices(product: dict, existing_prices: list) -> list:
+    """Find the same product at other stores using fuzzy name matching."""
+    import re
+    
+    name = product.get('name', '')
+    brand = product.get('brand', '')
+    store = product.get('store', '')
+    
+    if not name or not brand:
+        return []
+    
+    # Already-seen stores
+    existing_stores = {p.get('store') for p in existing_prices}
+    existing_stores.add(store)
+    
+    # Build a smart matching query:
+    # 1. Same brand
+    # 2. Name contains the key product words (ignore color/size suffixes)
+    
+    # Extract core product name — remove brand prefix
+    core = name
+    if brand.upper() != 'UNKNOWN':
+        core = re.sub(rf'^{re.escape(brand)}\s*', '', core, flags=re.IGNORECASE).strip()
+    
+    words = core.split()
+    
+    # Words that indicate product TYPE (not model) — skip these for matching
+    type_words = {
+        'slide', 'slides', 'mules', 'pregame', 'sneaker', 'sneakers',
+        'shoe', 'shoes', 'boot', 'boots', 'sandal', 'sandals', 'slipper',
+        'hoodie', 'tee', 't-shirt', 'jacket', 'pants', 'shorts',
+        'cap', 'hat', 'bag', 'backpack', 'sock', 'socks',
+        'men', 'women', 'mens', 'womens', 'unisex',
+        'low', 'mid', 'high', 'retro', 'og', 'se', 'premium', 'essential',
+    }
+    
+    # Common color words to stop at
+    color_words = {
+        'black', 'white', 'red', 'blue', 'green', 'grey', 'gray', 'pink', 'yellow',
+        'orange', 'purple', 'brown', 'navy', 'cream', 'ivory', 'teal', 'silver',
+        'gold', 'crimson', 'coral', 'mint', 'menta', 'smoke', 'chrome', 'canary',
+        'geode', 'arctic', 'sand', 'ice', 'lime', 'salmon', 'photon', 'dust',
+        'pale', 'light', 'dark', 'hyper', 'solar', 'frosted', 'blackened',
+    }
+    
+    # Extract model identifier: words that are NOT types and NOT colors
+    # e.g. "Mind 001 Slide Geode Teal" → "Mind 001"
+    # e.g. "Cloud X 4 INK IVORY" → "Cloud X 4"
+    # e.g. "Air Force 1 07 Pale Ivory" → "Air Force 1 07"
+    model_words = []
+    for w in words:
+        clean = re.sub(r'[^a-zA-Z0-9]', '', w).lower()
+        if clean in color_words or w.startswith('(') or w.startswith('/'):
+            break
+        if clean not in type_words:
+            model_words.append(w)
+        if len(model_words) >= 5:
+            break
+    
+    if len(model_words) < 2:
+        model_words = [w for w in words[:4] if re.sub(r'[^a-zA-Z0-9]', '', w).lower() not in color_words]
+    
+    model_query = ' '.join(model_words)
+    if len(model_query) < 4:
+        return []
+    
+    # Escape regex special chars and build a flexible pattern
+    escaped = re.escape(model_query)
+    # Allow flexible spacing/punctuation between words
+    flexible = re.sub(r'\\ ', r'[\\s\\-/]*', escaped)
+    
+    # Also extract a distinguishing color word for secondary matching
+    name_lower = name.lower()
+    found_colors = [c for c in color_words if c in name_lower]
+    
+    try:
+        query_filter = {
+            'brand': {'$regex': f'^{re.escape(brand)}$', '$options': 'i'},
+            'name': {'$regex': flexible, '$options': 'i'},
+            'store': {'$nin': list(existing_stores)},
+            'isActive': True,
+        }
+        matches = await db.products.find(
+            query_filter,
+            {'_id': 0, 'id': 1, 'name': 1, 'store': 1}
+        ).limit(10).to_list(10)
+        
+        # Filter by at least one shared color word if colors were found
+        if found_colors and len(matches) > 1:
+            scored = []
+            for m in matches:
+                m_lower = m['name'].lower()
+                shared = sum(1 for c in found_colors if c in m_lower)
+                scored.append((shared, m))
+            # Keep only those with the highest color overlap
+            max_score = max(s for s, _ in scored)
+            if max_score > 0:
+                matches = [m for s, m in scored if s >= max(1, max_score - 1)]
+    except Exception:
+        return []
+    
+    if not matches:
+        return []
+    
+    # Fetch prices for matched products
+    cross_prices = []
+    for match in matches:
+        match_prices = await db.prices.find(
+            {'productId': match['id']},
+            {'_id': 0}
+        ).to_list(5)
+        
+        for mp in match_prices:
+            # Add matched product info for frontend display
+            mp['matchedFrom'] = match['name']
+            mp['matchedProductId'] = match['id']
+            cross_prices.append(mp)
+    
+    return cross_prices
 
 @api_router.get('/drops/curated')
 async def get_curated_drops():
