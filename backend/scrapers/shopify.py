@@ -4,6 +4,7 @@ Shopify Scraper with Anti-Blocking Protection + AETHER SWARM
 Uses the public JSON API endpoint which never gets blocked.
 """
 import logging
+import re
 from typing import Optional, List, Dict
 from .base import AetherBaseScraper
 from .scraper_utils import (
@@ -13,6 +14,8 @@ from .scraper_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+SHIPPING_RE = re.compile(r'ship|delivery|dispatch|days|week|business|express|standard|lead\s*time', re.IGNORECASE)
 
 
 class ShopifyScraper(AetherBaseScraper):
@@ -139,25 +142,33 @@ class ShopifyScraper(AetherBaseScraper):
         category = self._guess_category(title, product_type, tags)
 
         available_sizes = []
+        size_prices = {}  # Map: size -> price for per-size pricing
+        available_prices = []  # Only prices of available variants
+        
         for v in variants:
-            if v.get("available"):
-                # option1 is almost always the size, option2 is often shipping/color
-                opt1 = v.get("option1", "")
-                opt2 = v.get("option2", "")
-                vtitle = v.get("title", "")
-                
-                # Pick the best size value: prefer option1, skip shipping strings
-                size = ""
-                if opt1 and opt1 != "Default Title":
-                    size = opt1
-                elif opt2 and opt2 != "Default Title":
-                    size = opt2
-                elif vtitle and vtitle != "Default Title":
-                    # From title, extract just the size part (before any " / ")
-                    size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
-                
-                if size:
-                    available_sizes.append(size)
+            opt1 = v.get("option1", "")
+            opt2 = v.get("option2", "")
+            vtitle = v.get("title", "")
+            
+            # Determine size
+            size = ""
+            if opt1 and opt1 != "Default Title":
+                size = opt1
+            elif opt2 and opt2 != "Default Title":
+                size = opt2
+            elif vtitle and vtitle != "Default Title":
+                size = vtitle.split(" / ")[0] if " / " in vtitle else vtitle
+            
+            try:
+                vprice = float(v.get("price", 0))
+            except (ValueError, TypeError):
+                vprice = 0
+            
+            if v.get("available") and size:
+                available_sizes.append(size)
+                if vprice > 0:
+                    size_prices[size] = vprice
+                    available_prices.append(vprice)
 
         compare_prices = []
         for v in variants:
@@ -177,19 +188,27 @@ class ShopifyScraper(AetherBaseScraper):
         # Filter out shipping-related sizes
         filtered_sizes = self._filter_shipping_sizes(available_sizes[:20])
 
+        # Use the first available variant's price as display price (matches what the store shows)
+        display_price = available_prices[0] if available_prices else min(prices)
+        lowest_price = min(available_prices) if available_prices else min(prices)
+        highest_price = max(available_prices) if available_prices else max(prices)
+
         return {
             "id": f"prod_{self.store_key}_{product_id}",
             "shopify_id": product_id,
             "name": title,
             "brand": vendor or self.brand_name,
             "category": category,
-            "price": min(prices),
-            "original_price": max(compare_prices) if compare_prices else min(prices),
+            "price": display_price,
+            "lowest_price": lowest_price,
+            "highest_price": highest_price,
+            "original_price": max(compare_prices) if compare_prices else display_price,
             "image_url": image_url,
             "product_url": f"{self.base_url}/products/{handle}",
             "store": self.store_key,
             "in_stock": any(v.get("available") for v in variants),
             "available_sizes": filtered_sizes,
+            "size_prices": {k: v for k, v in size_prices.items() if not SHIPPING_RE.search(k)} if size_prices else {},
             "tags": filtered_tags[:10],
             "is_limited": is_limited,
             "updated_at": updated_at,

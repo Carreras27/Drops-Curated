@@ -2844,13 +2844,19 @@ async def _store_scraped_products(scraped_products: list[dict], brand_key: str) 
 
         if existing:
             # Update existing product
+            size_prices_clean = {k: v for k, v in item.get("size_prices", {}).items() if k not in ('', 'Default Title')}
+            update_fields = {
+                "imageUrl": item["image_url"],
+                "isActive": True,
+                "updatedAt": item["scraped_at"],
+                "attributes.sizes": _filter_shipping_from_sizes(item.get("available_sizes", [])),
+            }
+            if size_prices_clean:
+                update_fields["attributes.size_prices"] = size_prices_clean
+            
             await db.products.update_one(
                 {"_id": existing["_id"]},
-                {"$set": {
-                    "imageUrl": item["image_url"],
-                    "isActive": True,
-                    "updatedAt": item["scraped_at"],
-                }}
+                {"$set": update_fields}
             )
             product_id = existing["id"]
             products_updated += 1
@@ -2864,7 +2870,10 @@ async def _store_scraped_products(scraped_products: list[dict], brand_key: str) 
                 "description": f'{item["brand"]} {item["category"].lower()} from {item["store"].replace("_", " ").title()}',
                 "imageUrl": item["image_url"],
                 "additionalImages": [],
-                "attributes": {"sizes": _filter_shipping_from_sizes(item.get("available_sizes", []))},
+                "attributes": {
+                    "sizes": _filter_shipping_from_sizes(item.get("available_sizes", [])),
+                    "size_prices": {k: v for k, v in item.get("size_prices", {}).items() if k not in ('', 'Default Title')},
+                },
                 "tags": item.get("tags", []) + [item["brand"].lower(), item["category"].lower()],
                 "store": item["store"],
                 "isActive": True,
@@ -2875,19 +2884,26 @@ async def _store_scraped_products(scraped_products: list[dict], brand_key: str) 
             products_added += 1
 
         # Upsert price record
+        price_data = {
+            "id": f"price_{product_id}_{item['store']}",
+            "productId": product_id,
+            "store": item["store"],
+            "productUrl": item.get("product_url", ""),
+            "currentPrice": item["price"],
+            "lowestPrice": item.get("lowest_price", item["price"]),
+            "highestPrice": item.get("highest_price", item["price"]),
+            "originalPrice": item.get("original_price", item["price"]),
+            "inStock": item.get("in_stock", True),
+            "lastScrapedAt": item["scraped_at"],
+            "createdAt": item["scraped_at"],
+        }
+        size_prices = item.get("size_prices", {})
+        if size_prices:
+            price_data["sizePrices"] = size_prices
+        
         await db.prices.update_one(
             {"productId": product_id, "store": item["store"]},
-            {"$set": {
-                "id": f"price_{product_id}_{item['store']}",
-                "productId": product_id,
-                "store": item["store"],
-                "productUrl": item.get("product_url", ""),
-                "currentPrice": item["price"],
-                "originalPrice": item.get("original_price", item["price"]),
-                "inStock": item.get("in_stock", True),
-                "lastScrapedAt": item["scraped_at"],
-                "createdAt": item["scraped_at"],
-            }},
+            {"$set": price_data},
             upsert=True,
         )
         prices_added += 1

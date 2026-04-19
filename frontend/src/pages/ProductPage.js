@@ -89,9 +89,18 @@ export default function ProductPage() {
     );
   }
 
-  const lowestPrice = prices.length > 0 ? Math.min(...prices.map(p => p.currentPrice)) : 0;
-  const highestPrice = prices.length > 0 ? Math.max(...prices.map(p => p.currentPrice)) : 0;
-  const savings = highestPrice - lowestPrice;
+  const sizePrices = product?.attributes?.size_prices || {};
+  const hasSizePricing = Object.keys(sizePrices).length > 0;
+  
+  // Price computation: if size is selected and has per-size pricing, show that price
+  const selectedSizePrice = selectedSize && sizePrices[selectedSize] ? sizePrices[selectedSize] : null;
+  const baseLowest = prices.length > 0 ? Math.min(...prices.map(p => p.currentPrice)) : 0;
+  const baseHighest = prices.length > 0 ? Math.max(...prices.map(p => p.currentPrice)) : 0;
+  
+  // Show selected size price if available, otherwise show the store's display price
+  const lowestPrice = selectedSizePrice || baseLowest;
+  const highestPrice = selectedSizePrice || baseHighest;
+  const savings = selectedSizePrice ? 0 : (baseHighest - baseLowest);
   
   // Generate SEO-friendly alt text
   const productAltText = generateProductAlt(product);
@@ -154,8 +163,19 @@ export default function ProductPage() {
                   )}
                 </div>
                 <p className="text-xs text-primary/40 mb-4">
-                  {prices.length > 0 ? `Best price from ${prices.length} source${prices.length > 1 ? 's' : ''}` : 'Price unavailable'}
+                  {selectedSizePrice
+                    ? `Price for ${selectedSize}`
+                    : hasSizePricing
+                      ? 'Select a size to see exact price'
+                      : prices.length > 0
+                        ? `Best price from ${prices.length} source${prices.length > 1 ? 's' : ''}`
+                        : 'Price unavailable'}
                 </p>
+                {hasSizePricing && !selectedSize && (
+                  <p className="text-xs text-accent">
+                    Prices range from ₹{Math.min(...Object.values(sizePrices)).toLocaleString('en-IN')} to ₹{Math.max(...Object.values(sizePrices)).toLocaleString('en-IN')}
+                  </p>
+                )}
                 {savings > 0 && (
                   <div className="inline-flex items-center gap-2 border border-accent/30 text-accent text-xs uppercase tracking-widest px-3 py-1.5">
                     <Check className="w-3 h-3" strokeWidth={1.5} />
@@ -216,6 +236,11 @@ export default function ProductPage() {
                         data-testid={`size-${s}`}
                       >
                         {s}
+                        {sizePrices[s] && (
+                          <span className={`block text-[10px] mt-0.5 ${selectedSize === s ? 'text-background/70' : 'text-primary/40'}`}>
+                            ₹{sizePrices[s].toLocaleString('en-IN')}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>

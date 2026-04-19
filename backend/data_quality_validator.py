@@ -179,6 +179,26 @@ class DataQualityValidator:
             findings["bad_images"] += 1
             unfixable += 1
 
+        # ── Check price vs size_prices consistency ──
+        # If a product has size_prices, its display price should be the first size's price
+        sp_cursor = self._db.products.find(
+            {**query, "attributes.size_prices": {"$exists": True, "$ne": {}}},
+            {"_id": 1, "name": 1, "store": 1, "attributes.size_prices": 1, "attributes.sizes": 1},
+        )
+        async for prod in sp_cursor:
+            sp = prod.get("attributes", {}).get("size_prices", {})
+            sizes = prod.get("attributes", {}).get("sizes", [])
+            if sp and sizes:
+                first_size_price = sp.get(sizes[0])
+                if first_size_price:
+                    # Update the corresponding price record
+                    await self._db.prices.update_one(
+                        {"productId": prod.get("id"), "store": prod.get("store")},
+                        {"$set": {"currentPrice": first_size_price, "sizePrices": sp}},
+                    )
+                    findings["price_accuracy_fixed"] = findings.get("price_accuracy_fixed", 0) + 1
+                    auto_fixed += 1
+
         issues_found = sum(findings.values())
 
         result = {
