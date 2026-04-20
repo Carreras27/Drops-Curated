@@ -82,16 +82,35 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 - **Subscribe page**: plan-selector with 4 radio cards, reads `?plan=` URL param, dynamic "Pay ₹X via UPI" button, upgrade-to-VIP banner for existing Regular subscribers (stacks remaining days)
 - **Bug fix by testing agent**: `security.py` Motor `if db:` truth-test → `is not None` (was causing 500s on rate-limit paths)
 
-### Brevo Email Alerts (COMPLETE SCAFFOLD — Apr 2026 · awaiting API key + DNS)
+### Brevo Email Alerts (LIVE — Apr 2026)
 - New module `/app/backend/email_alerts.py` — sends rich HTML alerts via Brevo transactional API
 - 5 template types mirroring the WhatsApp surface: `price_drop`, `new_drop`/`restock`, `cross_store_save`, `daily_digest`, `test`
-- Premium luxury design language: navy + ivory + gold palette, serif headings, embedded product image, styled CTA button
-- **Channel routing**: subscriber doc carries `notificationChannel` (`email` default | `whatsapp` | `both`). Both the instant-alert pipeline (`alerts.py`) and daily digest sender (`server.py`) honour it.
-- Preference funnel UpdatePreferences model now accepts `notification_channel` + `telegram_username`.
-- Auto-activates when `BREVO_API_KEY` set in `/app/backend/.env` — sandbox/log-only mode otherwise.
-- New APIs: `GET /api/admin/email/status`, `POST /api/admin/email/test` (send demo of any template kind)
+- Premium luxury design language: navy + ivory + gold palette, serif headings, embedded product image, styled CTA button, dark-mode-safe
+- **Channel routing**: subscriber doc carries `notificationChannel` (`email` default | `whatsapp` | `telegram` | combos). Both instant-alert pipeline and daily digest sender honour it.
+- **BREVO_API_KEY** provisioned + **dropscurated.com DKIM/SPF/DMARC** fully authenticated via Cloudflare (`authenticated=true, verified=true`)
+- Preference funnel `UpdatePreferences` model accepts `notification_channel` + `telegram_username`.
+- New APIs: `GET /api/admin/email/status`, `POST /api/admin/email/test` (pulls real product+image from DB for template previews)
 - Sender: `alerts@dropscurated.com`, reply-to `Dropscurated@gmail.com`
-- Blocked on user: create Brevo account → paste API key into `.env` → add SPF/DKIM records to `dropscurated.com` DNS
+
+### Telegram Bot Alerts (LIVE — Apr 2026)
+- New module `/app/backend/telegram_alerts.py` — rich HTML-formatted alerts using Telegram Bot API
+- Bot: **@Dropscurated_alerts_bot** (public)
+- 4 template types: `price_drop`, `new_drop`/`restock`, `cross_store_save`, `daily_digest` — image + inline buttons for "View Product"
+- **Deep-link account connection**: member clicks "Connect Telegram" on `/account` → backend mints a one-time code (10-min TTL) → `t.me/Dropscurated_alerts_bot?start=<code>` opens the bot → webhook consumes code → subscriber's `telegramChatId` persisted atomically
+- New APIs: `POST /api/telegram/link-code`, `POST /api/telegram/webhook`, `GET /api/admin/telegram/status`, `POST /api/admin/telegram/set-webhook`
+- Webhook handles `/start <code>`, `/stop`, `/help` commands
+- Alert pipeline (`alerts.py`) + daily digest sender (`server.py`) fan-out via `notificationChannel` (e.g. `email,whatsapp,telegram`)
+
+### Member Account Page `/account` (LIVE — Apr 2026)
+- New `/app/frontend/src/pages/AccountPage.js` — OTP-based login (no JWT, same trust as Subscribe flow), session-cached via sessionStorage
+- 4 sections:
+  - **Membership summary** — tier (VIP/Regular), plan, expiry, upgrade button, paused-status banner
+  - **Notification channels** — Email locked-on with gold check, WhatsApp + Telegram as toggles. Telegram shows "Connect" CTA when unlinked, "Disconnect" when linked.
+  - **Pause alerts** — 3/7/14/30-day vacation mode + Resume now
+  - **Preferences summary** — read-only snapshot of filters, link to full edit flow
+- Backend APIs: `/account/login`, `/account/{phone}`, `/account/channels` (always force-includes email), `/account/pause`, `/account/telegram-disconnect`
+- Email footer's "Manage preferences" link now points here instead of `/subscribe`
+- **100% test pass by testing agent** (iteration_13.json) — 15/15 backend, all frontend flows including locked email, toggle persistence, Telegram deep-link, pause/resume
 
 ## Prioritized Backlog
 
