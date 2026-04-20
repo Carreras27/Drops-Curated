@@ -368,7 +368,38 @@ export default function SubscribePage() {
   const [selectedGender, setSelectedGender] = useState('all'); // men, women, unisex, all
   
   // Notification channel
-  const [notificationChannel, setNotificationChannel] = useState('email'); // email, whatsapp, telegram
+  // Notification channels — Email is the base channel and cannot be unchecked.
+  // WhatsApp and Telegram are optional add-ons that stack on email.
+  // Pre-seeded from ?channels=email,whatsapp URL param (set by landing page CTA).
+  const [channels, setChannels] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = (params.get('channels') || 'email').split(',').map(s => s.trim().toLowerCase());
+      const set = new Set(['email']); // email is always on
+      if (raw.includes('whatsapp')) set.add('whatsapp');
+      if (raw.includes('telegram')) set.add('telegram');
+      return set;
+    } catch {
+      return new Set(['email']);
+    }
+  });
+  const toggleChannel = (ch) => {
+    if (ch === 'email') return; // email locked on — cannot be toggled
+    setChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(ch)) next.delete(ch); else next.add(ch);
+      return next;
+    });
+  };
+  // Derived string for backend: 'email' | 'whatsapp' | 'both' | 'email,telegram' etc.
+  const notificationChannel = (() => {
+    const hasW = channels.has('whatsapp');
+    const hasT = channels.has('telegram');
+    if (hasW && !hasT) return 'both';             // email + whatsapp (back-compat)
+    if (!hasW && hasT) return 'email,telegram';
+    if (hasW && hasT) return 'email,whatsapp,telegram';
+    return 'email';
+  })();
   const [showWhatsAppWarning, setShowWhatsAppWarning] = useState(false);
   const [telegramUsername, setTelegramUsername] = useState('');
 
@@ -650,9 +681,9 @@ export default function SubscribePage() {
         drop_threshold: dropThreshold,
         // Notification frequency
         alert_frequency: alertFrequency,
-        // Notification channel
+        // Notification channel — includes add-ons (email + whatsapp/telegram)
         notification_channel: notificationChannel,
-        telegram_username: notificationChannel === 'telegram' ? telegramUsername : null,
+        telegram_username: channels.has('telegram') ? telegramUsername : null,
       });
       toast.success('Preferences saved! Your alerts are now customized.');
       setStep('success');

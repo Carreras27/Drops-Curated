@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart, Sparkles, Crown, Check } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart, Sparkles, Crown, Check, Mail, Send, X } from 'lucide-react';
 import axios from 'axios';
 import { HomepageSchemas, BreadcrumbSchema } from '../components/SEOSchema';
 import { useWishlist } from '../context/WishlistContext';
@@ -378,6 +378,172 @@ export const Footer = () => {
   );
 };
 
+// ============ FLASH ALERTS CTA + CHANNEL PICKER ============
+// Primary call-to-action in the hero. Opens a modal where members pick their
+// alert channels. Email is the default channel and cannot be disabled (rich
+// HTML alerts, no chat interruption). WhatsApp and Telegram are optional
+// add-ons that stack on top of email.
+const FlashAlertsCTA = () => {
+  const [open, setOpen] = useState(false);
+  const [whatsapp, setWhatsapp] = useState(false);
+  const [telegram, setTelegram] = useState(false);
+  const navigate = useNavigate();
+
+  const channels = ['email', ...(whatsapp ? ['whatsapp'] : []), ...(telegram ? ['telegram'] : [])];
+  const channelParam = channels.join(',');
+
+  const proceed = () => {
+    setOpen(false);
+    navigate(`/subscribe?channels=${encodeURIComponent(channelParam)}`);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center justify-center gap-3 bg-primary text-background px-8 py-4 font-medium text-sm hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+        data-testid="hero-flash-alerts-cta"
+      >
+        <Zap className="w-4 h-4" strokeWidth={1.5} />
+        Get Flash Alerts
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-[80] bg-primary/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setOpen(false)}
+          data-testid="flash-alerts-modal-backdrop"
+        >
+          <div
+            className="bg-background w-full max-w-md shadow-lift border border-primary/10 relative animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="flash-alerts-modal"
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute top-4 right-4 p-1 text-primary/40 hover:text-primary transition-colors"
+              aria-label="Close"
+              data-testid="flash-alerts-close"
+            >
+              <X className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+
+            <div className="p-8">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-accent mb-3 font-semibold">Flash Alerts</p>
+              <h3 className="font-serif text-2xl leading-tight mb-2">How should we reach you?</h3>
+              <p className="text-sm text-primary/55 leading-relaxed mb-6">
+                Email is always on — it's the calmest way to get every drop without interrupting your day. Layer on WhatsApp or Telegram if you want them too.
+              </p>
+
+              <div className="space-y-3">
+                {/* Email — locked on */}
+                <div
+                  className="flex items-start gap-3 p-4 border border-accent/40 bg-accent/[0.06]"
+                  data-testid="channel-email-locked"
+                >
+                  <div className="w-5 h-5 mt-0.5 border-2 border-accent bg-accent flex items-center justify-center flex-shrink-0">
+                    <Check className="w-3 h-3 text-primary" strokeWidth={3} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Mail className="w-3.5 h-3.5 text-primary/70" strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Email</span>
+                      <span className="text-[9px] uppercase tracking-[0.18em] text-accent font-semibold">Default · Always on</span>
+                    </div>
+                    <p className="text-xs text-primary/50 mt-1 leading-relaxed">
+                      Rich visual alerts delivered to your inbox. No chat interruptions.
+                    </p>
+                  </div>
+                </div>
+
+                {/* WhatsApp — optional add-on */}
+                <label
+                  className={`flex items-start gap-3 p-4 border cursor-pointer transition-all ${
+                    whatsapp ? 'border-primary bg-primary/[0.04]' : 'border-primary/10 hover:border-primary/30'
+                  }`}
+                  data-testid="channel-whatsapp-toggle"
+                >
+                  <input
+                    type="checkbox"
+                    checked={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.checked)}
+                    className="sr-only"
+                    data-testid="channel-whatsapp-input"
+                  />
+                  <div className={`w-5 h-5 mt-0.5 border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    whatsapp ? 'border-primary bg-primary' : 'border-primary/30'
+                  }`}>
+                    {whatsapp && <Check className="w-3 h-3 text-background" strokeWidth={3} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <MessageCircle className="w-3.5 h-3.5 text-primary/70" strokeWidth={1.5} />
+                      <span className="text-sm font-medium">WhatsApp</span>
+                      <span className="text-[9px] uppercase tracking-[0.18em] text-primary/50 font-semibold">Add-on</span>
+                    </div>
+                    <p className="text-xs text-primary/50 mt-1 leading-relaxed">
+                      Instant push for urgent drops. May interrupt during chats.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Telegram — optional add-on */}
+                <label
+                  className={`flex items-start gap-3 p-4 border cursor-pointer transition-all ${
+                    telegram ? 'border-primary bg-primary/[0.04]' : 'border-primary/10 hover:border-primary/30'
+                  }`}
+                  data-testid="channel-telegram-toggle"
+                >
+                  <input
+                    type="checkbox"
+                    checked={telegram}
+                    onChange={(e) => setTelegram(e.target.checked)}
+                    className="sr-only"
+                    data-testid="channel-telegram-input"
+                  />
+                  <div className={`w-5 h-5 mt-0.5 border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    telegram ? 'border-primary bg-primary' : 'border-primary/30'
+                  }`}>
+                    {telegram && <Check className="w-3 h-3 text-background" strokeWidth={3} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Send className="w-3.5 h-3.5 text-primary/70" strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Telegram</span>
+                      <span className="text-[9px] uppercase tracking-[0.18em] text-primary/50 font-semibold">Add-on</span>
+                    </div>
+                    <p className="text-xs text-primary/50 mt-1 leading-relaxed">
+                      Private channel alerts. Good if you live on Telegram.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={proceed}
+                className="w-full mt-6 bg-primary text-background py-3.5 font-medium text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
+                data-testid="flash-alerts-continue-btn"
+              >
+                Continue with {channels.length} channel{channels.length > 1 ? 's' : ''}
+                <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+              </button>
+
+              <p className="text-[10px] text-center text-primary/35 mt-3 tracking-wide">
+                You can change or pause any channel anytime from your account.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+
+
 export default function LandingPage() {
   const [stats, setStats] = useState({ products: 0, brands: 0 });
 
@@ -448,14 +614,7 @@ export default function LandingPage() {
                   <Sparkles className="w-4 h-4" />
                   Try Free for 7 Days
                 </StartTrialButton>
-                <Link
-                  to="/subscribe"
-                  className="inline-flex items-center justify-center gap-3 bg-primary text-background px-8 py-4 font-medium text-sm hover:-translate-y-0.5 hover:shadow-lift transition-all duration-300"
-                  data-testid="hero-subscribe-cta"
-                >
-                  <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
-                  Get WhatsApp Alerts — from ₹399/mo
-                </Link>
+                <FlashAlertsCTA />
               </div>
             </div>
             <div className="lg:col-span-5 relative hidden lg:block">
