@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Bell, Store, TrendingUp, MessageCircle, Zap, Clock, Shield, Handshake, Users, Package, Activity, Heart, Sparkles, Crown, Check, Mail, Send, X } from 'lucide-react';
 import axios from 'axios';
@@ -389,6 +390,15 @@ const FlashAlertsCTA = () => {
   const [telegram, setTelegram] = useState(false);
   const navigate = useNavigate();
 
+  // Lock body scroll while modal is open — prevents background page from
+  // scrolling under the fingers on iOS Safari.
+  useEffect(() => {
+    if (!open) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, [open]);
+
   const channels = ['email', ...(whatsapp ? ['whatsapp'] : []), ...(telegram ? ['telegram'] : [])];
   const channelParam = channels.join(',');
 
@@ -409,18 +419,19 @@ const FlashAlertsCTA = () => {
         Get Flash Alerts
       </button>
 
-      {open && (
+      {open && createPortal((
         <div
-          className="fixed inset-0 z-[80] bg-primary/70 backdrop-blur-sm overflow-y-auto animate-fade-in"
+          className="fixed inset-0 z-[80] bg-primary/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
           onClick={() => setOpen(false)}
           data-testid="flash-alerts-modal-backdrop"
+          style={{ height: '100dvh' }}
         >
-          <div className="min-h-full flex items-center justify-center p-4 py-8">
-            <div
-              className="bg-background w-full max-w-md shadow-lift border border-primary/10 relative animate-scale-in my-auto"
-              onClick={(e) => e.stopPropagation()}
-              data-testid="flash-alerts-modal"
-            >
+          <div
+            className="bg-background w-full max-w-md shadow-lift border border-primary/10 relative animate-scale-in flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="flash-alerts-modal"
+            style={{ maxHeight: 'calc(100dvh - 32px)' }}
+          >
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -431,7 +442,7 @@ const FlashAlertsCTA = () => {
                 <X className="w-5 h-5" strokeWidth={1.5} />
               </button>
 
-              <div className="p-6 sm:p-8">
+              <div className="p-6 sm:p-8 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <p className="text-[10px] uppercase tracking-[0.22em] text-accent mb-3 font-semibold">Flash Alerts</p>
                 <h3 className="font-serif text-2xl leading-tight mb-2">How should we reach you?</h3>
                 <p className="text-sm text-primary/55 leading-relaxed mb-6">
@@ -538,8 +549,7 @@ const FlashAlertsCTA = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+      ), document.body)}
     </>
   );
 };
