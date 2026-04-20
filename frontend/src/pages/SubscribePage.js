@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet, FlaskConical, Loader2, TrendingDown, Package, Sparkles } from 'lucide-react';
+import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet, FlaskConical, Loader2, TrendingDown, Package, Sparkles, Crown, Send } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -1069,10 +1069,103 @@ export default function SubscribePage() {
 
                   <div className="space-y-10 max-w-lg">
                     
-                    {/* Section A: Brand Selection */}
-                    <div className="border-b border-primary/10 pb-8">
+                    {/* Section A: Notification Channels */}
+                    <div className="border-b border-primary/10 pb-8" data-testid="prefs-section-channels">
                       <div className="flex items-center gap-2 mb-4">
                         <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">A</span>
+                        <p className="text-sm font-medium">How should we reach you?</p>
+                      </div>
+                      <p className="text-xs text-primary/45 mb-5 leading-relaxed">
+                        Email is always on — it's the calmest way to get every drop. Layer on WhatsApp or Telegram if you want them too. You can change this anytime from your account page.
+                      </p>
+
+                      <div className="space-y-2.5">
+                        {/* Email — locked */}
+                        <div className="flex items-start gap-3 p-4 border border-accent/40 bg-accent/[0.06]" data-testid="prefs-channel-email">
+                          <div className="w-5 h-5 mt-0.5 border-2 border-accent bg-accent flex items-center justify-center flex-shrink-0">
+                            <Check className="w-3 h-3 text-primary" strokeWidth={3} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">Email</span>
+                              <span className="text-[9px] uppercase tracking-[0.18em] text-accent font-semibold">Default · Always on</span>
+                            </div>
+                            <p className="text-xs text-primary/50 mt-1 leading-relaxed">
+                              Rich visual alerts delivered to your inbox. No chat interruptions.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* WhatsApp — optional */}
+                        <label
+                          className={`flex items-start gap-3 p-4 border cursor-pointer transition-all ${
+                            channels.has('whatsapp') ? 'border-primary bg-primary/[0.04]' : 'border-primary/10 hover:border-primary/30'
+                          }`}
+                          data-testid="prefs-channel-whatsapp"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={channels.has('whatsapp')}
+                            onChange={() => toggleChannel('whatsapp')}
+                            className="sr-only"
+                          />
+                          <div className={`w-5 h-5 mt-0.5 border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                            channels.has('whatsapp') ? 'border-primary bg-primary' : 'border-primary/30'
+                          }`}>
+                            {channels.has('whatsapp') && <Check className="w-3 h-3 text-background" strokeWidth={3} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <MessageCircle className="w-3.5 h-3.5 text-primary/70" strokeWidth={1.5} />
+                              <span className="text-sm font-medium">WhatsApp</span>
+                              <span className="text-[9px] uppercase tracking-[0.18em] text-primary/50 font-semibold">Add-on</span>
+                            </div>
+                            <p className="text-xs text-primary/50 mt-1 leading-relaxed">
+                              Instant push for urgent drops. May interrupt during chats.
+                            </p>
+                          </div>
+                        </label>
+
+                        {/* Telegram — optional */}
+                        <label
+                          className={`flex items-start gap-3 p-4 border cursor-pointer transition-all ${
+                            channels.has('telegram') ? 'border-primary bg-primary/[0.04]' : 'border-primary/10 hover:border-primary/30'
+                          }`}
+                          data-testid="prefs-channel-telegram"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={channels.has('telegram')}
+                            onChange={() => toggleChannel('telegram')}
+                            className="sr-only"
+                          />
+                          <div className={`w-5 h-5 mt-0.5 border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                            channels.has('telegram') ? 'border-primary bg-primary' : 'border-primary/30'
+                          }`}>
+                            {channels.has('telegram') && <Check className="w-3 h-3 text-background" strokeWidth={3} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Send className="w-3.5 h-3.5 text-primary/70" strokeWidth={1.5} />
+                              <span className="text-sm font-medium">Telegram</span>
+                              <span className="text-[9px] uppercase tracking-[0.18em] text-primary/50 font-semibold">Add-on</span>
+                            </div>
+                            <p className="text-xs text-primary/50 mt-1 leading-relaxed">
+                              Private channel alerts. Connect your Telegram after checkout from your account page.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+
+                      <p className="text-[11px] text-primary/40 mt-4 tracking-wide">
+                        Selected: <span className="text-primary font-medium">{Array.from(channels).map(c => c === 'email' ? 'Email' : c === 'whatsapp' ? 'WhatsApp' : 'Telegram').join(' · ')}</span>
+                      </p>
+                    </div>
+
+                    {/* Section B: Brand Selection */}
+                    <div className="border-b border-primary/10 pb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">B</span>
                         <p className="text-sm font-medium">Brand Selection (Your "Follow" List)</p>
                       </div>
                       
@@ -1165,10 +1258,10 @@ export default function SubscribePage() {
                       </div>
                     </div>
 
-                    {/* Section B: Trigger-Based Filtering */}
+                    {/* Section C: Trigger-Based Filtering */}
                     <div className="border-b border-primary/10 pb-8">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">B</span>
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">C</span>
                         <p className="text-sm font-medium">Trigger-Based Filtering</p>
                       </div>
                       <p className="text-xs text-primary/40 mb-4">Instead of "all updates," pick specific triggers:</p>
@@ -1227,10 +1320,10 @@ export default function SubscribePage() {
                       )}
                     </div>
 
-                    {/* Section C: Specificity (Size & Category) */}
+                    {/* Section D: Specificity (Size & Category) */}
                     <div className="border-b border-primary/10 pb-8">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">C</span>
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">D</span>
                         <p className="text-sm font-medium">Specificity (Best Cost Saver)</p>
                       </div>
                       <p className="text-xs text-primary/40 mb-4">Only get alerts for your gender, size and category.</p>
@@ -1372,10 +1465,10 @@ export default function SubscribePage() {
                       </div>
                     </div>
 
-                    {/* Section D: Notification Frequency (Noise Control) */}
+                    {/* Section E: Notification Frequency (Noise Control) */}
                     <div className="border-b border-primary/10 pb-8">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">D</span>
+                        <span className="w-6 h-6 bg-accent/10 text-accent text-xs font-bold flex items-center justify-center">E</span>
                         <p className="text-sm font-medium">Notification Frequency (Noise Control)</p>
                       </div>
                       
