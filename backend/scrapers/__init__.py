@@ -29,6 +29,7 @@ SHOPIFY_BRANDS = [
     {"key": "deadbear", "name": "Deadbear", "store_key": "DEADBEAR", "url": "https://deadbear.in"},
     {"key": "natty_garb", "name": "Natty Garb", "store_key": "NATTY_GARB", "url": "https://www.nattygarb.com"},
     {"key": "bomaachi", "name": "Bomaachi", "store_key": "BOMAACHI", "url": "https://bomaachi.com"},
+    {"key": "comet", "name": "Comet", "store_key": "COMET", "url": "https://www.wearcomet.com"},
 ]
 
 # Build SCRAPERS dict
