@@ -3031,7 +3031,8 @@ async def email_service_status():
 @api_router.post('/admin/email/test')
 async def admin_send_test_email(payload: EmailTestRequest):
     """Admin-only: send a sample email to verify Brevo setup / DKIM / inbox placement.
-    Accepts `kind` to render any of the production templates with demo data.
+    Pulls a REAL product + image URL from the DB (no fake image URLs) so image
+    rendering can be verified end-to-end.
     """
     from email_alerts import (
         send_test_email, send_price_drop_alert as p_drop,
@@ -3044,36 +3045,55 @@ async def admin_send_test_email(payload: EmailTestRequest):
     if '@' not in to:
         raise HTTPException(status_code=400, detail='Invalid email')
 
+    # Pull a real product with a valid imageUrl so tests actually render an image
+    app_url = os.environ.get('APP_URL', 'https://dropscurated.com')
+    demo_prod = await db.products.find_one(
+        {'isActive': True, 'imageUrl': {'$exists': True, '$ne': None, '$regex': '^https?://'}},
+        {'_id': 0, 'id': 1, 'name': 1, 'brand': 1, 'store': 1, 'imageUrl': 1, 'productUrl': 1}
+    ) or {}
+    # Fallback demo data
+    demo_name = demo_prod.get('name', 'Arcana Jacquard Patched Boxy Tee')
+    demo_brand = demo_prod.get('brand', 'Almost Gods')
+    demo_img = demo_prod.get('imageUrl', '')
+    demo_url = demo_prod.get('productUrl') or f'{app_url}/products/{demo_prod.get("id", "")}'
+
     if kind == 'price_drop':
-        ok, info = p_drop(to, 'Arcana Jacquard Patched Boxy Tee', 9500, 12117,
-                          brand='Almost Gods',
-                          image_url='https://cdn.shopify.com/s/files/1/0591/5570/4953/files/AG_Arcana_tee_1.jpg',
-                          product_url=f'{os.environ.get("APP_URL","https://dropscurated.com")}/products/prod_ALMOST_GODS_25797',
-                          savings_pct=22)
+        ok, info = p_drop(to, demo_name, 9500, 12117,
+                          brand=demo_brand, image_url=demo_img,
+                          product_url=demo_url, savings_pct=22)
     elif kind == 'new_drop':
-        ok, info = new_drop(to, 'X Lows LIGHT', 4299, brand='Comet',
-                            image_url='https://www.wearcomet.com/cdn/shop/files/X-Lows-Light-Side.jpg',
-                            product_url='https://www.wearcomet.com/products/x-lows-light')
+        ok, info = new_drop(to, demo_name, 4299, brand=demo_brand,
+                            image_url=demo_img, product_url=demo_url)
     elif kind == 'cross_save':
-        ok, info = cross_save(to, 'Arcana Jacquard Patched Tee', 'Almost Gods',
+        ok, info = cross_save(to, demo_name, demo_brand,
                               9500, 12117, 'SUPERKICKS',
-                              'https://www.superkicks.in/products/almost-gods-arcana-jacquard-patched-tee-black',
-                              'https://cdn.shopify.com/s/files/1/0591/5570/4953/files/AG_Arcana_tee_1.jpg',
-                              2617, 22)
+                              demo_url, demo_img, 2617, 22)
     elif kind == 'digest':
-        demo_alerts = [
-            {'type': 'new_release', 'data': {'name': 'X Lows LIGHT', 'brand': 'Comet', 'price': 4299,
-                                             'image_url': 'https://www.wearcomet.com/cdn/shop/files/X-Lows-Light-Side.jpg',
-                                             'product_url': 'https://www.wearcomet.com/products/x-lows-light'}},
-            {'type': 'price_drop', 'data': {'name': 'Arcana Jacquard Tee', 'brand': 'Almost Gods',
-                                            'new_price': 9500, 'old_price': 12117,
-                                            'image_url': 'https://cdn.shopify.com/s/files/1/0591/5570/4953/files/AG_Arcana_tee_1.jpg',
-                                            'product_url': f'{os.environ.get("APP_URL","https://dropscurated.com")}/products/prod_ALMOST_GODS_25797'}},
-        ]
-        ok, info = digest(to, datetime.now(timezone.utc).strftime('%Y-%m-%d'), demo_alerts)
+        # Grab two real products for a rich demo digest
+        demo_prods = await db.products.find(
+            {'isActive': True, 'imageUrl': {'$regex': '^https?://'}},
+            {'_id': 0, 'id': 1, 'name': 1, 'brand': 1, 'imageUrl': 1, 'productUrl': 1}
+        ).limit(2).to_list(2)
+        alerts_demo = []
+        if len(demo_prods) > 0:
+            p = demo_prods[0]
+            alerts_demo.append({'type': 'new_release', 'data': {
+                'name': p['name'], 'brand': p.get('brand', ''), 'price': 4299,
+                'image_url': p.get('imageUrl', ''),
+                'product_url': p.get('productUrl') or f'{app_url}/products/{p["id"]}'
+            }})
+        if len(demo_prods) > 1:
+            p = demo_prods[1]
+            alerts_demo.append({'type': 'price_drop', 'data': {
+                'name': p['name'], 'brand': p.get('brand', ''),
+                'new_price': 9500, 'old_price': 12117,
+                'image_url': p.get('imageUrl', ''),
+                'product_url': p.get('productUrl') or f'{app_url}/products/{p["id"]}'
+            }})
+        ok, info = digest(to, datetime.now(timezone.utc).strftime('%Y-%m-%d'), alerts_demo)
     else:
         ok, info = send_test_email(to)
-    return {'ok': ok, 'info': str(info), 'kind': kind, 'recipient': to}
+    return {'ok': ok, 'info': str(info), 'kind': kind, 'recipient': to, 'image_used': demo_img}
 
 @api_router.get('/alerts/digest/{phone}')
 async def get_daily_digest(phone: str):

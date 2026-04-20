@@ -65,19 +65,65 @@ p{line-height:1.55;font-size:14px;color:#001F3F;margin:0 0 14px}
 
 def _shell(inner_html: str, preheader: str = '') -> str:
     return f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Drops Curated Alert</title><style>{_BASE_CSS}</style></head>
-<body>
-<span style="display:none;max-height:0;overflow:hidden;color:transparent">{preheader}</span>
-<div class="wrap">
-  <div class="hdr"><p class="logo">Drops Curated</p><p class="tag">Curated Streetwear Intelligence</p></div>
-  {inner_html}
-  <div class="ftr">
-    You're receiving this because email alerts are enabled in your Drops Curated preferences.<br>
-    <a href="{APP_URL}/account">Manage preferences</a> &nbsp;·&nbsp;
-    <a href="{APP_URL}/unsubscribe?email={{EMAIL}}">Unsubscribe</a>
-    <br><br>© 2026 Drops Curated · Premium Indian Streetwear
-  </div>
-</div></body></html>"""
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<title>Drops Curated Alert</title>
+<!--[if mso]><style>*{{font-family:Arial,sans-serif !important}}</style><![endif]-->
+<style>
+:root {{ color-scheme: light only; supported-color-schemes: light only; }}
+{_BASE_CSS}
+/* Gmail dark-mode overrides — force brand colors, block auto-inversion */
+u + .body .wrap,
+body[data-ogsc] .wrap {{ background:#FAF8F5 !important }}
+u + .body .hdr,
+body[data-ogsc] .hdr {{ background:#001F3F !important; color:#FAF8F5 !important }}
+u + .body .hdr .logo,
+body[data-ogsc] .hdr .logo {{ color:#FAF8F5 !important }}
+u + .body .hdr .tag,
+body[data-ogsc] .hdr .tag {{ color:#D4AF37 !important }}
+u + .body .hero,
+body[data-ogsc] .hero {{ background:#FAF8F5 !important; color:#001F3F !important }}
+u + .body h1,
+u + .body p,
+u + .body .pname,
+u + .body .price-big,
+body[data-ogsc] h1,
+body[data-ogsc] p,
+body[data-ogsc] .pname,
+body[data-ogsc] .price-big {{ color:#001F3F !important }}
+u + .body .kicker,
+u + .body .save,
+body[data-ogsc] .kicker,
+body[data-ogsc] .save {{ color:#D4AF37 !important }}
+u + .body .btn,
+body[data-ogsc] .btn {{ background:#001F3F !important; color:#FAF8F5 !important }}
+u + .body .ftr,
+body[data-ogsc] .ftr {{ background:#001F3F !important; color:rgba(250,248,245,.55) !important }}
+</style>
+</head>
+<body class="body" style="margin:0;padding:0;background:#F3F1ED;">
+<span style="display:none !important;max-height:0;overflow:hidden;color:transparent;visibility:hidden;opacity:0;font-size:1px;line-height:1px">{preheader}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F1ED"><tr><td align="center" style="padding:16px 0">
+<table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#FAF8F5">
+<tr><td style="background:#001F3F;color:#FAF8F5;padding:28px 32px" class="hdr">
+  <p style="margin:0;font-family:Georgia,serif;font-size:22px;color:#FAF8F5" class="logo">Drops Curated</p>
+  <p style="margin:4px 0 0;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#D4AF37" class="tag">Curated Streetwear Intelligence</p>
+</td></tr>
+<tr><td style="background:#FAF8F5">{inner_html}</td></tr>
+<tr><td style="background:#001F3F;color:rgba(250,248,245,.55);padding:24px 32px;font-size:11px;line-height:1.6" class="ftr">
+  You're receiving this because email alerts are enabled in your Drops Curated preferences.<br>
+  <a href="{APP_URL}/account" style="color:#D4AF37;text-decoration:none">Manage preferences</a> &nbsp;·&nbsp;
+  <a href="{APP_URL}/unsubscribe?email={{EMAIL}}" style="color:#D4AF37;text-decoration:none">Unsubscribe</a>
+  <br><br>© 2026 Drops Curated · Premium Indian Streetwear
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>"""
 
 
 def _fmt_inr(value) -> str:
