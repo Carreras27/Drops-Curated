@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import time
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional
@@ -1435,6 +1436,178 @@ async def subscriber_status(phone: str):
     }
 
 
+# ============ MEMBER ACCOUNT PAGE ============
+# Same lightweight OTP auth as Subscribe flow — no JWT needed since the account
+# page is low-stakes (preference management). Phone + verified OTP = session.
+
+class AccountOTPVerify(BaseModel):
+    phone: str
+    otp: str
+
+
+@api_router.post('/account/login')
+@limiter.limit("10/hour")
+async def account_login(request: Request, data: AccountOTPVerify):
+    """Verify OTP for account page login. Returns subscriber snapshot. OTP
+    must have been requested via /api/otp/send first."""
+    phone = data.phone.strip()
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+    stored = otp_store.get(phone)
+    if not stored:
+        raise HTTPException(status_code=400, detail='No OTP requested for this number')
+    if stored.get('otp') != data.otp:
+        raise HTTPException(status_code=400, detail='Invalid OTP')
+    # OTP freshness check using created_at (default 10 min window)
+    try:
+        created = datetime.fromisoformat(stored.get('created_at', '').replace('Z', '+00:00'))
+        if (datetime.now(timezone.utc) - created).total_seconds() > 600:
+            raise HTTPException(status_code=400, detail='OTP expired — request a new one')
+    except (ValueError, AttributeError):
+        pass  # if created_at is missing / malformed, don't block login
+    # Mark verified so other endpoints (like /preferences, /telegram/link-code)
+    # accept this phone's requests
+    stored['verified'] = True
+    sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0})
+    if not sub:
+        raise HTTPException(status_code=404, detail='No membership found for this phone. Subscribe first.')
+    return {
+        'ok': True,
+        'subscriber': _serialize_subscriber(sub),
+    }
+
+
+@api_router.get('/account/{phone}')
+async def account_get(phone: str):
+    """Fetch full account snapshot for the account page. Requires prior OTP
+    verification (phone must be in verified otp_store — same trust model as
+    payment/preferences endpoints)."""
+    phone = phone.strip()
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+    stored = otp_store.get(phone)
+    if not stored or not stored.get('verified'):
+        raise HTTPException(status_code=401, detail='OTP verification required')
+    sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0})
+    if not sub:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    return {'subscriber': _serialize_subscriber(sub)}
+
+
+class UpdateChannelsRequest(BaseModel):
+    phone: str
+    channels: list[str]  # subset of ['email','whatsapp','telegram']
+
+
+@api_router.post('/account/channels')
+async def account_update_channels(data: UpdateChannelsRequest):
+    """Update the subscriber's notification channels. Email is always kept on
+    regardless of input (UI enforces this too — defense in depth)."""
+    phone = data.phone.strip()
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+    stored = otp_store.get(phone)
+    if not stored or not stored.get('verified'):
+        raise HTTPException(status_code=401, detail='OTP verification required')
+
+    wanted = set(c.strip().lower() for c in (data.channels or []))
+    wanted.add('email')  # email always on
+    wanted &= {'email', 'whatsapp', 'telegram'}
+    channel_str = ','.join(sorted(wanted)) if wanted != {'email'} else 'email'
+
+    res = await db.subscribers.update_one(
+        {'phone': phone},
+        {'$set': {
+            'notificationChannel': channel_str,
+            'preferences.notification_channel': channel_str,
+            'updatedAt': datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    return {'ok': True, 'notificationChannel': channel_str}
+
+
+class PauseRequest(BaseModel):
+    phone: str
+    days: int  # 0 to resume, positive = pause for N days
+
+
+@api_router.post('/account/pause')
+async def account_pause(data: PauseRequest):
+    """Pause alerts for a number of days (vacation mode). days=0 resumes."""
+    phone = data.phone.strip()
+    stored = otp_store.get(phone)
+    if not stored or not stored.get('verified'):
+        raise HTTPException(status_code=401, detail='OTP verification required')
+    if data.days < 0 or data.days > 365:
+        raise HTTPException(status_code=400, detail='days must be 0-365')
+
+    if data.days == 0:
+        update = {'$unset': {'alertsPausedUntil': ''}, '$set': {'updatedAt': datetime.now(timezone.utc).isoformat()}}
+    else:
+        until = datetime.now(timezone.utc) + timedelta(days=data.days)
+        update = {'$set': {
+            'alertsPausedUntil': until.isoformat(),
+            'updatedAt': datetime.now(timezone.utc).isoformat(),
+        }}
+
+    res = await db.subscribers.update_one({'phone': phone}, update)
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    return {'ok': True, 'paused_days': data.days}
+
+
+class AccountPhoneRequest(BaseModel):
+    phone: str
+
+
+@api_router.post('/account/telegram-disconnect')
+async def account_telegram_disconnect(payload: AccountPhoneRequest):
+    """Remove the saved telegram_chat_id so future alerts skip Telegram."""
+    phone = payload.phone.strip()
+    stored = otp_store.get(phone)
+    if not stored or not stored.get('verified'):
+        raise HTTPException(status_code=401, detail='OTP verification required')
+    await db.subscribers.update_one(
+        {'phone': phone},
+        {'$unset': {'telegramChatId': '', 'telegramUsername': ''}}
+    )
+    return {'ok': True}
+
+
+def _serialize_subscriber(sub: dict) -> dict:
+    """Non-PII-safe projection for the account page — strips consent logs and
+    internal fields."""
+    prefs = sub.get('preferences') or {}
+    return {
+        'phone': sub.get('phone'),
+        'name': sub.get('name'),
+        'email': sub.get('email'),
+        'membershipId': sub.get('membershipId'),
+        'plan': sub.get('plan'),
+        'tier': sub.get('tier') or ('vip' if (sub.get('plan') or '').startswith('vip_') else 'regular'),
+        'expiresAt': sub.get('expiresAt'),
+        'paidAt': sub.get('paidAt'),
+        'isPaid': sub.get('isPaid', False),
+        'notificationChannel': sub.get('notificationChannel', 'email'),
+        'telegramLinked': bool(sub.get('telegramChatId')),
+        'telegramUsername': sub.get('telegramUsername'),
+        'alertsPausedUntil': sub.get('alertsPausedUntil'),
+        'preferences': {
+            'brands': prefs.get('brands', []),
+            'alert_types': prefs.get('alert_types', []),
+            'gender': prefs.get('gender', 'all'),
+            'categories': prefs.get('categories', []),
+            'sizes': prefs.get('sizes', []),
+            'price_range': prefs.get('price_range', {}),
+            'keywords': prefs.get('keywords', []),
+            'drop_threshold': prefs.get('drop_threshold', 10),
+            'alert_frequency': prefs.get('alert_frequency', 'instant'),
+        },
+    }
+
+
 @api_router.post('/otp/send')
 @limiter.limit("5/15minutes")
 async def send_otp_endpoint(request: Request, data: OTPRequestWithCaptcha):
@@ -2251,7 +2424,6 @@ async def generate_google_wallet_pass(data: WalletPassRequest):
 
 # ============ RAFFLE & ENTRY MANAGEMENT SYSTEM ============
 import secrets
-import time
 from collections import defaultdict
 
 # Rate limiting for bot protection
@@ -3010,6 +3182,64 @@ async def savings_scanner_status():
     return cross_store_savings_scanner.get_status()
 
 
+# ============ TELEGRAM BOT ============
+class TelegramLinkRequest(BaseModel):
+    phone: str
+
+
+@api_router.post('/telegram/link-code')
+async def telegram_generate_link_code(payload: TelegramLinkRequest):
+    """Member clicks 'Connect Telegram' → we mint a one-time code and return the
+    deep-link they should open in Telegram. The bot's /start handler consumes
+    the code and links their chat_id."""
+    import telegram_alerts
+    phone = payload.phone.strip()
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+    sub = await db.subscribers.find_one({'phone': phone}, {'_id': 0, 'isPaid': 1})
+    if not sub:
+        raise HTTPException(status_code=404, detail='Subscriber not found')
+    code = telegram_alerts.create_link_code(phone)
+    link = telegram_alerts.deep_link_for(code)
+    return {'code': code, 'deep_link': link, 'expires_in_s': 600}
+
+
+@api_router.post('/telegram/webhook')
+async def telegram_webhook(request: Request):
+    """Receive updates from Telegram. Do not rate-limit — Telegram retries
+    aggressively and we already validate shape."""
+    import telegram_alerts
+    try:
+        update = await request.json()
+    except Exception:
+        return {'ok': False, 'error': 'invalid-json'}
+    return await telegram_alerts.handle_webhook_update(db, update)
+
+
+@api_router.get('/admin/telegram/status')
+async def telegram_status():
+    """Admin: status of the Telegram bot (webhook info, token configured)."""
+    import telegram_alerts
+    info = await telegram_alerts.get_webhook_info()
+    return {
+        'configured': telegram_alerts.IS_CONFIGURED,
+        'bot_username': telegram_alerts.TELEGRAM_BOT_USERNAME,
+        'webhook_info': info,
+    }
+
+
+@api_router.post('/admin/telegram/set-webhook')
+async def telegram_set_webhook():
+    """Admin: register our webhook URL with Telegram.
+    Uses APP_URL env or the backend preview URL."""
+    import telegram_alerts
+    # Construct our public webhook URL
+    backend_url = os.environ.get('BACKEND_URL') or os.environ.get('APP_URL') or 'https://drops-curated.preview.emergentagent.com'
+    webhook_url = f"{backend_url.rstrip('/')}/api/telegram/webhook"
+    ok, msg = await telegram_alerts.set_webhook(webhook_url)
+    return {'ok': ok, 'webhook_url': webhook_url, 'result': str(msg)}
+
+
 # ============ EMAIL (BREVO) ADMIN ============
 class EmailTestRequest(BaseModel):
     to: str
@@ -3116,11 +3346,12 @@ async def get_daily_digest(phone: str):
 async def send_daily_digests():
     """
     Send daily digest messages to all subscribers with queued alerts.
-    Routes to each subscriber's chosen notificationChannel (email | whatsapp | both).
-    Called by the scheduler at 8 PM IST.
+    Routes to each subscriber's chosen notificationChannel (email | whatsapp |
+    telegram | combinations). Called by the scheduler at 8 PM IST.
     """
     from whatsapp import whatsapp_client, IS_CONFIGURED
     from email_alerts import send_daily_digest_email
+    from telegram_alerts import send_daily_digest as tg_send_daily_digest
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     digests = await db.daily_digest.find({'date': today, 'sent': {'$ne': True}}).to_list(1000)
@@ -3135,17 +3366,22 @@ async def send_daily_digests():
         if not alerts:
             continue
 
-        # Look up subscriber to get channel preference + email address
+        # Look up subscriber to get channel preference + email + chat_id
         sub = await db.subscribers.find_one(
             {'phone': phone},
-            {'_id': 0, 'email': 1, 'notificationChannel': 1, 'preferences': 1}
+            {'_id': 0, 'email': 1, 'notificationChannel': 1, 'preferences': 1, 'telegramChatId': 1}
         ) or {}
-        channel = (sub.get('notificationChannel') or (sub.get('preferences') or {}).get('notification_channel') or 'email').lower()
-        send_email = channel in ('email', 'both')
-        send_wa = channel in ('whatsapp', 'both')
+        channel_raw = (sub.get('notificationChannel') or (sub.get('preferences') or {}).get('notification_channel') or 'email').lower()
+        if channel_raw == 'both':
+            channel_raw = 'email,whatsapp'
+        channel_set = set(s.strip() for s in channel_raw.split(',') if s.strip())
+        send_email = 'email' in channel_set
+        send_wa = 'whatsapp' in channel_set
+        send_telegram = 'telegram' in channel_set
         sub_email = sub.get('email', '')
+        telegram_chat_id = sub.get('telegramChatId')
 
-        # Group alerts by type (WhatsApp template)
+        # Build plain-text message (WhatsApp)
         new_drops = [a for a in alerts if a.get('type') == 'new_release']
         price_drops = [a for a in alerts if a.get('type') == 'price_drop']
         restocks = [a for a in alerts if a.get('type') == 'restock']
@@ -3192,6 +3428,7 @@ async def send_daily_digests():
 
         wa_ok = False
         email_ok = False
+        tg_ok = False
 
         # WhatsApp
         if send_wa:
@@ -3205,7 +3442,11 @@ async def send_daily_digests():
         if send_email and sub_email:
             email_ok, _ = send_daily_digest_email(sub_email, today, alerts)
 
-        success = wa_ok or email_ok or (not send_wa and not send_email)
+        # Telegram (rich formatted)
+        if send_telegram and telegram_chat_id:
+            tg_ok, _ = await tg_send_daily_digest(telegram_chat_id, today, alerts)
+
+        success = wa_ok or email_ok or tg_ok or (not send_wa and not send_email and not send_telegram)
         if success:
             sent_count += 1
             await db.daily_digest.update_one(
@@ -3213,7 +3454,7 @@ async def send_daily_digests():
                 {'$set': {
                     'sent': True,
                     'sentAt': datetime.now(timezone.utc).isoformat(),
-                    'channels': {'whatsapp': wa_ok, 'email': email_ok},
+                    'channels': {'whatsapp': wa_ok, 'email': email_ok, 'telegram': tg_ok},
                 }}
             )
         else:

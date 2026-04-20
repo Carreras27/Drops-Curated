@@ -13,6 +13,13 @@ from email_alerts import (
     send_daily_digest_email,
     IS_CONFIGURED as EMAIL_CONFIGURED,
 )
+from telegram_alerts import (
+    send_price_drop_alert as tg_send_price_drop,
+    send_new_drop_alert as tg_send_new_drop,
+    send_cross_store_save_alert as tg_send_cross_store,
+    send_daily_digest as tg_send_daily_digest,
+    IS_CONFIGURED as TELEGRAM_CONFIGURED,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -320,13 +327,19 @@ async def send_alerts(db, changes: dict, store_key: str):
                 )
         else:
             # Instant alerts - send immediately (max 3 per subscriber per scrape cycle)
-            # Route to the subscriber's chosen channel (email | whatsapp | both).
-            # Default 'email' (set by Subscribe page) — WhatsApp only when explicitly chosen
-            # to respect the "avoid interrupting chats" principle.
-            channel = (sub.get('notificationChannel') or prefs.get('notification_channel') or 'email').lower()
-            send_email = channel in ('email', 'both')
-            send_wa = channel in ('whatsapp', 'both')
+            # Route to the subscriber's chosen channel. `notificationChannel` is a
+            # comma-separated string e.g. 'email', 'both', 'email,telegram',
+            # 'email,whatsapp,telegram'. 'both' is a legacy alias for email+whatsapp.
+            channel_raw = (sub.get('notificationChannel') or prefs.get('notification_channel') or 'email').lower()
+            if channel_raw == 'both':
+                channel_raw = 'email,whatsapp'
+            channel_set = set(s.strip() for s in channel_raw.split(',') if s.strip())
+            # Legacy: 'whatsapp' alone means whatsapp only (no email)
+            send_email = 'email' in channel_set
+            send_wa = 'whatsapp' in channel_set
+            send_telegram = 'telegram' in channel_set
             sub_email = sub.get('email', '')
+            telegram_chat_id = sub.get('telegramChatId')
 
             for alert in alerts_to_send[:3]:
                 success = False
@@ -349,6 +362,22 @@ async def send_alerts(db, changes: dict, store_key: str):
                             pct = None
                         ok, _ = email_send_price_drop(
                             email=sub_email,
+                            product_name=drop['name'],
+                            new_price=drop['new_price'],
+                            old_price=drop['old_price'],
+                            brand=drop.get('brand', ''),
+                            image_url=drop.get('image_url', ''),
+                            product_url=drop.get('product_url', ''),
+                            savings_pct=pct,
+                        )
+                        success = success or ok
+                    if send_telegram and telegram_chat_id:
+                        try:
+                            pct = int(round((1 - drop['new_price'] / drop['old_price']) * 100)) if drop.get('old_price') else None
+                        except (TypeError, ZeroDivisionError):
+                            pct = None
+                        ok, _ = await tg_send_price_drop(
+                            chat_id=telegram_chat_id,
                             product_name=drop['name'],
                             new_price=drop['new_price'],
                             old_price=drop['old_price'],
@@ -381,6 +410,17 @@ async def send_alerts(db, changes: dict, store_key: str):
                             is_restock=False,
                         )
                         success = success or ok
+                    if send_telegram and telegram_chat_id:
+                        ok, _ = await tg_send_new_drop(
+                            chat_id=telegram_chat_id,
+                            product_name=prod['name'],
+                            price=prod['price'],
+                            brand=prod.get('brand', ''),
+                            image_url=prod.get('image_url', ''),
+                            product_url=prod.get('product_url', ''),
+                            is_restock=False,
+                        )
+                        success = success or ok
                 elif alert['type'] == 'restock':
                     restock = alert['data']
                     if send_wa:
@@ -396,6 +436,17 @@ async def send_alerts(db, changes: dict, store_key: str):
                     if send_email and sub_email:
                         ok, _ = email_send_new_drop(
                             email=sub_email,
+                            product_name=restock['name'],
+                            price=restock['price'],
+                            brand=restock.get('brand', ''),
+                            image_url=restock.get('image_url', ''),
+                            product_url=restock.get('product_url', ''),
+                            is_restock=True,
+                        )
+                        success = success or ok
+                    if send_telegram and telegram_chat_id:
+                        ok, _ = await tg_send_new_drop(
+                            chat_id=telegram_chat_id,
                             product_name=restock['name'],
                             price=restock['price'],
                             brand=restock.get('brand', ''),

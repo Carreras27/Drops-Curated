@@ -1,0 +1,63 @@
+{
+  "summary": "Iteration 13: Tested Telegram bot alerts + /account/* member page. Backend 15/15 passed (admin/telegram/status, /telegram/link-code, /telegram/webhook start+help+expired, /account/login+get+channels+pause+telegram-disconnect, email always forced on). Frontend /account end-to-end passed — login card → otp step → dashboard with all 4 sections → email row locked → WhatsApp toggle persists → Connect Telegram deep-link (https://t.me/Dropscurated_alerts_bot?start=<code>) → pause 3 days + resume. Landing & /browse regression OK; /subscribe loads but networkidle never settles due to live Cloudflare Turnstile (known from iter_12).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_telegram_account.py",
+    "/app/test_reports/pytest/telegram_account_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "telegram_alerts.py uses an in-memory _LINK_CODES dict (10-min TTL). Fine for single-instance preview but will silently fail across restarts / multi-pod prod. Comment in code already flags this — low priority reminder.",
+    "server.py account_login() catches malformed created_at timestamps and falls through without blocking login. Intentional per comment, but means a corrupted otp_store entry won't enforce expiry. Minor.",
+    "AccountPage.js channels set-parsing replaces legacy 'both' with 'email,whatsapp' inline — matches backend semantics per review_request. Works correctly.",
+    "/account/channels correctly forces 'email' into the persisted string (verified by test_account_channels_forces_email_on with empty+junk inputs). Server-side defense-in-depth is in place.",
+    "Telegram webhook /start handler re-links chat_id without requiring OTP verification — by design, since Telegram's /start deep-link carries the one-time code. Code consumption is atomic via _LINK_CODES.pop(), so reuse attempts correctly return 'expired-code'.",
+    "server.py /telegram/link-code does not require OTP verification for the phone (anyone can mint a link-code for any existing subscriber phone). Because the code itself is the secret and must be consumed via /start <code> in Telegram, this is acceptable, but consider gating behind otp_store[phone].verified for extra safety."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_telegram_account.py"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (all account-page flows + regression)"},
+  "test_credentials": "Per /app/memory/test_credentials.md. Paid VIP-yearly subscriber 9876543212 used throughout. Sandbox OTP returned in /api/otp/send response.",
+  "seed_data_creation": "Subscriber 9876543212 chat_id temporarily rotated between 99999 ↔ 123456789 during test_webhook_start_links_chat and disconnect-reconnect flows; final state re-linked to chat_id=99999 via cleanup step at end of test_telegram_disconnect.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_telegram_account.py are deterministic regression suite for telegram+account. Sandbox OTP freshness caveat: when automating the /account UI, capture sandbox_otp by intercepting the UI's /api/otp/send response (page.on('response')) — do NOT call /api/otp/send via API then click the UI send-btn, because the second call rotates the OTP and makes the first one stale. Live Cloudflare Turnstile on /subscribe still prevents full e2e past the OTP step (carry-over from iter_12 — swap REACT_APP_TURNSTILE_SITE_KEY to Cloudflare test key for preview).",
+  "features_tested": {
+    "backend": {
+      "GET /api/admin/telegram/status (configured=true, bot_username=Dropscurated_alerts_bot)": "PASS",
+      "POST /api/telegram/link-code returns deep_link https://t.me/Dropscurated_alerts_bot?start=<code>": "PASS",
+      "POST /api/telegram/link-code invalid phone → 400": "PASS",
+      "POST /api/telegram/link-code unknown phone → 404": "PASS",
+      "POST /api/telegram/webhook /start <code> links telegramChatId": "PASS",
+      "POST /api/telegram/webhook /help returns action=help": "PASS",
+      "POST /api/telegram/webhook /start <invalid-code> returns action=expired-code": "PASS",
+      "POST /api/account/login + GET /api/account/{phone}": "PASS",
+      "POST /api/account/channels forces 'email' even when input=[] or junk": "PASS",
+      "POST /api/account/channels persists email,telegram,whatsapp": "PASS",
+      "POST /api/account/pause + resume (days=0)": "PASS",
+      "POST /api/account/pause invalid days<0 → 400": "PASS",
+      "Account endpoints 401 without OTP verification": "PASS",
+      "POST /api/account/telegram-disconnect clears telegramChatId": "PASS"
+    },
+    "frontend": {
+      "/account login card (phone-input + send-otp-btn)": "PASS",
+      "otp-input step renders after send-otp": "PASS",
+      "account-dashboard with membership-summary, channels-section, pause-section, prefs-section": "PASS",
+      "Email channel row locked-on (no cursor-pointer; click is no-op)": "PASS",
+      "WhatsApp toggle persists via API; email stays in persisted string": "PASS",
+      "Connect Telegram → link-card with t.me deep-link href": "PASS",
+      "Pause 3 days persists (alertsPausedUntil set)": "PASS",
+      "Resume clears alertsPausedUntil": "PASS",
+      "Landing page loads (title + h1)": "PASS",
+      "/browse page loads with product content": "PASS",
+      "/subscribe page loads (networkidle blocked by live Turnstile — known)": "NOTE"
+    }
+  },
+  "rca_of_the_issue": "None — feature set is working as specified. One testing pitfall documented (OTP rotation when calling /otp/send twice) for next agent."
+}

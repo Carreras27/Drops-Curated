@@ -118,8 +118,8 @@ body[data-ogsc] .ftr {{ background:#001F3F !important; color:rgba(250,248,245,.5
 <tr><td style="background:#FAF8F5">{inner_html}</td></tr>
 <tr><td style="background:#001F3F;color:rgba(250,248,245,.55);padding:24px 32px;font-size:11px;line-height:1.6" class="ftr">
   You're receiving this because email alerts are enabled in your Drops Curated preferences.<br>
-  <a href="{APP_URL}/subscribe" style="color:#D4AF37;text-decoration:none">Manage preferences</a> &nbsp;·&nbsp;
-  <a href="{APP_URL}/subscribe?unsubscribe=1&email={{EMAIL}}" style="color:#D4AF37;text-decoration:none">Unsubscribe</a>
+  <a href="{APP_URL}/account" style="color:#D4AF37;text-decoration:none">Manage preferences</a> &nbsp;·&nbsp;
+  <a href="{APP_URL}/account" style="color:#D4AF37;text-decoration:none">Unsubscribe</a>
   <br><br>© 2026 Drops Curated · Curated Intelligence for India's Premium Drops
 </td></tr>
 </table>
