@@ -6,6 +6,13 @@ Implements the Preference Funnel for cost-efficient, targeted notifications.
 import logging
 from datetime import datetime, timezone
 from whatsapp import send_price_drop_alert, send_new_drop_alert, whatsapp_client, IS_CONFIGURED
+from email_alerts import (
+    send_price_drop_alert as email_send_price_drop,
+    send_new_drop_alert as email_send_new_drop,
+    send_cross_store_save_alert as email_send_cross_store,
+    send_daily_digest_email,
+    IS_CONFIGURED as EMAIL_CONFIGURED,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -313,39 +320,91 @@ async def send_alerts(db, changes: dict, store_key: str):
                 )
         else:
             # Instant alerts - send immediately (max 3 per subscriber per scrape cycle)
+            # Route to the subscriber's chosen channel (email | whatsapp | both).
+            # Default 'email' (set by Subscribe page) — WhatsApp only when explicitly chosen
+            # to respect the "avoid interrupting chats" principle.
+            channel = (sub.get('notificationChannel') or prefs.get('notification_channel') or 'email').lower()
+            send_email = channel in ('email', 'both')
+            send_wa = channel in ('whatsapp', 'both')
+            sub_email = sub.get('email', '')
+
             for alert in alerts_to_send[:3]:
                 success = False
                 if alert['type'] == 'price_drop':
                     drop = alert['data']
-                    success, _ = send_price_drop_alert(
-                        phone=phone,
-                        product_name=drop['name'],
-                        new_price=f"{drop['new_price']:,.0f}",
-                        old_price=f"{drop['old_price']:,.0f}",
-                        image_url=drop.get('image_url'),
-                        product_url=drop.get('product_url')
-                    )
+                    if send_wa:
+                        ok, _ = send_price_drop_alert(
+                            phone=phone,
+                            product_name=drop['name'],
+                            new_price=f"{drop['new_price']:,.0f}",
+                            old_price=f"{drop['old_price']:,.0f}",
+                            image_url=drop.get('image_url'),
+                            product_url=drop.get('product_url')
+                        )
+                        success = success or ok
+                    if send_email and sub_email:
+                        try:
+                            pct = int(round((1 - drop['new_price'] / drop['old_price']) * 100)) if drop.get('old_price') else None
+                        except (TypeError, ZeroDivisionError):
+                            pct = None
+                        ok, _ = email_send_price_drop(
+                            email=sub_email,
+                            product_name=drop['name'],
+                            new_price=drop['new_price'],
+                            old_price=drop['old_price'],
+                            brand=drop.get('brand', ''),
+                            image_url=drop.get('image_url', ''),
+                            product_url=drop.get('product_url', ''),
+                            savings_pct=pct,
+                        )
+                        success = success or ok
                 elif alert['type'] == 'new_release':
                     prod = alert['data']
-                    success, _ = send_new_drop_alert(
-                        phone=phone,
-                        product_name=prod['name'],
-                        price=f"{prod['price']:,.0f}",
-                        brand=prod.get('brand', ''),
-                        image_url=prod.get('image_url'),
-                        product_url=prod.get('product_url')
-                    )
+                    if send_wa:
+                        ok, _ = send_new_drop_alert(
+                            phone=phone,
+                            product_name=prod['name'],
+                            price=f"{prod['price']:,.0f}",
+                            brand=prod.get('brand', ''),
+                            image_url=prod.get('image_url'),
+                            product_url=prod.get('product_url')
+                        )
+                        success = success or ok
+                    if send_email and sub_email:
+                        ok, _ = email_send_new_drop(
+                            email=sub_email,
+                            product_name=prod['name'],
+                            price=prod['price'],
+                            brand=prod.get('brand', ''),
+                            image_url=prod.get('image_url', ''),
+                            product_url=prod.get('product_url', ''),
+                            is_restock=False,
+                        )
+                        success = success or ok
                 elif alert['type'] == 'restock':
                     restock = alert['data']
-                    success, _ = send_new_drop_alert(
-                        phone=phone,
-                        product_name=f"[BACK IN STOCK] {restock['name']}",
-                        price=f"{restock['price']:,.0f}",
-                        brand=restock.get('brand', ''),
-                        image_url=restock.get('image_url'),
-                        product_url=restock.get('product_url')
-                    )
-                
+                    if send_wa:
+                        ok, _ = send_new_drop_alert(
+                            phone=phone,
+                            product_name=f"[BACK IN STOCK] {restock['name']}",
+                            price=f"{restock['price']:,.0f}",
+                            brand=restock.get('brand', ''),
+                            image_url=restock.get('image_url'),
+                            product_url=restock.get('product_url')
+                        )
+                        success = success or ok
+                    if send_email and sub_email:
+                        ok, _ = email_send_new_drop(
+                            email=sub_email,
+                            product_name=restock['name'],
+                            price=restock['price'],
+                            brand=restock.get('brand', ''),
+                            image_url=restock.get('image_url', ''),
+                            product_url=restock.get('product_url', ''),
+                            is_restock=True,
+                        )
+                        success = success or ok
+
                 if success:
                     sent_count += 1
 

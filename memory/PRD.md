@@ -82,6 +82,17 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 - **Subscribe page**: plan-selector with 4 radio cards, reads `?plan=` URL param, dynamic "Pay ₹X via UPI" button, upgrade-to-VIP banner for existing Regular subscribers (stacks remaining days)
 - **Bug fix by testing agent**: `security.py` Motor `if db:` truth-test → `is not None` (was causing 500s on rate-limit paths)
 
+### Brevo Email Alerts (COMPLETE SCAFFOLD — Apr 2026 · awaiting API key + DNS)
+- New module `/app/backend/email_alerts.py` — sends rich HTML alerts via Brevo transactional API
+- 5 template types mirroring the WhatsApp surface: `price_drop`, `new_drop`/`restock`, `cross_store_save`, `daily_digest`, `test`
+- Premium luxury design language: navy + ivory + gold palette, serif headings, embedded product image, styled CTA button
+- **Channel routing**: subscriber doc carries `notificationChannel` (`email` default | `whatsapp` | `both`). Both the instant-alert pipeline (`alerts.py`) and daily digest sender (`server.py`) honour it.
+- Preference funnel UpdatePreferences model now accepts `notification_channel` + `telegram_username`.
+- Auto-activates when `BREVO_API_KEY` set in `/app/backend/.env` — sandbox/log-only mode otherwise.
+- New APIs: `GET /api/admin/email/status`, `POST /api/admin/email/test` (send demo of any template kind)
+- Sender: `alerts@dropscurated.com`, reply-to `Dropscurated@gmail.com`
+- Blocked on user: create Brevo account → paste API key into `.env` → add SPF/DKIM records to `dropscurated.com` DNS
+
 ## Prioritized Backlog
 
 ### P0 (In Progress)

@@ -1732,6 +1732,12 @@ class UpdatePreferences(BaseModel):
     alert_frequency: str = "daily"  # instant or daily (daily = digest at 8 PM)
     # Gender preference
     gender: str = "all"  # all, men, women, unisex
+    # Notification channel: where alerts are delivered
+    # 'email' (default — rich HTML, no chat interruption),
+    # 'whatsapp' (instant but can interrupt), 'both'.
+    notification_channel: str = "email"
+    # Optional Telegram username for when channel includes telegram later
+    telegram_username: Optional[str] = None
 
 @api_router.post('/preferences')
 async def update_preferences(data: UpdatePreferences):
@@ -1759,19 +1765,25 @@ async def update_preferences(data: UpdatePreferences):
         'drop_threshold': data.drop_threshold,
         # Notification frequency
         'alert_frequency': data.alert_frequency,
+        # Notification channel
+        'notification_channel': data.notification_channel,
+        'telegram_username': data.telegram_username,
     }
     
+    # Mirror channel at top level of subscriber doc too — so the alert pipeline
+    # can read it with a single projection (it lives on both for backward compat).
     result = await db.subscribers.update_one(
         {'phone': phone},
         {'$set': {
             'preferences': preferences,
+            'notificationChannel': data.notification_channel,
             'updatedAt': datetime.now(timezone.utc).isoformat(),
         }}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail='Subscriber not found')
     
-    logger.info(f"[Preferences] Updated for {phone}: {len(data.brands)} brands, {data.alert_types}, {data.alert_frequency} frequency")
+    logger.info(f"[Preferences] Updated for {phone}: {len(data.brands)} brands, {data.alert_types}, {data.alert_frequency}, via={data.notification_channel}")
     return {'message': 'Preferences updated', 'preferences': preferences}
 
 @api_router.get('/preferences/{phone}')
@@ -2997,6 +3009,72 @@ async def savings_scanner_status():
     from cross_store_savings import cross_store_savings_scanner
     return cross_store_savings_scanner.get_status()
 
+
+# ============ EMAIL (BREVO) ADMIN ============
+class EmailTestRequest(BaseModel):
+    to: str
+    kind: str = 'test'  # test | price_drop | new_drop | cross_save | digest
+
+
+@api_router.get('/admin/email/status')
+async def email_service_status():
+    """Expose whether Brevo is configured + sender identity (no secrets)."""
+    from email_alerts import IS_CONFIGURED as EMAIL_ON, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME, BREVO_REPLY_TO
+    return {
+        'configured': EMAIL_ON,
+        'sender_email': BREVO_SENDER_EMAIL,
+        'sender_name': BREVO_SENDER_NAME,
+        'reply_to': BREVO_REPLY_TO,
+    }
+
+
+@api_router.post('/admin/email/test')
+async def admin_send_test_email(payload: EmailTestRequest):
+    """Admin-only: send a sample email to verify Brevo setup / DKIM / inbox placement.
+    Accepts `kind` to render any of the production templates with demo data.
+    """
+    from email_alerts import (
+        send_test_email, send_price_drop_alert as p_drop,
+        send_new_drop_alert as new_drop,
+        send_cross_store_save_alert as cross_save,
+        send_daily_digest_email as digest,
+    )
+    kind = (payload.kind or 'test').lower()
+    to = payload.to.strip()
+    if '@' not in to:
+        raise HTTPException(status_code=400, detail='Invalid email')
+
+    if kind == 'price_drop':
+        ok, info = p_drop(to, 'Arcana Jacquard Patched Boxy Tee', 9500, 12117,
+                          brand='Almost Gods',
+                          image_url='https://cdn.shopify.com/s/files/1/0591/5570/4953/files/AG_Arcana_tee_1.jpg',
+                          product_url=f'{os.environ.get("APP_URL","https://dropscurated.com")}/products/prod_ALMOST_GODS_25797',
+                          savings_pct=22)
+    elif kind == 'new_drop':
+        ok, info = new_drop(to, 'X Lows LIGHT', 4299, brand='Comet',
+                            image_url='https://www.wearcomet.com/cdn/shop/files/X-Lows-Light-Side.jpg',
+                            product_url='https://www.wearcomet.com/products/x-lows-light')
+    elif kind == 'cross_save':
+        ok, info = cross_save(to, 'Arcana Jacquard Patched Tee', 'Almost Gods',
+                              9500, 12117, 'SUPERKICKS',
+                              'https://www.superkicks.in/products/almost-gods-arcana-jacquard-patched-tee-black',
+                              'https://cdn.shopify.com/s/files/1/0591/5570/4953/files/AG_Arcana_tee_1.jpg',
+                              2617, 22)
+    elif kind == 'digest':
+        demo_alerts = [
+            {'type': 'new_release', 'data': {'name': 'X Lows LIGHT', 'brand': 'Comet', 'price': 4299,
+                                             'image_url': 'https://www.wearcomet.com/cdn/shop/files/X-Lows-Light-Side.jpg',
+                                             'product_url': 'https://www.wearcomet.com/products/x-lows-light'}},
+            {'type': 'price_drop', 'data': {'name': 'Arcana Jacquard Tee', 'brand': 'Almost Gods',
+                                            'new_price': 9500, 'old_price': 12117,
+                                            'image_url': 'https://cdn.shopify.com/s/files/1/0591/5570/4953/files/AG_Arcana_tee_1.jpg',
+                                            'product_url': f'{os.environ.get("APP_URL","https://dropscurated.com")}/products/prod_ALMOST_GODS_25797'}},
+        ]
+        ok, info = digest(to, datetime.now(timezone.utc).strftime('%Y-%m-%d'), demo_alerts)
+    else:
+        ok, info = send_test_email(to)
+    return {'ok': ok, 'info': str(info), 'kind': kind, 'recipient': to}
+
 @api_router.get('/alerts/digest/{phone}')
 async def get_daily_digest(phone: str):
     """Get pending daily digest for a subscriber"""
@@ -3018,33 +3096,43 @@ async def get_daily_digest(phone: str):
 async def send_daily_digests():
     """
     Send daily digest messages to all subscribers with queued alerts.
-    This should be called by a scheduled job at 8 PM IST.
+    Routes to each subscriber's chosen notificationChannel (email | whatsapp | both).
+    Called by the scheduler at 8 PM IST.
     """
     from whatsapp import whatsapp_client, IS_CONFIGURED
-    
+    from email_alerts import send_daily_digest_email
+
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     digests = await db.daily_digest.find({'date': today, 'sent': {'$ne': True}}).to_list(1000)
-    
+
     sent_count = 0
     failed_count = 0
-    
+
     for digest in digests:
         phone = digest.get('phone', '')
         alerts = digest.get('alerts', [])
-        
+
         if not alerts:
             continue
-        
-        # Group alerts by type
+
+        # Look up subscriber to get channel preference + email address
+        sub = await db.subscribers.find_one(
+            {'phone': phone},
+            {'_id': 0, 'email': 1, 'notificationChannel': 1, 'preferences': 1}
+        ) or {}
+        channel = (sub.get('notificationChannel') or (sub.get('preferences') or {}).get('notification_channel') or 'email').lower()
+        send_email = channel in ('email', 'both')
+        send_wa = channel in ('whatsapp', 'both')
+        sub_email = sub.get('email', '')
+
+        # Group alerts by type (WhatsApp template)
         new_drops = [a for a in alerts if a.get('type') == 'new_release']
         price_drops = [a for a in alerts if a.get('type') == 'price_drop']
         restocks = [a for a in alerts if a.get('type') == 'restock']
         cross_saves = [a for a in alerts if a.get('type') == 'cross_store_save']
-        
-        # Build digest message
+
         message = "🌙 *Your Daily Drops Digest*\n\n"
         message += f"_{today}_\n\n"
-        
         if new_drops:
             message += f"🆕 *{len(new_drops)} New Arrivals*\n"
             for nd in new_drops[:3]:
@@ -3053,7 +3141,6 @@ async def send_daily_digests():
             if len(new_drops) > 3:
                 message += f"  _...and {len(new_drops) - 3} more_\n"
             message += "\n"
-        
         if price_drops:
             message += f"💰 *{len(price_drops)} Price Drops*\n"
             for pd in price_drops[:3]:
@@ -3062,14 +3149,12 @@ async def send_daily_digests():
             if len(price_drops) > 3:
                 message += f"  _...and {len(price_drops) - 3} more_\n"
             message += "\n"
-        
         if restocks:
             message += f"📦 *{len(restocks)} Back in Stock*\n"
             for rs in restocks[:3]:
                 data = rs.get('data', {})
                 message += f"  • {data.get('name', 'Product')[:40]}\n"
             message += "\n"
-
         if cross_saves:
             message += f"🔀 *{len(cross_saves)} Cheaper Elsewhere*\n"
             for cs in cross_saves[:3]:
@@ -3083,25 +3168,37 @@ async def send_daily_digests():
             if len(cross_saves) > 3:
                 message += f"  _...and {len(cross_saves) - 3} more_\n"
             message += "\n"
-        
         message += "👉 Browse all drops on Drops Curated!"
-        
-        # Send the digest
-        if IS_CONFIGURED:
-            success, result = whatsapp_client.send_text_message(phone, message)
-        else:
-            success = True  # Sandbox mode
-            logger.info(f"[Sandbox] Daily digest to {phone}: {len(alerts)} alerts")
-        
+
+        wa_ok = False
+        email_ok = False
+
+        # WhatsApp
+        if send_wa:
+            if IS_CONFIGURED:
+                wa_ok, _ = whatsapp_client.send_text_message(phone, message)
+            else:
+                wa_ok = True
+                logger.info(f"[Sandbox] WA digest to {phone}: {len(alerts)} alerts")
+
+        # Email (rich HTML)
+        if send_email and sub_email:
+            email_ok, _ = send_daily_digest_email(sub_email, today, alerts)
+
+        success = wa_ok or email_ok or (not send_wa and not send_email)
         if success:
             sent_count += 1
             await db.daily_digest.update_one(
                 {'_id': digest['_id']},
-                {'$set': {'sent': True, 'sentAt': datetime.now(timezone.utc).isoformat()}}
+                {'$set': {
+                    'sent': True,
+                    'sentAt': datetime.now(timezone.utc).isoformat(),
+                    'channels': {'whatsapp': wa_ok, 'email': email_ok},
+                }}
             )
         else:
             failed_count += 1
-    
+
     logger.info(f"[Daily Digest] Sent {sent_count} digests, {failed_count} failed")
     return {
         'sent': sent_count,
