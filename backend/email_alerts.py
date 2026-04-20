@@ -97,9 +97,10 @@ body[data-ogsc] p,
 body[data-ogsc] .pname,
 body[data-ogsc] .price-big {{ color:#001F3F !important }}
 u + .body .kicker,
+body[data-ogsc] .kicker {{ color:#D4AF37 !important }}
+/* SAVE badge: gold background MUST stay gold; text MUST stay navy for contrast */
 u + .body .save,
-body[data-ogsc] .kicker,
-body[data-ogsc] .save {{ color:#D4AF37 !important }}
+body[data-ogsc] .save {{ background:#D4AF37 !important; color:#001F3F !important }}
 u + .body .btn,
 body[data-ogsc] .btn {{ background:#001F3F !important; color:#FAF8F5 !important }}
 u + .body .ftr,
@@ -117,9 +118,9 @@ body[data-ogsc] .ftr {{ background:#001F3F !important; color:rgba(250,248,245,.5
 <tr><td style="background:#FAF8F5">{inner_html}</td></tr>
 <tr><td style="background:#001F3F;color:rgba(250,248,245,.55);padding:24px 32px;font-size:11px;line-height:1.6" class="ftr">
   You're receiving this because email alerts are enabled in your Drops Curated preferences.<br>
-  <a href="{APP_URL}/account" style="color:#D4AF37;text-decoration:none">Manage preferences</a> &nbsp;·&nbsp;
-  <a href="{APP_URL}/unsubscribe?email={{EMAIL}}" style="color:#D4AF37;text-decoration:none">Unsubscribe</a>
-  <br><br>© 2026 Drops Curated · Premium Indian Streetwear
+  <a href="{APP_URL}/subscribe" style="color:#D4AF37;text-decoration:none">Manage preferences</a> &nbsp;·&nbsp;
+  <a href="{APP_URL}/subscribe?unsubscribe=1&email={{EMAIL}}" style="color:#D4AF37;text-decoration:none">Unsubscribe</a>
+  <br><br>© 2026 Drops Curated · Curated Intelligence for India's Premium Drops
 </td></tr>
 </table>
 </td></tr></table>
@@ -136,7 +137,9 @@ def _fmt_inr(value) -> str:
 # ============ TEMPLATES ============
 def _tpl_price_drop(name: str, brand: str, new_price, old_price,
                     image_url: str, product_url: str, savings_pct: Optional[int] = None) -> str:
-    save_badge = f'<span class="save">Save {savings_pct}%</span>' if savings_pct else ''
+    save_badge = (f'<span class="save" style="display:inline-block;background:#D4AF37;color:#001F3F;'
+                  f'padding:4px 10px;font-size:10px;letter-spacing:.15em;text-transform:uppercase;'
+                  f'margin-left:10px;vertical-align:middle;font-weight:700">Save {savings_pct}%</span>') if savings_pct else ''
     img = f'<img src="{image_url}" alt="{name}">' if image_url else ''
     inner = f"""
 <div class="hero">
@@ -190,7 +193,7 @@ def _tpl_cross_store(name: str, brand: str, cheapest_price, source_price,
     <div class="info">
       <p class="pbrand">{brand} · Available at {store_label}</p>
       <p class="pname">{name}</p>
-      <p class="price-big">{_fmt_inr(cheapest_price)}<span class="price-old">{_fmt_inr(source_price)}</span><span class="save">Save {savings_pct}%</span></p>
+      <p class="price-big">{_fmt_inr(cheapest_price)}<span class="price-old">{_fmt_inr(source_price)}</span><span class="save" style="display:inline-block;background:#D4AF37;color:#001F3F;padding:4px 10px;font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-left:10px;vertical-align:middle;font-weight:700">Save {savings_pct}%</span></p>
       <a href="{cheapest_url}" class="btn">Buy at {store_label} →</a>
     </div>
   </div>
