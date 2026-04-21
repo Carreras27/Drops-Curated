@@ -16,6 +16,16 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### Notification Preferences UI on SubscribePage (COMPLETE — Apr 2026)
+- Section A "How should we reach you?" with three rows:
+  - **Email** — locked ON with "Default · Always on" pill (can't be unchecked)
+  - **WhatsApp** — optional add-on. Enabling opens a **WhatsApp warning modal** (React Portal to `document.body` for mobile-Safari safety) explaining chat interruption + Meta per-message cost. Cancel keeps email-only; Confirm adds WhatsApp. Disable is instant.
+  - **Telegram** — optional add-on. Enables straight through; post-checkout deep-link connection happens on `/account`.
+- Live "Selected: Email · WhatsApp · Telegram" summary line reflects the active combination.
+- Derived `notification_channel` string sent to `POST /api/preferences`: `email` | `both` (email+whatsapp back-compat) | `email,telegram` | `email,whatsapp,telegram`.
+- Channels Set seeded from `?channels=email,whatsapp` URL param (set by Landing-page Flash-Alerts CTA).
+- **Verified** by testing_agent_v3_fork (iteration_15.json) via code review on all 7 logic points (E2E blocked by Cloudflare Turnstile — expected for automation).
+
 ### Closed Beta Program (LIVE — Apr 2026)
 - **Cap**: First 100 signups get 30 days free, zero payment, all brands unlocked (VIP-level access). Cap + resume-for-existing + paid-block logic all enforced in `/api/beta/signup`.
 - Backend: `/api/beta/status`, `/api/beta/signup`, `/api/beta/feedback`, admin endpoints `/api/admin/beta/feedback` + `/api/admin/beta/testers` (cohort + channel mix).
@@ -122,14 +132,15 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## Prioritized Backlog
 
-### P0 (In Progress)
-- [ ] Notification Preferences UI on SubscribePage.js (Email default, WhatsApp warning modal, Telegram)
+### P0
+- _(none currently — last P0 shipped: Notification Preferences UI)_
 
 ### P1
 - [ ] Apple/Google Wallet digital membership cards
 - [ ] Production keys migration (Razorpay, Meta WhatsApp)
 - [ ] Savings Feed UI page (surface `/api/savings/active` to VIP members as a dedicated "Best Savings" tab)
 - [ ] Admin Panel → Beta tab (testers cohort + feedback triage) — backend APIs ready, UI pending
+- [ ] Turnstile sandbox bypass (dev flag) so test agents can exercise the full /subscribe funnel
 
 ### P2
 - [ ] Drop Calendar UI
