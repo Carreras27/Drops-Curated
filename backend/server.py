@@ -3452,16 +3452,25 @@ async def telegram_status():
     }
 
 
+class TelegramSetWebhookRequest(BaseModel):
+    webhook_url: Optional[str] = None  # if None, derives from BACKEND_PUBLIC_URL / preview fallback
+
+
 @api_router.post('/admin/telegram/set-webhook')
-async def telegram_set_webhook():
+async def telegram_set_webhook(payload: Optional[TelegramSetWebhookRequest] = None):
     """Admin: register our webhook URL with Telegram.
-    Forces use of the public frontend preview URL (REACT_APP_BACKEND_URL points
-    there and Kubernetes ingress re-routes /api/* to the backend pod)."""
+    Accepts an optional `webhook_url` so the admin UI can re-point the bot at
+    the deployed production URL after going live. Falls back to
+    BACKEND_PUBLIC_URL env var, then the preview URL."""
     import telegram_alerts
-    # The REACT_APP_BACKEND_URL from frontend/.env is the stable public URL;
-    # any stale/short-lived pod URLs should NOT be used. Read it explicitly.
-    backend_url = os.environ.get('BACKEND_PUBLIC_URL') or 'https://drops-curated.preview.emergentagent.com'
-    webhook_url = f"{backend_url.rstrip('/')}/api/telegram/webhook"
+    custom = (payload and payload.webhook_url and payload.webhook_url.strip()) or None
+    if custom:
+        webhook_url = custom.rstrip('/')
+        if not webhook_url.endswith('/api/telegram/webhook'):
+            webhook_url = f"{webhook_url.rstrip('/')}/api/telegram/webhook"
+    else:
+        backend_url = os.environ.get('BACKEND_PUBLIC_URL') or 'https://drops-curated.preview.emergentagent.com'
+        webhook_url = f"{backend_url.rstrip('/')}/api/telegram/webhook"
     ok, msg = await telegram_alerts.set_webhook(webhook_url)
     return {'ok': ok, 'webhook_url': webhook_url, 'result': str(msg)}
 

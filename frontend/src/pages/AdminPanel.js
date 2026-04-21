@@ -1604,6 +1604,189 @@ function CRMDashboard() {
   );
 }
 
+// ============ TELEGRAM BOT DASHBOARD ============
+// Lets an admin see the current webhook state and re-point the bot at the
+// deployed production URL after going live. Without this, the bot keeps
+// responding on the last-known URL (usually preview) after a deploy.
+function TelegramDashboard() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [url, setUrl] = useState('');
+  const [lastResult, setLastResult] = useState(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API_URL}/telegram/status`, { headers: getAuthHeader() });
+      setStatus(r.data);
+      const current = r.data?.webhook_info?.result?.url || '';
+      if (current) {
+        // Trim the /api/telegram/webhook suffix for a cleaner edit target
+        setUrl(current.replace(/\/api\/telegram\/webhook\/?$/, ''));
+      } else {
+        // Fall back to current page origin so one click = "use this host"
+        try { setUrl(window.location.origin); } catch { /* noop */ }
+      }
+    } catch (e) {
+      console.error('Failed to fetch telegram status:', e);
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  const useThisHost = () => {
+    try { setUrl(window.location.origin); } catch { /* noop */ }
+  };
+
+  const saveWebhook = async () => {
+    if (!url.trim()) { alert('Enter a URL first'); return; }
+    if (!/^https:\/\//.test(url.trim())) {
+      alert('Webhook URL must start with https:// (Telegram requirement)');
+      return;
+    }
+    setSaving(true);
+    setLastResult(null);
+    try {
+      const r = await axios.post(`${API_URL}/telegram/set-webhook`,
+        { webhook_url: url.trim() },
+        { headers: getAuthHeader() }
+      );
+      setLastResult(r.data);
+      await fetchStatus();
+    } catch (e) {
+      setLastResult({ ok: false, result: e.response?.data?.detail || String(e) });
+    } finally { setSaving(false); }
+  };
+
+  const currentUrl = status?.webhook_info?.result?.url;
+  const pending = status?.webhook_info?.result?.pending_update_count ?? 0;
+  const lastError = status?.webhook_info?.result?.last_error_message;
+
+  return (
+    <div className="space-y-6" data-testid="telegram-dashboard">
+      <div>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Send className="w-6 h-6 text-amber-500" />
+          Telegram Bot
+        </h2>
+        <p className="text-gray-500 text-sm mt-1">Re-point the bot webhook after deploy · restart alert delivery</p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-500" />
+        </div>
+      ) : !status ? (
+        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded text-red-300 text-sm">
+          Failed to load Telegram status.
+        </div>
+      ) : (
+        <>
+          {/* Current state */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Bot</div>
+              <div className="text-white font-semibold">
+                {status.configured ? `@${status.bot_username}` : 'Not configured'}
+              </div>
+              <div className={`text-xs mt-1 ${status.configured ? 'text-green-400' : 'text-red-400'}`}>
+                {status.configured ? '● Token set' : '● No token'}
+              </div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Pending updates</div>
+              <div className="text-white font-semibold text-2xl tabular-nums">{pending}</div>
+              <div className="text-xs text-gray-500 mt-1">Queued messages waiting for delivery</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Last error</div>
+              <div className="text-white font-semibold text-sm break-words">
+                {lastError || <span className="text-green-400">None</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Current webhook */}
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="text-gray-500 text-xs uppercase tracking-wider mb-2">Current webhook URL</div>
+            {currentUrl ? (
+              <code className="text-amber-400 text-sm break-all" data-testid="telegram-current-url">{currentUrl}</code>
+            ) : (
+              <span className="text-red-400 text-sm">No webhook set — bot cannot receive messages</span>
+            )}
+          </div>
+
+          {/* Re-point form */}
+          <div className="bg-gray-800 p-6 rounded-lg space-y-4">
+            <div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">Point bot at this origin</label>
+              <p className="text-gray-500 text-xs mb-3">
+                Paste your deployed site URL (e.g. <code className="text-amber-400">https://your-app.emergent.host</code>).
+                We'll append <code className="text-amber-400">/api/telegram/webhook</code> automatically.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://your-deployed-url"
+                  className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm font-mono focus:border-amber-500 focus:outline-none"
+                  data-testid="telegram-webhook-url-input"
+                />
+                <button
+                  onClick={useThisHost}
+                  type="button"
+                  className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 text-xs whitespace-nowrap"
+                  data-testid="telegram-use-this-host-btn"
+                  title="Use the URL this admin panel is served from"
+                >
+                  Use this host
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={saveWebhook}
+                disabled={saving || !url.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-500 rounded text-white font-medium text-sm transition-colors disabled:opacity-40"
+                data-testid="telegram-save-webhook-btn"
+              >
+                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {saving ? 'Registering...' : 'Register webhook with Telegram'}
+              </button>
+              <button
+                onClick={fetchStatus}
+                type="button"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 text-sm"
+              >
+                <RefreshCw className="w-4 h-4" /> Refresh
+              </button>
+            </div>
+
+            {lastResult && (
+              <div className={`mt-3 text-sm p-3 rounded border ${
+                lastResult.ok ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'
+              }`} data-testid="telegram-save-result">
+                {lastResult.ok ? '✓ Webhook registered successfully.' : '✗ Failed: '}
+                {lastResult.webhook_url && <div className="text-xs font-mono mt-1 break-all">{lastResult.webhook_url}</div>}
+                {!lastResult.ok && <div className="text-xs mt-1">{lastResult.result}</div>}
+              </div>
+            )}
+          </div>
+
+          {/* Help */}
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4 text-xs text-gray-400 leading-relaxed">
+            <div className="font-medium text-blue-300 mb-1">When to use this</div>
+            After every deploy to a new URL (production, custom domain, etc.), hit <b>Register webhook</b> once so Telegram routes bot
+            messages to the new backend. Without this, <code>/start</code> commands and account-link codes won't reach your users.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ============ MAIN ADMIN PANEL ============
 export default function AdminPanel() {
   const [user, setUser] = useState(null);
@@ -1651,6 +1834,7 @@ export default function AdminPanel() {
     { id: 'crm', label: 'CRM', icon: Heart },
     { id: 'subscribers', label: 'Subscribers', icon: Users },
     { id: 'brands', label: 'Brands', icon: Package },
+    { id: 'telegram', label: 'Telegram', icon: Send },
     { id: 'aether-master', label: 'Aether Master', icon: Eye },
     { id: 'scraper-health', label: 'Scraper Health', icon: Shield },
     { id: 'agent-logs', label: 'Agent Logs', icon: Brain },
@@ -1701,6 +1885,7 @@ export default function AdminPanel() {
         {activeTab === 'crm' && <CRMDashboard />}
         {activeTab === 'subscribers' && <SubscribersList />}
         {activeTab === 'brands' && <BrandsManager />}
+        {activeTab === 'telegram' && <TelegramDashboard />}
         {activeTab === 'aether-master' && <AetherMasterDashboard />}
         {activeTab === 'scraper-health' && <ScraperHealthDashboard />}
         {activeTab === 'agent-logs' && <AgentLogsViewer />}
