@@ -25,6 +25,82 @@ export const formatAlertCount = (n) => {
   return n.toString();
 };
 
+// ============ CLOSED BETA SPOTS BANNER ============
+// Thin announcement strip fixed at the very top of the landing page. Surfaces
+// remaining beta spots and routes users to /beta. Hides if dismissed or data
+// isn't loaded yet. Accepts a `onVisible` callback so the Header can offset.
+const BETA_BANNER_HEIGHT = 40;
+
+const BetaSpotsBanner = ({ onVisibleChange }) => {
+  const [data, setData] = useState(null);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return sessionStorage.getItem('beta_banner_dismissed') === '1'; } catch { return false; }
+  });
+
+  useEffect(() => {
+    let alive = true;
+    axios.get(`${API_URL}/beta/status`)
+      .then(r => { if (alive) setData(r.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const visible = !!data && !dismissed;
+  useEffect(() => { onVisibleChange && onVisibleChange(visible); }, [visible, onVisibleChange]);
+
+  const dismiss = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDismissed(true);
+    try { sessionStorage.setItem('beta_banner_dismissed', '1'); } catch { /* noop */ }
+  };
+
+  if (!visible) return null;
+
+  const full = !data.is_open;
+  const urgency = data.spots_left <= 10 ? 'critical' : data.spots_left <= 30 ? 'warning' : 'calm';
+
+  return (
+    <Link
+      to="/beta"
+      data-testid="beta-spots-banner"
+      style={{ height: `${BETA_BANNER_HEIGHT}px` }}
+      className={`fixed top-0 left-0 right-0 z-[60] flex items-center justify-center text-center text-[11px] md:text-xs px-4 font-medium tracking-wide transition-colors ${
+        full
+          ? 'bg-primary/10 text-primary hover:bg-primary/15'
+          : urgency === 'critical'
+          ? 'bg-red-600 text-white hover:bg-red-700'
+          : 'bg-primary text-background hover:bg-primary/90'
+      }`}
+    >
+      <span className="inline-flex items-center gap-2">
+        <Sparkles className="w-3 h-3" strokeWidth={1.75} />
+        {full ? (
+          <>Closed beta is full — <span className="underline underline-offset-4">join the waitlist →</span></>
+        ) : (
+          <>
+            <span className="opacity-80">Closed Beta ·</span>
+            <span className="tabular-nums font-semibold">{data.spots_left}</span>
+            <span className="opacity-80">of</span>
+            <span className="tabular-nums">{data.total}</span>
+            <span className="opacity-80">spots left — 30 days free, no card</span>
+            <ArrowRight className="w-3 h-3" strokeWidth={1.75} />
+          </>
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={dismiss}
+        aria-label="Dismiss"
+        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 transition-opacity"
+        data-testid="beta-banner-dismiss"
+      >
+        <X className="w-3.5 h-3.5" strokeWidth={2} />
+      </button>
+    </Link>
+  );
+};
+
 // ============ LIVE STATS SOCIAL PROOF (Fix #10) ============
 const LiveStats = () => {
   const [stats, setStats] = useState({
@@ -210,7 +286,7 @@ const NAV_LINKS = [
   { label: 'Contact', to: '/contact' },
 ];
 
-export const Header = ({ transparent = false }) => {
+export const Header = ({ transparent = false, offsetTop = 0 }) => {
   // Try to use wishlist context, fallback if not available
   let wishlistCount = 0;
   try {
@@ -221,7 +297,10 @@ export const Header = ({ transparent = false }) => {
   }
   
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 ${transparent ? 'bg-background/90 backdrop-blur-xl' : 'bg-background'} border-b border-primary/[0.06]`}>
+    <header
+      style={offsetTop ? { top: `${offsetTop}px` } : undefined}
+      className={`fixed left-0 right-0 z-50 ${offsetTop ? '' : 'top-0'} ${transparent ? 'bg-background/90 backdrop-blur-xl' : 'bg-background'} border-b border-primary/[0.06]`}
+    >
       <nav className="max-w-7xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
         <Link to="/" className="font-serif text-xl tracking-tight" data-testid="logo-link">
           Drops <span className="text-accent">Curated</span>
@@ -558,6 +637,7 @@ const FlashAlertsCTA = () => {
 
 export default function LandingPage() {
   const [stats, setStats] = useState({ products: 0, brands: 0 });
+  const [betaBannerVisible, setBetaBannerVisible] = useState(false);
 
   useEffect(() => {
     axios.get(`${API_URL}/scrape/status`).then(r => {
@@ -570,8 +650,9 @@ export default function LandingPage() {
       {/* Homepage SEO Schemas - Organization, WebSite, FAQ, Service in single @graph */}
       <HomepageSchemas totalProducts={stats.products} totalBrands={stats.brands} />
       <BreadcrumbSchema items={[{ name: 'Home' }]} />
-      
-      <Header transparent />
+
+      <BetaSpotsBanner onVisibleChange={setBetaBannerVisible} />
+      <Header transparent offsetTop={betaBannerVisible ? BETA_BANNER_HEIGHT : 0} />
 
       {/* Hero */}
       <section className="pt-28 pb-20 md:pt-36 md:pb-28 lg:pt-40 lg:pb-32 relative overflow-hidden">

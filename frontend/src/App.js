@@ -16,6 +16,8 @@ import FAQPage from './pages/FAQPage';
 import ContactPage from './pages/ContactPage';
 import WishlistPage from './pages/WishlistPage';
 import AccountPage from './pages/AccountPage';
+import BetaPage from './pages/BetaPage';
+import BetaFeedbackPage from './pages/BetaFeedbackPage';
 import { WishlistProvider } from './context/WishlistContext';
 import { TrialProvider, TrialBanner } from './context/TrialContext';
 
@@ -95,6 +97,8 @@ function App() {
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/account" element={<AccountPage />} />
+                <Route path="/beta" element={<BetaPage />} />
+                <Route path="/beta/feedback" element={<BetaFeedbackPage />} />
                 <Route path="/admin" element={<AdminPanel />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
