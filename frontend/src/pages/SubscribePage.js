@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Check, ArrowRight, Shield, CreditCard, Clock, Zap, ChevronRight, Smartphone, Bell, Settings, X, Ruler, Apple, Wallet, FlaskConical, Loader2, TrendingDown, Package, Sparkles, Crown, Send } from 'lucide-react';
 import { Header, Footer } from './LandingPage';
@@ -385,11 +386,24 @@ export default function SubscribePage() {
   });
   const toggleChannel = (ch) => {
     if (ch === 'email') return; // email locked on — cannot be toggled
+    // WhatsApp: warn on ENABLE (chat interruption, delivery cost), instant on DISABLE.
+    if (ch === 'whatsapp' && !channels.has('whatsapp')) {
+      setShowWhatsAppWarning(true);
+      return;
+    }
     setChannels(prev => {
       const next = new Set(prev);
       if (next.has(ch)) next.delete(ch); else next.add(ch);
       return next;
     });
+  };
+  const confirmWhatsApp = () => {
+    setChannels(prev => {
+      const next = new Set(prev);
+      next.add('whatsapp');
+      return next;
+    });
+    setShowWhatsAppWarning(false);
   };
   // Derived string for backend: 'email' | 'whatsapp' | 'both' | 'email,telegram' etc.
   const notificationChannel = (() => {
@@ -1768,6 +1782,63 @@ export default function SubscribePage() {
         simulationData={simulationData}
         isLoading={simulationLoading}
       />
+
+      {/* WhatsApp Warning Modal — portaled so mobile Safari doesn't clip it */}
+      {showWhatsAppWarning && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-primary/60 backdrop-blur-sm"
+          onClick={() => setShowWhatsAppWarning(false)}
+          data-testid="whatsapp-warning-modal"
+        >
+          <div
+            className="bg-background border border-primary/10 max-w-md w-full shadow-lift animate-fade-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-6 md:p-8">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-5">
+                <MessageCircle className="w-5 h-5 text-amber-600" strokeWidth={1.75} />
+              </div>
+              <h3 className="font-serif text-2xl mb-3">Turn on WhatsApp alerts?</h3>
+              <p className="text-sm text-primary/60 leading-relaxed mb-5">
+                WhatsApp is great for urgent drops, but it interrupts your chats — and Meta charges per message on our side, so we reserve it for time-sensitive signals.
+              </p>
+              <ul className="space-y-2.5 mb-6 text-xs text-primary/55">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-accent mt-0.5">•</span>
+                  <span>Alerts land inside your personal chat thread — can feel noisy during work hours.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-accent mt-0.5">•</span>
+                  <span>You'll still get every alert via email — WhatsApp layers on top for instant delivery.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-accent mt-0.5">•</span>
+                  <span>You can switch it off anytime from your account page.</span>
+                </li>
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowWhatsAppWarning(false)}
+                  className="flex-1 border border-primary/15 text-primary py-3 text-sm font-medium hover:bg-primary/[0.04] transition-colors"
+                  data-testid="whatsapp-warning-cancel"
+                >
+                  Keep email only
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmWhatsApp}
+                  className="flex-1 bg-primary text-background py-3 text-sm font-medium inline-flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all"
+                  data-testid="whatsapp-warning-confirm"
+                >
+                  <Check className="w-4 h-4" strokeWidth={2} /> Turn on WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
