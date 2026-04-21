@@ -70,7 +70,14 @@ export default function BetaPage() {
       setSignupResult(r.data);
       setStep('done');
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Signup failed');
+      const msg = e.response?.data?.detail || 'Signup failed';
+      // Already-a-member dead-end: route them to /account instead of trapping them
+      // on a disabled form with only a toast.
+      if (/already have a paid membership|paid membership/i.test(msg)) {
+        setStep('already_member');
+        return;
+      }
+      toast.error(msg);
     } finally { setLoading(false); }
   };
 
@@ -218,6 +225,32 @@ export default function BetaPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Claim my spot <Sparkles className="w-4 h-4" strokeWidth={1.5} /></>}
               </button>
             </SignupCard>
+          )}
+
+          {step === 'already_member' && (
+            <div className="border border-accent/40 bg-gradient-to-br from-accent/[0.08] to-transparent p-8 md:p-10 text-center" data-testid="beta-already-member-card">
+              <Sparkles className="w-8 h-8 text-accent mx-auto mb-4" strokeWidth={1.5} />
+              <p className="text-[10px] uppercase tracking-[0.22em] text-accent mb-3 font-semibold">Welcome back</p>
+              <h2 className="font-serif text-2xl mb-3">You're already a member.</h2>
+              <p className="text-sm text-primary/60 leading-relaxed mb-6">
+                The number <b className="text-primary">+91 {phone}</b> already has an active membership on Drops Curated. Head to your account to manage alerts, pause notifications, or view your plan.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={() => navigate(`/account?phone=${phone}`)}
+                  className="bg-primary text-background px-6 py-3 text-sm font-medium inline-flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lift transition-all"
+                  data-testid="beta-go-to-account-btn"
+                >
+                  Go to my account <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+                <button
+                  onClick={() => navigate('/browse')}
+                  className="border border-primary/20 text-primary px-6 py-3 text-sm hover:bg-primary hover:text-background transition-all"
+                >
+                  Browse drops
+                </button>
+              </div>
+            </div>
           )}
 
           {step === 'done' && signupResult && (
