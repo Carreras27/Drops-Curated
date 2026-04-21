@@ -16,6 +16,12 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### Turnstile Sandbox Bypass (LIVE — Apr 2026)
+- **Backend** (`security_advanced.py`): `verify_turnstile_token` accepts a hardcoded well-known token (`SANDBOX_BYPASS_E2E_DO_NOT_USE_IN_PROD`) when `TURNSTILE_SANDBOX_BYPASS=1` is set in env. Real Cloudflare verification and 403 rejection of other fake tokens still work.
+- **Frontend** (`SubscribePage.js`): `?test_bypass=1` URL param hides the Turnstile widget, pre-sets the sandbox token so the "Send OTP" button is enabled, and renders a prominent amber "TURNSTILE SANDBOX BYPASS ACTIVE — DEV/TEST ONLY" strip.
+- Unlocks full-funnel Playwright testing (verify → details → payment → preferences → success) that was previously blocked by Cloudflare managed-challenge iframes.
+- **Verified** via curl: OTP send + verify + beta signup all 200 with bypass; fake token still rejected.
+
 ### Notification Preferences UI on SubscribePage (COMPLETE — Apr 2026)
 - Section A "How should we reach you?" with three rows:
   - **Email** — locked ON with "Default · Always on" pill (can't be unchecked)
@@ -137,10 +143,9 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ### P1
 - [ ] Apple/Google Wallet digital membership cards
-- [ ] Production keys migration (Razorpay, Meta WhatsApp)
+- [ ] Production keys migration (Razorpay, Meta WhatsApp, **remove `TURNSTILE_SANDBOX_BYPASS=1` from prod env**)
 - [ ] Savings Feed UI page (surface `/api/savings/active` to VIP members as a dedicated "Best Savings" tab)
 - [ ] Admin Panel → Beta tab (testers cohort + feedback triage) — backend APIs ready, UI pending
-- [ ] Turnstile sandbox bypass (dev flag) so test agents can exercise the full /subscribe funnel
 
 ### P2
 - [ ] Drop Calendar UI

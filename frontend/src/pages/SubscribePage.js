@@ -348,8 +348,17 @@ export default function SubscribePage() {
   const [sandboxOtp, setSandboxOtp] = useState('');
   const [membership, setMembership] = useState(null);
   const [orderId, setOrderId] = useState('');
-  // CAPTCHA state
-  const [turnstileToken, setTurnstileToken] = useState('');
+  // CAPTCHA state.
+  // Sandbox bypass: ?test_bypass=1 in URL injects a well-known token that the
+  // backend accepts ONLY when TURNSTILE_SANDBOX_BYPASS=1 is set in env. Lets
+  // test agents exercise the full /subscribe funnel without solving a real
+  // challenge. Must stay off in production.
+  const testBypass = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('test_bypass') === '1';
+    } catch { return false; }
+  })();
+  const [turnstileToken, setTurnstileToken] = useState(testBypass ? 'SANDBOX_BYPASS_E2E_DO_NOT_USE_IN_PROD' : '');
   const turnstileRef = useRef(null);
   // Preferences
   const [selectedBrands, setSelectedBrands] = useState([]);
@@ -794,7 +803,7 @@ export default function SubscribePage() {
                     </div>
                     
                     {/* Turnstile CAPTCHA - show before OTP */}
-                    {!sandboxOtp && (
+                    {!sandboxOtp && !testBypass && (
                       <div className="flex justify-center py-2">
                         <TurnstileCaptcha
                           ref={turnstileRef}
@@ -803,6 +812,14 @@ export default function SubscribePage() {
                           onExpire={() => setTurnstileToken('')}
                           theme="dark"
                         />
+                      </div>
+                    )}
+                    {!sandboxOtp && testBypass && (
+                      <div
+                        className="text-[10px] uppercase tracking-[0.2em] text-amber-600 bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-center font-semibold"
+                        data-testid="turnstile-sandbox-bypass-hint"
+                      >
+                        Turnstile sandbox bypass active — dev/test only
                       </div>
                     )}
                     

@@ -1,5 +1,14 @@
 # Test Credentials - Drops Curated
 
+## Turnstile Sandbox Bypass (for test agents)
+- **Backend env**: `TURNSTILE_SANDBOX_BYPASS=1` (already set in `/app/backend/.env` — MUST be OFF in production)
+- **Frontend**: append `?test_bypass=1` to `/subscribe` URL (e.g. `/subscribe?test_bypass=1` or `/subscribe?plan=vip_monthly&test_bypass=1`)
+  - Hides the Turnstile widget
+  - Auto-supplies a well-known token (`SANDBOX_BYPASS_E2E_DO_NOT_USE_IN_PROD`) accepted by the backend ONLY when the env flag is set
+  - Shows an amber "TURNSTILE SANDBOX BYPASS ACTIVE — DEV/TEST ONLY" strip so the mode is obvious
+- **Backend curl**: include `"turnstile_token":"SANDBOX_BYPASS_E2E_DO_NOT_USE_IN_PROD"` in any body that requires a CAPTCHA token (e.g. `/api/otp/send`, `/api/payment/verify`)
+- Fake tokens still rejected with `403 CAPTCHA verification failed`
+
 ## Admin Panel Login
 - **URL**: `/admin`
 - **Email**: `admin@dropscurated.com`

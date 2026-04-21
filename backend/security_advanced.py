@@ -27,12 +27,24 @@ logger = logging.getLogger(__name__)
 TURNSTILE_SECRET = os.getenv("TURNSTILE_SECRET_KEY", "")
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
+# Sandbox bypass — lets test agents drive the /subscribe funnel end-to-end without
+# solving a real Turnstile challenge. Only honoured when TURNSTILE_SANDBOX_BYPASS=1
+# is set in the backend env (MUST be disabled in production). Token value must be
+# long and random enough that it can't collide with a real Turnstile response.
+TURNSTILE_SANDBOX_BYPASS_ENABLED = os.getenv("TURNSTILE_SANDBOX_BYPASS", "0") == "1"
+TURNSTILE_SANDBOX_BYPASS_TOKEN = "SANDBOX_BYPASS_E2E_DO_NOT_USE_IN_PROD"
+
 
 async def verify_turnstile_token(token: str, remote_ip: Optional[str] = None) -> Dict:
     """
     Verify Cloudflare Turnstile CAPTCHA token.
     Returns validation response or raises HTTPException.
     """
+    # Sandbox bypass — only when explicitly enabled via env.
+    if TURNSTILE_SANDBOX_BYPASS_ENABLED and token == TURNSTILE_SANDBOX_BYPASS_TOKEN:
+        logger.info(f"[Turnstile] Sandbox bypass accepted from {remote_ip or 'unknown-ip'}")
+        return {"success": True, "sandbox_bypass": True}
+
     if not TURNSTILE_SECRET:
         logger.warning("[Turnstile] Secret not configured - skipping verification")
         return {"success": True, "skipped": True}
