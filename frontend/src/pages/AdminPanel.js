@@ -1787,6 +1787,174 @@ function TelegramDashboard() {
   );
 }
 
+// ============ FRESHNESS DASHBOARD ============
+// Shows which brands have stale scrape data and lets admin force a re-scrape.
+// This is the single most important monitoring page — if brands go stale,
+// alerts stop firing (freshness guard blocks them) and users stop seeing value.
+function FreshnessDashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [rescraping, setRescraping] = useState({});
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API_URL}/freshness/status`, { headers: getAuthHeader() });
+      setData(r.data);
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const t = setInterval(fetchStatus, 60000);
+    return () => clearInterval(t);
+  }, [fetchStatus]);
+
+  const rescrape = async (key) => {
+    setRescraping(prev => ({ ...prev, [key]: true }));
+    try {
+      const r = await axios.post(`${API_URL}/freshness/rescrape/${key}`, {}, { headers: getAuthHeader() });
+      if (r.data.ok) {
+        alert(`✓ Rescrape complete for ${key}: ${r.data.products_scraped} products`);
+      } else {
+        alert(`✗ Rescrape failed: ${r.data.error || 'unknown'}`);
+      }
+      fetchStatus();
+    } catch (e) {
+      alert(`Rescrape failed: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setRescraping(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const fmtAge = (h) => {
+    if (h == null) return '—';
+    if (h < 1) return `${Math.round(h * 60)}m`;
+    if (h < 24) return `${h.toFixed(1)}h`;
+    return `${Math.floor(h / 24)}d ${Math.round(h % 24)}h`;
+  };
+
+  return (
+    <div className="space-y-6" data-testid="freshness-dashboard">
+      <div>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Clock className="w-6 h-6 text-amber-500" />
+          Data Freshness
+        </h2>
+        <p className="text-gray-500 text-sm mt-1">
+          Alerts are silently blocked for brands whose scrape data is older than <b className="text-amber-400">{data?.max_alert_age_hours ?? 10} hours</b>. Re-scrape stale brands to unblock.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-500" />
+        </div>
+      ) : !data ? (
+        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded text-red-300 text-sm">
+          Failed to load freshness status.
+        </div>
+      ) : (
+        <>
+          {/* Summary tiles */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-3xl font-bold text-white tabular-nums">{data.total_brands}</div>
+              <div className="text-gray-500 text-xs uppercase tracking-wider">Total brands</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-3xl font-bold text-green-400 tabular-nums">{data.fresh_brands}</div>
+              <div className="text-gray-500 text-xs uppercase tracking-wider">Fresh (sending alerts)</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-3xl font-bold text-red-400 tabular-nums">{data.stale_brands_count}</div>
+              <div className="text-gray-500 text-xs uppercase tracking-wider">Stale (alerts blocked)</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-3xl font-bold text-amber-400 tabular-nums">{data.max_alert_age_hours}h</div>
+              <div className="text-gray-500 text-xs uppercase tracking-wider">Max allowed age</div>
+            </div>
+          </div>
+
+          {/* Brand table */}
+          <div className="bg-gray-800 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
+                  <th className="text-left p-3">Brand</th>
+                  <th className="text-left p-3">Last scraped</th>
+                  <th className="text-left p-3">Age</th>
+                  <th className="text-right p-3">Products</th>
+                  <th className="text-center p-3">Status</th>
+                  <th className="text-right p-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.brands.map(b => (
+                  <tr key={b.key} className="border-t border-gray-700 hover:bg-gray-900/40" data-testid={`freshness-row-${b.key}`}>
+                    <td className="p-3">
+                      <div className="text-white font-medium">{b.name}</div>
+                      <div className="text-gray-500 text-xs">{b.key}</div>
+                    </td>
+                    <td className="p-3 text-gray-400 text-xs">
+                      {b.lastScrapedAt ? new Date(b.lastScrapedAt).toLocaleString() : 'Never'}
+                    </td>
+                    <td className={`p-3 tabular-nums ${b.isFresh ? 'text-green-400' : 'text-red-400'}`}>
+                      {fmtAge(b.ageHours)}
+                    </td>
+                    <td className="p-3 text-right text-gray-300 tabular-nums">{b.productCount?.toLocaleString('en-IN') ?? 0}</td>
+                    <td className="p-3 text-center">
+                      {b.isFresh ? (
+                        <span className="inline-flex items-center gap-1 text-green-400 text-xs font-semibold">
+                          <CheckCircle className="w-3.5 h-3.5" /> FRESH
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-red-400 text-xs font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5" /> STALE
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => rescrape(b.key)}
+                        disabled={rescraping[b.key]}
+                        className="text-xs px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded text-white disabled:opacity-40 inline-flex items-center gap-1.5"
+                        data-testid={`freshness-rescrape-${b.key}`}
+                      >
+                        {rescraping[b.key] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                        {rescraping[b.key] ? 'Scraping...' : 'Rescrape now'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Recent stale-skip log */}
+          {data.recent_stale_skips?.length > 0 && (
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                Recent alerts blocked (last 48h · {data.recent_stale_skips.length})
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {data.recent_stale_skips.map((s, i) => (
+                  <div key={i} className="text-xs text-gray-400 flex items-center gap-3 py-1 border-b border-gray-700/50 last:border-0">
+                    <span className="text-amber-400 font-mono tabular-nums w-20">{s.ageHours ? `${s.ageHours}h` : '—'}</span>
+                    <span className="text-gray-500 uppercase tracking-wider w-24">{s.alertType}</span>
+                    <span className="text-gray-300 flex-1 truncate">{s.store || '—'} / {s.productId || '—'}</span>
+                    <span className="text-gray-500">{s.createdAt ? new Date(s.createdAt).toLocaleTimeString() : ''}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ============ EMAIL (BREVO) DASHBOARD ============
 // Status of the transactional email service + a "send test email" tool that
 // picks a real product image from the DB so DKIM/dark-mode/inbox rendering
@@ -2009,6 +2177,7 @@ export default function AdminPanel() {
     { id: 'crm', label: 'CRM', icon: Heart },
     { id: 'subscribers', label: 'Subscribers', icon: Users },
     { id: 'brands', label: 'Brands', icon: Package },
+    { id: 'freshness', label: 'Freshness', icon: Clock },
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'telegram', label: 'Telegram', icon: Send },
     { id: 'aether-master', label: 'Aether Master', icon: Eye },
@@ -2061,6 +2230,7 @@ export default function AdminPanel() {
         {activeTab === 'crm' && <CRMDashboard />}
         {activeTab === 'subscribers' && <SubscribersList />}
         {activeTab === 'brands' && <BrandsManager />}
+        {activeTab === 'freshness' && <FreshnessDashboard />}
         {activeTab === 'email' && <EmailDashboard />}
         {activeTab === 'telegram' && <TelegramDashboard />}
         {activeTab === 'aether-master' && <AetherMasterDashboard />}

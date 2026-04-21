@@ -90,6 +90,10 @@ def init_scheduler(db):
 
     # Auto-scrape job — base interval 90 minutes with dynamic jitter
     # After each run, the next run is rescheduled with a random offset (±15 min)
+    # IMPORTANT: default APScheduler 'interval' trigger skips the first run for
+    # a full interval (90 min). We override next_run_time so the scrape kicks
+    # off ~2 min after startup — critical when the backend restarts often and
+    # data would otherwise stay stale indefinitely.
     scheduler.add_job(
         scrape_all_brands,
         'interval',
@@ -98,6 +102,7 @@ def init_scheduler(db):
         max_instances=1,
         replace_existing=True,
         jitter=900,  # APScheduler built-in: adds random ±15 min (900 seconds) jitter
+        next_run_time=datetime.now(timezone.utc) + timedelta(minutes=2),
     )
     
     # Daily digest job at 8 PM IST (14:30 UTC)

@@ -29,11 +29,23 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from freshness import _parse_iso, _hours_since, MAX_ALERT_AGE_HOURS, log_stale_skip
+
 logger = logging.getLogger(__name__)
 
 # Savings thresholds — must beat BOTH to be considered "meaningful"
 MIN_SAVINGS_AMOUNT = 500.0    # INR
 MIN_SAVINGS_PCT = 10.0        # percent
+
+
+def _is_price_record_fresh(price_doc: dict) -> tuple[bool, Optional[float]]:
+    """Check a price record against MAX_ALERT_AGE_HOURS."""
+    if not price_doc:
+        return False, None
+    age = _hours_since(_parse_iso(price_doc.get('lastScrapedAt')))
+    if age is None:
+        return False, None
+    return age <= MAX_ALERT_AGE_HOURS, age
 
 
 class CrossStoreSavingsScanner:
@@ -60,6 +72,7 @@ class CrossStoreSavingsScanner:
         savings_found = 0
         new_savings = 0
         removed = 0
+        stale_skipped = 0
 
         # Build a snapshot of currently-known savings so we can diff at the end
         prev_ids = set()
@@ -94,6 +107,13 @@ class CrossStoreSavingsScanner:
             if src_price <= 0:
                 continue
 
+            # Freshness gate — skip if source price data is stale.
+            # Prevents "phantom savings" from brands whose scraper has gone silent.
+            fresh, age = _is_price_record_fresh(src_price_doc)
+            if not fresh:
+                stale_skipped += 1
+                continue
+
             # Find cross-store matches (reuse server.py matcher)
             try:
                 cross = await _find_cross_store_prices(product, [src_price_doc])
@@ -103,8 +123,15 @@ class CrossStoreSavingsScanner:
             if not cross:
                 continue
 
-            # Find the cheapest cross-store candidate that is in stock
-            in_stock_cross = [c for c in cross if c.get('inStock', True) and (c.get('currentPrice') or 0) > 0]
+            # Freshness gate — drop any cross-store candidate whose price is
+            # stale. Otherwise we'd be comparing fresh data against outdated
+            # competitor data and emit a wrong saving.
+            in_stock_cross = [
+                c for c in cross
+                if c.get('inStock', True)
+                and (c.get('currentPrice') or 0) > 0
+                and _is_price_record_fresh(c)[0]
+            ]
             if not in_stock_cross:
                 continue
             cheapest = min(in_stock_cross, key=lambda c: c['currentPrice'])
@@ -155,7 +182,7 @@ class CrossStoreSavingsScanner:
                 except Exception as e:
                     logger.error(f"[CrossStoreSavings] Alert queue failed for {pid}: {e}")
 
-        # Clean up stale savings (no longer cheaper)
+        # Clean up stale savings: (a) no longer cheaper, (b) source data went stale
         stale_ids = prev_ids - seen_ids
         if stale_ids:
             try:
@@ -167,9 +194,11 @@ class CrossStoreSavingsScanner:
         self.last_run = datetime.now(timezone.utc).isoformat()
         self.last_result = {
             'scanned': scanned,
+            'stale_skipped': stale_skipped,
             'savings_found': savings_found,
             'new_savings': new_savings,
             'removed': removed,
+            'max_alert_age_hours': MAX_ALERT_AGE_HOURS,
             'duration_s': round((datetime.now(timezone.utc) - started).total_seconds(), 1),
         }
         logger.info(f"[CrossStoreSavings] === Scan complete: {self.last_result} ===")

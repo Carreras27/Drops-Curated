@@ -3475,6 +3475,77 @@ async def telegram_set_webhook(payload: Optional[TelegramSetWebhookRequest] = No
     return {'ok': ok, 'webhook_url': webhook_url, 'result': str(msg)}
 
 
+# ============ FRESHNESS / STALE-DATA GUARD ============
+@api_router.get('/admin/freshness/status')
+async def admin_freshness_status():
+    """Admin: per-brand freshness report + recent stale-skip events.
+    Surfaces brands whose scraper is silently stuck so ops can intervene
+    before users receive wrong-price alerts."""
+    from freshness import MAX_ALERT_AGE_HOURS, _parse_iso, _hours_since
+
+    now = datetime.now(timezone.utc)
+    brands = await db.brands.find({'isActive': True}, {'_id': 0}).to_list(200)
+    rows = []
+    for b in brands:
+        last = _parse_iso(b.get('lastScrapedAt'))
+        age = _hours_since(last) if last else None
+        rows.append({
+            'key': b.get('key'),
+            'name': b.get('name'),
+            'storeKey': b.get('storeKey') or b.get('store_key'),
+            'lastScrapedAt': b.get('lastScrapedAt'),
+            'ageHours': round(age, 2) if age is not None else None,
+            'isFresh': bool(last and age is not None and age <= MAX_ALERT_AGE_HOURS),
+            'productCount': b.get('productCount', 0),
+        })
+    rows.sort(key=lambda r: (r['isFresh'], -(r['ageHours'] or 9999)))
+
+    # Recent stale-skip events (last 48h)
+    cutoff = (now - timedelta(hours=48)).isoformat()
+    recent = await db.stale_alerts_log.find(
+        {'createdAt': {'$gte': cutoff}},
+        {'_id': 0},
+    ).sort('createdAt', -1).limit(100).to_list(100)
+
+    stale_brands = [r for r in rows if not r['isFresh']]
+    return {
+        'max_alert_age_hours': MAX_ALERT_AGE_HOURS,
+        'total_brands': len(rows),
+        'fresh_brands': len(rows) - len(stale_brands),
+        'stale_brands_count': len(stale_brands),
+        'brands': rows,
+        'recent_stale_skips': recent,
+        'generatedAt': now.isoformat(),
+    }
+
+
+@api_router.post('/admin/freshness/rescrape/{brand_key}')
+async def admin_freshness_force_rescrape(brand_key: str):
+    """Admin: trigger an immediate re-scrape of a single brand. Used by the
+    Freshness dashboard 'Rescrape now' button to unstick silent failures."""
+    if brand_key not in SCRAPERS:
+        raise HTTPException(status_code=404, detail=f"Unknown brand key: {brand_key}")
+    try:
+        scraper = SCRAPERS[brand_key]()
+        scraped = await scraper.run_swarm_scrape(max_pages=20)
+        if not scraped:
+            return {
+                'ok': False,
+                'brand_key': brand_key,
+                'error': 'Scrape returned zero products — scraper may be broken or blocked',
+            }
+        result = await _store_scraped_products(scraped, brand_key)
+        return {
+            'ok': True,
+            'brand_key': brand_key,
+            'products_scraped': len(scraped),
+            **result,
+        }
+    except Exception as e:
+        logger.exception(f"[Freshness] Force rescrape failed for {brand_key}: {e}")
+        return {'ok': False, 'brand_key': brand_key, 'error': str(e)}
+
+
 # ============ EMAIL (BREVO) ADMIN ============
 class EmailTestRequest(BaseModel):
     to: str
@@ -3583,22 +3654,61 @@ async def send_daily_digests():
     Send daily digest messages to all subscribers with queued alerts.
     Routes to each subscriber's chosen notificationChannel (email | whatsapp |
     telegram | combinations). Called by the scheduler at 8 PM IST.
+
+    Freshness invariant: any alert whose underlying product's price data is
+    older than MAX_ALERT_AGE_HOURS is silently dropped from the digest to
+    prevent stale-price incidents (see EVEMEN ₹3,486 → ₹1,800 on Apr 21).
     """
     from whatsapp import whatsapp_client, IS_CONFIGURED
     from email_alerts import send_daily_digest_email
     from telegram_alerts import send_daily_digest as tg_send_daily_digest
+    from freshness import is_price_fresh, log_stale_skip, MAX_ALERT_AGE_HOURS
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     digests = await db.daily_digest.find({'date': today, 'sent': {'$ne': True}}).to_list(1000)
 
     sent_count = 0
     failed_count = 0
+    stale_dropped = 0
 
     for digest in digests:
         phone = digest.get('phone', '')
-        alerts = digest.get('alerts', [])
+        raw_alerts = digest.get('alerts', [])
+
+        if not raw_alerts:
+            continue
+
+        # Freshness filter — drop alerts whose product price data has gone stale
+        alerts = []
+        for a in raw_alerts:
+            data = a.get('data') or {}
+            # Figure out the productId + store to check. Different alert types
+            # stash them under different keys — we try the common ones.
+            pid = data.get('productId') or data.get('id')
+            store = data.get('store') or data.get('sourceStore') or data.get('cheapestStore')
+            if pid and store:
+                fresh, age = await is_price_fresh(db, pid, store)
+                if not fresh:
+                    stale_dropped += 1
+                    await log_stale_skip(
+                        db,
+                        alert_type=f"digest/{a.get('type', 'unknown')}",
+                        reason=f"age {age}h > cap {MAX_ALERT_AGE_HOURS}h",
+                        product_id=pid,
+                        store=store,
+                        age_hours=age,
+                        phone=phone,
+                        extra={'name': data.get('name')},
+                    )
+                    continue
+            alerts.append(a)
 
         if not alerts:
+            # All alerts were stale — mark digest sent so we don't spam tomorrow
+            await db.daily_digest.update_one(
+                {'_id': digest['_id']},
+                {'$set': {'sent': True, 'stale_filtered': True, 'sentAt': datetime.now(timezone.utc).isoformat()}}
+            )
             continue
 
         # Look up subscriber to get channel preference + email + chat_id

@@ -16,6 +16,13 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### Freshness Guard + Auto-Heal (CRITICAL FIX — Apr 2026)
+- **Bug**: Users received wrong price alerts (e.g. EVEMEN soul t-shirt citing ₹3,486 → ₹2,520 when real site had dropped to ₹1,800). Root cause: ALL 25 brands had stale scrape data (oldest = Culture Circle, 1,469h / 61 days). Scheduler's `'interval'` trigger delayed first run by 90 min, and since backend restarts were more frequent than that, the scrape never fired in this pod instance.
+- **Fix 1 (system rule)**: New `/app/backend/freshness.py` module. `MAX_ALERT_AGE_HOURS=10` (env-tunable). `alerts.py`, `cross_store_savings.py`, and `send_daily_digests` all gate alerts: if price data is older than the cap → silently drop + log to `stale_alerts_log` collection.
+- **Fix 2 (scheduler)**: `scheduler.py` now passes `next_run_time=now+2min` to `add_job` so the first auto-scrape kicks off 2 min after startup instead of 90 min. Ensures a backend restart never leaves data stale for a full cycle.
+- **Fix 3 (admin UI)**: New **Freshness** admin tab — shows fresh/stale brands, ages, recent stale-skip events, per-brand **"Rescrape now"** button backed by `POST /api/admin/freshness/rescrape/{brand_key}`.
+- **Verified**: Manual rescrape of EVEMEN refreshed 83 products. Scheduler now running on schedule (confirmed `last_run=2026-04-21 09:56 UTC`).
+
 ### Turnstile Sandbox Bypass (LIVE — Apr 2026)
 - **Backend** (`security_advanced.py`): `verify_turnstile_token` accepts a hardcoded well-known token (`SANDBOX_BYPASS_E2E_DO_NOT_USE_IN_PROD`) when `TURNSTILE_SANDBOX_BYPASS=1` is set in env. Real Cloudflare verification and 403 rejection of other fake tokens still work.
 - **Frontend** (`SubscribePage.js`): `?test_bypass=1` URL param hides the Turnstile widget, pre-sets the sandbox token so the "Send OTP" button is enabled, and renders a prominent amber "TURNSTILE SANDBOX BYPASS ACTIVE — DEV/TEST ONLY" strip.

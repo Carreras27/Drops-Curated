@@ -20,6 +20,7 @@ from telegram_alerts import (
     send_daily_digest as tg_send_daily_digest,
     IS_CONFIGURED as TELEGRAM_CONFIGURED,
 )
+from freshness import is_price_fresh, is_brand_fresh, log_stale_skip, MAX_ALERT_AGE_HOURS
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,31 @@ async def send_alerts(db, changes: dict, store_key: str):
     - Keyword matching
     - Drop threshold
     - Daily digest vs instant
+
+    Freshness invariant: we only arrive here after a live scrape, so the
+    per-item prices are <60s old by definition. The freshness guard still
+    double-checks the store is flagged fresh in the DB (defensive), and logs
+    a stale-skip if somehow a stale batch made it through.
     """
+    # Defensive freshness check — if the brand record hasn't been updated
+    # within the window, something in the scrape pipeline is broken and we
+    # should NOT spray stale alerts to users.
+    brand_fresh, brand_age = await is_brand_fresh(db, store_key)
+    if not brand_fresh:
+        await log_stale_skip(
+            db,
+            alert_type="batch",
+            reason=f"Brand {store_key} lastScrapedAt age {brand_age}h > cap {MAX_ALERT_AGE_HOURS}h",
+            store=store_key,
+            age_hours=brand_age,
+            extra={"changes_count": {
+                "new": len(changes.get("new_products", [])),
+                "drops": len(changes.get("price_drops", [])),
+                "restocks": len(changes.get("restocks", [])),
+            }},
+        )
+        return {"sent": 0, "queued_for_digest": 0, "skipped_stale": True}
+
     new_products = changes.get("new_products", [])
     price_drops = changes.get("price_drops", [])
     restocks = changes.get("restocks", [])
