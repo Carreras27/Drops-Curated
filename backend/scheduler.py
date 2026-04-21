@@ -275,10 +275,53 @@ async def scrape_all_brands():
 
             # Use Aether Swarm scrape (persona rotation + self-learning)
             scraped = await scraper.run_swarm_scrape(max_pages=20)
-            
+
             if not scraped:
-                _run_results[key] = {"status": "empty", "scraped": 0}
-                continue
+                # CRITICAL: A zero-product result is a *silent failure* — the
+                # scraper didn't crash but also didn't return anything. This
+                # usually means the site changed its HTML/JSON structure,
+                # blocked our user-agent, or moved product URLs. Before marking
+                # this brand as empty, escalate to the LLM self-healing agent
+                # the same way a thrown exception would. Without this, brands
+                # can rot indefinitely without any healing attempt (this was
+                # the root cause of 22/25 brands going stale for 60+ days).
+                logger.warning(f"[Scheduler] {scraper.brand_name} returned 0 products — escalating to LLM healer")
+                last_errors = await _get_last_errors(key, 3)
+                error_context = ErrorContext(
+                    brand_key=key,
+                    brand_name=scraper.brand_name,
+                    scraper_name=type(scraper).__name__,
+                    error_type="EmptyResultError",
+                    error_message="Scraper returned 0 products without raising an exception. Site likely changed structure or is silently blocking.",
+                    url=scraper.base_url,
+                    last_3_errors=last_errors,
+                )
+                healing_result = await scraper_agent.handle_scraper_failure(scraper_factory, error_context)
+
+                if healing_result.get("success"):
+                    healed_products = healing_result.get("raw_products") or []
+                    if healed_products:
+                        # Healer returned actual products — persist + diff
+                        scraped = healed_products
+                        logger.info(f"[Scheduler] Agent healed {key} (silent failure) — {len(scraped)} products via {healing_result.get('strategy')}")
+                        # fall through to the normal change-detection path below
+                    else:
+                        _run_results[key] = {
+                            "status": "healed_count_only",
+                            "scraped": healing_result.get("products", 0),
+                            "strategy": healing_result.get("strategy"),
+                        }
+                        brands_succeeded += 1
+                        continue
+                else:
+                    _run_results[key] = {
+                        "status": "empty",
+                        "scraped": 0,
+                        "agent_attempted": True,
+                        "exhausted": healing_result.get("exhausted", False),
+                    }
+                    brands_failed += 1
+                    continue
 
             # Detect changes BEFORE storing
             changes = await detect_changes(_db, scraped, scraper.store_key)

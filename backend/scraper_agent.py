@@ -241,6 +241,7 @@ Always respond with valid JSON. Be concise and technical."""
                     "success": True,
                     "strategy": strategy.value,
                     "products": result.get("products", 0),
+                    "raw_products": result.get("raw_products"),  # forward to caller
                     "strategies_tried": i + 1
                 }
             else:
@@ -431,6 +432,8 @@ Respond with JSON:
                     "success": True,
                     "message": f"Scraped {len(products)} products",
                     "products": len(products),
+                    "raw_products": products,  # Pass actual products back so
+                                               # caller can persist + diff them
                     "response_time_ms": elapsed_ms
                 }
             else:
