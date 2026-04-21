@@ -13,6 +13,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(false);
   const [subscriber, setSubscriber] = useState(null);
   const [tgLink, setTgLink] = useState(null); // {deep_link, code}
+  const [sandboxOtp, setSandboxOtp] = useState('');
 
   // Persist session across reloads (simple — just the phone; API re-verifies)
   useEffect(() => {
@@ -35,7 +36,10 @@ export default function AccountPage() {
     }
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/otp/send`, { phone: phone.trim() });
+      const r = await axios.post(`${API_URL}/otp/send`, { phone: phone.trim() });
+      // Sandbox mode: backend returns the OTP so the user can see it on-screen
+      // (real WhatsApp delivery isn't wired up yet).
+      if (r.data?.sandbox_otp) setSandboxOtp(r.data.sandbox_otp);
       toast.success('OTP sent');
       setStep('otp');
     } catch (e) {
@@ -116,6 +120,11 @@ export default function AccountPage() {
 
         {step === 'otp' && (
           <AuthCard title="Enter the code" subtitle={`We sent a 6-digit code to +91 ${phone}`}>
+            {sandboxOtp && (
+              <div className="bg-accent/10 border border-accent/30 px-3 py-2 mb-3 text-[11px] text-primary/70 text-center tabular-nums tracking-wider" data-testid="account-sandbox-otp">
+                Sandbox OTP: <b className="text-primary">{sandboxOtp}</b>
+              </div>
+            )}
             <input
               type="text" inputMode="numeric" maxLength={6} value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
