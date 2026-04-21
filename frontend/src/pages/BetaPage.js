@@ -9,7 +9,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Closed-beta signup page. Hard-capped at 100 — when full, shows waitlist CTA.
 // No payment step: 30 days free for whoever makes it in.
 export default function BetaPage() {
-  const [status, setStatus] = useState({ spots_left: 100, total: 100, taken: 0, is_open: true });
+  const [status, setStatus] = useState(null); // null until first fetch resolves
   const [step, setStep] = useState('intro'); // intro | phone | otp | details | done
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -30,8 +30,8 @@ export default function BetaPage() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  const pct = Math.round((status.taken / status.total) * 100);
-  const urgency = status.spots_left <= 10 ? 'critical' : status.spots_left <= 30 ? 'warning' : 'calm';
+  const pct = status ? Math.round((status.taken / status.total) * 100) : 0;
+  const urgency = status && status.spots_left <= 10 ? 'critical' : status && status.spots_left <= 30 ? 'warning' : 'calm';
 
   const sendOtp = async () => {
     if (!/^[6-9]\d{9}$/.test(phone.trim())) { toast.error('Enter a valid 10-digit Indian phone'); return; }
@@ -85,30 +85,34 @@ export default function BetaPage() {
             Closed Beta · By Invitation
           </p>
           <h1 className="font-serif text-4xl md:text-5xl tracking-tight mb-4 leading-[1.1]">
-            Be one of the first <span className="italic text-accent">{status.total}</span> inside.
+            Be one of the first <span className="italic text-accent">{status ? status.total : 100}</span> inside.
           </h1>
           <p className="text-sm md:text-base text-primary/55 max-w-xl mx-auto leading-relaxed mb-8">
             You get 30 days free. All 25+ brands unlocked. Alerts across email, WhatsApp & Telegram.
             Zero payment, zero catches — just pure early access in exchange for your feedback.
           </p>
 
-          {/* Spots counter */}
-          <div className="max-w-sm mx-auto" data-testid="beta-spots-counter">
-            <div className="flex items-center justify-between text-xs text-primary/60 mb-2">
-              <span className="tabular-nums font-medium">{status.taken} of {status.total} spots taken</span>
-              <span className={`font-semibold tabular-nums ${
-                urgency === 'critical' ? 'text-red-600' : urgency === 'warning' ? 'text-accent' : 'text-primary/60'
-              }`}>{status.spots_left} left</span>
+          {/* Spots counter — only after first fetch resolves, to avoid a misleading 0/100 flash */}
+          {status ? (
+            <div className="max-w-sm mx-auto" data-testid="beta-spots-counter">
+              <div className="flex items-center justify-between text-xs text-primary/60 mb-2">
+                <span className="tabular-nums font-medium">{status.taken} of {status.total} spots taken</span>
+                <span className={`font-semibold tabular-nums ${
+                  urgency === 'critical' ? 'text-red-600' : urgency === 'warning' ? 'text-accent' : 'text-primary/60'
+                }`}>{status.spots_left} left</span>
+              </div>
+              <div className="h-1 bg-primary/10 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    urgency === 'critical' ? 'bg-red-500' : urgency === 'warning' ? 'bg-accent' : 'bg-primary'
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             </div>
-            <div className="h-1 bg-primary/10 overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  urgency === 'critical' ? 'bg-red-500' : urgency === 'warning' ? 'bg-accent' : 'bg-primary'
-                }`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
+          ) : (
+            <div className="max-w-sm mx-auto h-8" aria-hidden="true" />
+          )}
         </div>
 
         {/* Perks strip */}
@@ -130,7 +134,7 @@ export default function BetaPage() {
 
         {/* Signup card */}
         <div className="max-w-md mx-auto">
-          {!status.is_open && step !== 'done' && (
+          {status && !status.is_open && step !== 'done' && (
             <div className="border border-red-500/30 bg-red-50 p-8" data-testid="beta-full-card">
               <p className="text-[10px] uppercase tracking-[0.22em] text-red-700 mb-3 font-semibold">Beta is full</p>
               <h2 className="font-serif text-2xl mb-2">We've maxed out at {status.total}.</h2>
@@ -140,7 +144,7 @@ export default function BetaPage() {
             </div>
           )}
 
-          {status.is_open && step === 'intro' && (
+          {status && status.is_open && step === 'intro' && (
             <div className="border border-primary/10 bg-surface p-8 md:p-10 shadow-soft text-center" data-testid="beta-intro-card">
               <button
                 onClick={() => setStep('phone')}
@@ -156,7 +160,7 @@ export default function BetaPage() {
             </div>
           )}
 
-          {status.is_open && step === 'phone' && (
+          {status && status.is_open && step === 'phone' && (
             <SignupCard title="Verify your number" subtitle="We'll WhatsApp a 6-digit code to confirm it's you.">
               <label className="text-[10px] uppercase tracking-[0.2em] text-primary/40 mb-2 block">Phone number</label>
               <div className="flex items-center border border-primary/15 bg-background focus-within:border-primary transition-colors mb-4">
@@ -175,7 +179,7 @@ export default function BetaPage() {
             </SignupCard>
           )}
 
-          {status.is_open && step === 'otp' && (
+          {status && status.is_open && step === 'otp' && (
             <SignupCard title="Enter the code" subtitle={`We sent a 6-digit code to +91 ${phone}`}>
               {sandboxOtp && (
                 <div className="bg-accent/10 border border-accent/30 p-2 mb-3 text-[10px] text-primary/70 text-center tabular-nums tracking-wider" data-testid="beta-sandbox-otp">
@@ -195,7 +199,7 @@ export default function BetaPage() {
             </SignupCard>
           )}
 
-          {status.is_open && step === 'details' && (
+          {status && status.is_open && step === 'details' && (
             <SignupCard title="Tell us about you" subtitle="Just your name and email — we'll send your welcome kit there.">
               <label className="text-[10px] uppercase tracking-[0.2em] text-primary/40 mb-2 block">Your name</label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)}

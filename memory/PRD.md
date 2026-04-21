@@ -16,6 +16,14 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### Closed Beta Program (LIVE — Apr 2026)
+- **Cap**: First 100 signups get 30 days free, zero payment, all brands unlocked (VIP-level access). Cap + resume-for-existing + paid-block logic all enforced in `/api/beta/signup`.
+- Backend: `/api/beta/status`, `/api/beta/signup`, `/api/beta/feedback`, admin endpoints `/api/admin/beta/feedback` + `/api/admin/beta/testers` (cohort + channel mix).
+- Frontend: `/beta` signup wizard (intro → phone → WhatsApp OTP → details → success) and `/beta/feedback` (bug/idea/love/other + optional 1–5 rating). Both routes registered in `App.js`.
+- Landing page `BetaSpotsBanner` — thin fixed strip at top showing "X of 100 spots left — 30 days free, no card", urgency colour shifts at ≤30 and ≤10 remaining, dismissible for session. Header accepts `offsetTop` prop so it sits below the banner cleanly.
+- Welcome email sent via Brevo on signup, admin pinged on every feedback submission.
+- **Test pass by testing agent** (iteration_14.json) — 8/8 executable backend tests, full frontend happy-path + banner + dismiss + feedback.
+
 ### 7-Day Free Trial System (COMPLETE — Apr 2026)
 - localStorage-based 7-day trial with `TrialProvider` context
 - Expired: Prices blurred, wishlist locked (lock icons), filter panel locked with overlay
@@ -121,11 +129,14 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 - [ ] Apple/Google Wallet digital membership cards
 - [ ] Production keys migration (Razorpay, Meta WhatsApp)
 - [ ] Savings Feed UI page (surface `/api/savings/active` to VIP members as a dedicated "Best Savings" tab)
+- [ ] Admin Panel → Beta tab (testers cohort + feedback triage) — backend APIs ready, UI pending
 
 ### P2
 - [ ] Drop Calendar UI
 - [ ] Brand Partner Dashboard
-- [ ] Refactor server.py into routes/ directory (3500+ lines)
+- [ ] Refactor server.py into routes/ directory (4300+ lines — including extracting beta module to /app/backend/routes/beta.py)
+- [ ] Consolidate phone validation (validate_phone_number vs inline check in /otp/send)
+- [ ] Move BETA_MAX_SPOTS to env var for non-prod overrides
 
 ## Key DB Collections
 products, subscribers, brands, prices, price_history, cross_store_savings, aether_learning, aether_master_memory, scraper_agent_logs, scraper_strategies, product_fingerprints, alert_log, broadcast_log, daily_digest, security_logs
