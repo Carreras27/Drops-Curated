@@ -6,7 +6,7 @@ import {
   Search, ChevronRight, Activity, Zap, Brain, Clock, 
   Shield, Wifi, WifiOff, AlertCircle, Play, RotateCcw,
   Heart, Send, BarChart3, Eye, Database, Globe, Server,
-  MessageSquare, UserCheck, UserX, IndianRupee
+  MessageSquare, UserCheck, UserX, IndianRupee, Mail
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -1787,6 +1787,181 @@ function TelegramDashboard() {
   );
 }
 
+// ============ EMAIL (BREVO) DASHBOARD ============
+// Status of the transactional email service + a "send test email" tool that
+// picks a real product image from the DB so DKIM/dark-mode/inbox rendering
+// can be verified end-to-end without leaving the admin panel.
+function EmailDashboard() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [to, setTo] = useState('');
+  const [kind, setKind] = useState('test');
+  const [lastResult, setLastResult] = useState(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API_URL}/email/status`, { headers: getAuthHeader() });
+      setStatus(r.data);
+    } catch (e) {
+      console.error('Failed to fetch email status:', e);
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  const sendTest = async () => {
+    if (!to.trim() || !/^\S+@\S+\.\S+$/.test(to.trim())) {
+      alert('Enter a valid email address');
+      return;
+    }
+    setSending(true);
+    setLastResult(null);
+    try {
+      const r = await axios.post(`${API_URL}/email/test`,
+        { to: to.trim(), kind },
+        { headers: getAuthHeader() }
+      );
+      setLastResult({ ok: true, ...r.data });
+    } catch (e) {
+      setLastResult({ ok: false, detail: e.response?.data?.detail || String(e) });
+    } finally { setSending(false); }
+  };
+
+  const kinds = [
+    { value: 'test', label: 'Plain test', hint: 'Minimal template — verifies DKIM + inbox placement' },
+    { value: 'price_drop', label: 'Price drop', hint: 'Styled price-drop alert with product image' },
+    { value: 'new_drop', label: 'New drop', hint: 'Styled new-release alert' },
+    { value: 'cross_save', label: 'Cross-store save', hint: 'Shows cheaper-elsewhere card' },
+    { value: 'digest', label: 'Daily digest', hint: 'Full 20:00-IST digest rollup with 2 products' },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="email-dashboard">
+      <div>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Mail className="w-6 h-6 text-amber-500" />
+          Email (Brevo)
+        </h2>
+        <p className="text-gray-500 text-sm mt-1">Verify sender setup · send live test emails to check DKIM, inbox placement, and dark-mode rendering</p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-500" />
+        </div>
+      ) : !status ? (
+        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded text-red-300 text-sm">
+          Failed to load email service status.
+        </div>
+      ) : (
+        <>
+          {/* Status cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Service</div>
+              <div className="text-white font-semibold">Brevo</div>
+              <div className={`text-xs mt-1 ${status.configured ? 'text-green-400' : 'text-red-400'}`}>
+                {status.configured ? '● API key set' : '● Not configured'}
+              </div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Sender</div>
+              <div className="text-white font-semibold text-sm break-all">{status.sender_email || '—'}</div>
+              <div className="text-xs text-gray-500 mt-1">{status.sender_name || '—'}</div>
+            </div>
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Reply-to</div>
+              <div className="text-white font-semibold text-sm break-all">{status.reply_to || '—'}</div>
+              <div className="text-xs text-gray-500 mt-1">Where user replies land</div>
+            </div>
+          </div>
+
+          {/* Send test form */}
+          <div className="bg-gray-800 p-6 rounded-lg space-y-4">
+            <div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">Send a test email</label>
+              <p className="text-gray-500 text-xs mb-3">
+                Picks a real product with a valid image URL from the database so rendering can be verified end-to-end.
+              </p>
+              <input
+                type="email"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="your.email@example.com"
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none"
+                data-testid="email-test-to-input"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-300 text-sm font-medium mb-3">Template</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {kinds.map(k => (
+                  <button
+                    key={k.value}
+                    type="button"
+                    onClick={() => setKind(k.value)}
+                    className={`text-left p-3 border rounded transition-colors ${
+                      kind === k.value
+                        ? 'border-amber-500 bg-amber-500/[0.08] text-white'
+                        : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
+                    }`}
+                    data-testid={`email-kind-${k.value}`}
+                  >
+                    <div className="font-medium text-sm mb-0.5">{k.label}</div>
+                    <div className="text-xs text-gray-500">{k.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={sendTest}
+                disabled={sending || !to.trim() || !status.configured}
+                className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-500 rounded text-white font-medium text-sm transition-colors disabled:opacity-40"
+                data-testid="email-send-test-btn"
+              >
+                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                {sending ? 'Sending...' : `Send ${kinds.find(k => k.value === kind)?.label || 'test'} email`}
+              </button>
+              <button
+                onClick={fetchStatus}
+                type="button"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 text-sm"
+              >
+                <RefreshCw className="w-4 h-4" /> Refresh status
+              </button>
+            </div>
+
+            {lastResult && (
+              <div
+                className={`text-sm p-3 rounded border ${
+                  lastResult.ok ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'
+                }`}
+                data-testid="email-send-result"
+              >
+                {lastResult.ok ? `✓ Sent to ${to}. Check your inbox (and spam folder for DKIM debugging).` : `✗ ${lastResult.detail}`}
+              </div>
+            )}
+          </div>
+
+          {/* Help */}
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4 text-xs text-gray-400 leading-relaxed">
+            <div className="font-medium text-blue-300 mb-1">Tips</div>
+            <ul className="list-disc list-inside space-y-1">
+              <li>First send lands in the Brevo transactional log — check there if the inbox misses it.</li>
+              <li>If it goes to spam, confirm DKIM/SPF records are green on <a className="text-amber-400 underline" href="https://app.brevo.com/senders/domain/list" target="_blank" rel="noreferrer">Brevo senders</a>.</li>
+              <li>Test the <b>Daily digest</b> template before 20:00 IST — that's when the cron fires and you don't want surprises.</li>
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ============ MAIN ADMIN PANEL ============
 export default function AdminPanel() {
   const [user, setUser] = useState(null);
@@ -1834,6 +2009,7 @@ export default function AdminPanel() {
     { id: 'crm', label: 'CRM', icon: Heart },
     { id: 'subscribers', label: 'Subscribers', icon: Users },
     { id: 'brands', label: 'Brands', icon: Package },
+    { id: 'email', label: 'Email', icon: Mail },
     { id: 'telegram', label: 'Telegram', icon: Send },
     { id: 'aether-master', label: 'Aether Master', icon: Eye },
     { id: 'scraper-health', label: 'Scraper Health', icon: Shield },
@@ -1885,6 +2061,7 @@ export default function AdminPanel() {
         {activeTab === 'crm' && <CRMDashboard />}
         {activeTab === 'subscribers' && <SubscribersList />}
         {activeTab === 'brands' && <BrandsManager />}
+        {activeTab === 'email' && <EmailDashboard />}
         {activeTab === 'telegram' && <TelegramDashboard />}
         {activeTab === 'aether-master' && <AetherMasterDashboard />}
         {activeTab === 'scraper-health' && <ScraperHealthDashboard />}
