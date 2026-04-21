@@ -3182,6 +3182,230 @@ async def savings_scanner_status():
     return cross_store_savings_scanner.get_status()
 
 
+# ============ CLOSED BETA PROGRAM ============
+# Free 30-day access for the first 100 signups. After cap, signup is blocked
+# gracefully (UI shows a "Beta full — join waitlist" state).
+BETA_MAX_SPOTS = 100
+BETA_DURATION_DAYS = 30
+
+
+class BetaSignupRequest(BaseModel):
+    phone: str
+    name: str
+    email: str
+
+
+class BetaFeedbackRequest(BaseModel):
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    category: str  # 'bug' | 'idea' | 'love' | 'other'
+    page: Optional[str] = None  # which page they were on
+    message: str
+    rating: Optional[int] = None  # 1-5 optional CSAT
+
+
+@api_router.get('/beta/status')
+async def beta_status():
+    """Public counter so the landing banner and /beta page show live spot availability."""
+    taken = await db.subscribers.count_documents({'isBeta': True})
+    spots_left = max(0, BETA_MAX_SPOTS - taken)
+    return {
+        'total': BETA_MAX_SPOTS,
+        'taken': taken,
+        'spots_left': spots_left,
+        'is_open': spots_left > 0,
+    }
+
+
+@api_router.post('/beta/signup')
+@limiter.limit("3/hour")
+async def beta_signup(request: Request, data: BetaSignupRequest):
+    """Closed beta signup. Requires verified OTP, bypasses payment, activates
+    30-day free membership, flags subscriber as beta for analytics."""
+    phone = data.phone.strip()
+    if not validate_phone_number(phone):
+        raise HTTPException(status_code=400, detail='Invalid phone number')
+
+    stored = otp_store.get(phone)
+    if not stored or not stored.get('verified'):
+        raise HTTPException(status_code=400, detail='Phone not verified. Complete OTP first.')
+
+    # Cap enforcement — but if this phone is already a beta user, allow "resume"
+    existing = await db.subscribers.find_one({'phone': phone}, {'_id': 0, 'isBeta': 1, 'isPaid': 1})
+    if not (existing and existing.get('isBeta')):
+        taken = await db.subscribers.count_documents({'isBeta': True})
+        if taken >= BETA_MAX_SPOTS:
+            raise HTTPException(status_code=403, detail='Beta is full. Please check back soon.')
+        if existing and existing.get('isPaid'):
+            raise HTTPException(status_code=400, detail='You already have a paid membership.')
+
+    # Activate beta — give regular-tier feature set for 30 days
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=BETA_DURATION_DAYS)
+    membership_id = f"DC-BETA-{now.strftime('%Y%m')}-{random.randint(100, 999)}"
+
+    await db.subscribers.update_one(
+        {'phone': phone},
+        {'$set': {
+            'name': data.name.strip(),
+            'email': data.email.strip(),
+            'isActive': True,
+            'isPaid': True,             # unlocks full product surface
+            'isBeta': True,             # analytics flag
+            'membershipId': membership_id,
+            'plan': 'beta_30d',
+            'tier': 'regular',
+            'brandLimit': 0,            # unlimited for beta (VIP-level)
+            'paidAt': now.isoformat(),
+            'expiresAt': expires.isoformat(),
+            'betaJoinedAt': now.isoformat(),
+            'betaExpiresAt': expires.isoformat(),
+            'notificationChannel': 'email',  # email default per product choice
+            'updatedAt': now.isoformat(),
+        }},
+        upsert=True,
+    )
+    logger.info(f"[Beta] New signup {phone} ({data.email})")
+
+    # Send welcome email (non-blocking — best effort)
+    try:
+        from email_alerts import _send_email, _tpl_new_drop, _shell
+        welcome_inner = f"""
+<div class="hero">
+  <p class="kicker">Welcome to the Beta · {_esc_safe(data.name.split()[0])}</p>
+  <h1>You're in. All 25+ brands unlocked for 30 days.</h1>
+  <p>You're one of the first {BETA_MAX_SPOTS} members shaping Drops Curated. Over the next 30 days, you'll get instant alerts across email, WhatsApp and Telegram for every drop, price cut, and cross-store save we spot. Zero payment, zero catches.</p>
+  <p>As a beta member, your feedback shapes the product. Hit any bug or have an idea? Drop us a line — it goes straight to the founding team.</p>
+  <div style="margin:28px 0">
+    <a href="{APP_URL_SAFE}/beta/feedback" class="btn" style="background:#001F3F;color:#FAF8F5">Share feedback →</a>
+  </div>
+  <p>— The Drops Curated team</p>
+</div>
+"""
+        html = _shell(welcome_inner, preheader='You are in · 30 days free access')
+        _send_email(data.email.strip(), 'Welcome to the Drops Curated beta', html, tags=['beta_welcome'])
+    except Exception as e:
+        logger.warning(f"[Beta] Welcome email failed for {phone}: {e}")
+
+    return {
+        'success': True,
+        'membership_id': membership_id,
+        'expires_at': expires.isoformat(),
+        'duration_days': BETA_DURATION_DAYS,
+    }
+
+
+@api_router.post('/beta/feedback')
+@limiter.limit("30/hour")
+async def beta_feedback(request: Request, data: BetaFeedbackRequest):
+    """Collect in-app feedback from beta testers. No auth required — we want
+    zero friction. Phone/email optional."""
+    if not data.message or len(data.message.strip()) < 5:
+        raise HTTPException(status_code=400, detail='Message too short — please add more detail')
+    if data.category not in ('bug', 'idea', 'love', 'other'):
+        raise HTTPException(status_code=400, detail='Invalid category')
+
+    ip = (request.headers.get('x-forwarded-for') or
+          (request.client.host if request.client else '')).split(',')[0].strip()
+    ua = request.headers.get('user-agent', '')[:300]
+
+    doc = {
+        'id': f"fb_{secrets.token_urlsafe(8)}",
+        'phone': (data.phone or '').strip() or None,
+        'email': (data.email or '').strip() or None,
+        'category': data.category,
+        'page': (data.page or '')[:150],
+        'message': data.message.strip()[:4000],
+        'rating': data.rating if data.rating and 1 <= data.rating <= 5 else None,
+        'ip': ip,
+        'ua': ua,
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+        'status': 'new',  # new | triaged | fixed | wontfix
+    }
+    await db.beta_feedback.insert_one(doc)
+    logger.info(f"[BetaFeedback] {data.category}: {data.message[:80]}")
+
+    # Ping admin via email (best effort)
+    try:
+        from email_alerts import _send_email
+        admin_email = os.environ.get('BETA_ADMIN_EMAIL', 'Dropscurated@gmail.com')
+        body_html = f"""<html><body style="font-family:system-ui,sans-serif;background:#F3F1ED;padding:24px">
+<h2 style="font-family:Georgia,serif;color:#001F3F">New beta feedback · {data.category.upper()}</h2>
+<p><b>From:</b> {data.phone or '—'} · {data.email or '—'}</p>
+<p><b>Page:</b> {data.page or '—'}</p>
+<p><b>Rating:</b> {data.rating if data.rating else '—'}/5</p>
+<div style="background:#FAF8F5;border-left:3px solid #D4AF37;padding:14px;margin:16px 0;color:#001F3F;white-space:pre-wrap">{_esc_safe(data.message[:1500])}</div>
+<p style="color:#888;font-size:12px">IP {ip} · {ua[:80]}</p>
+</body></html>"""
+        _send_email(admin_email, f"[Beta] {data.category}: {data.message[:60]}",
+                    body_html, tags=['beta_feedback', data.category])
+    except Exception as e:
+        logger.warning(f"[BetaFeedback] Admin email failed: {e}")
+
+    return {'ok': True, 'id': doc['id']}
+
+
+@api_router.get('/admin/beta/feedback')
+async def admin_beta_feedback(status: Optional[str] = None, limit: int = 100):
+    """Admin: list beta feedback, newest first. Optional status filter."""
+    q: dict = {}
+    if status:
+        q['status'] = status
+    items = await db.beta_feedback.find(q, {'_id': 0}).sort('createdAt', -1).limit(limit).to_list(limit)
+    # Summary counts
+    by_category = {}
+    async for row in db.beta_feedback.aggregate([
+        {'$group': {'_id': '$category', 'n': {'$sum': 1}}}
+    ]):
+        by_category[row['_id']] = row['n']
+    return {
+        'items': items,
+        'count': len(items),
+        'by_category': by_category,
+    }
+
+
+@api_router.get('/admin/beta/testers')
+async def admin_beta_testers():
+    """Admin: cohort snapshot — channel mix + engagement proxy (alerts received)."""
+    pipeline = [
+        {'$match': {'isBeta': True}},
+        {'$project': {'_id': 0, 'phone': 1, 'email': 1, 'name': 1, 'notificationChannel': 1,
+                      'betaJoinedAt': 1, 'betaExpiresAt': 1, 'telegramChatId': 1,
+                      'preferences.brands': 1}}
+    ]
+    testers = await db.subscribers.aggregate(pipeline).to_list(200)
+    # Channel mix
+    mix = {'email_only': 0, 'email_whatsapp': 0, 'email_telegram': 0,
+           'email_whatsapp_telegram': 0}
+    for t in testers:
+        ch = t.get('notificationChannel', 'email') or 'email'
+        if ch == 'both':
+            ch = 'email,whatsapp'
+        parts = set(s.strip() for s in ch.split(','))
+        if parts == {'email'}:
+            mix['email_only'] += 1
+        elif parts == {'email', 'whatsapp'}:
+            mix['email_whatsapp'] += 1
+        elif parts == {'email', 'telegram'}:
+            mix['email_telegram'] += 1
+        elif parts == {'email', 'whatsapp', 'telegram'}:
+            mix['email_whatsapp_telegram'] += 1
+    return {
+        'count': len(testers),
+        'testers': testers,
+        'channel_mix': mix,
+    }
+
+
+def _esc_safe(s: str) -> str:
+    import html
+    return html.escape(str(s or ''), quote=False)
+
+
+APP_URL_SAFE = os.environ.get('APP_URL', 'https://drops-curated.preview.emergentagent.com').rstrip('/')
+
+
 # ============ TELEGRAM BOT ============
 class TelegramLinkRequest(BaseModel):
     phone: str
