@@ -669,36 +669,36 @@ function ScraperHealthDashboard() {
       <div className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className={`w-3 h-3 rounded-full ${
-            health.system_health.status === 'healthy' ? 'bg-green-500 animate-pulse' :
-            health.system_health.status === 'degraded' ? 'bg-yellow-500 animate-pulse' :
+            health.system_health?.status === 'healthy' ? 'bg-green-500 animate-pulse' :
+            health.system_health?.status === 'degraded' ? 'bg-yellow-500 animate-pulse' :
             'bg-red-500 animate-pulse'
           }`} />
           <div>
             <span className="text-white font-medium">System Status: </span>
             <span className={`font-bold ${
-              health.system_health.status === 'healthy' ? 'text-green-400' :
-              health.system_health.status === 'degraded' ? 'text-yellow-400' :
+              health.system_health?.status === 'healthy' ? 'text-green-400' :
+              health.system_health?.status === 'degraded' ? 'text-yellow-400' :
               'text-red-400'
             }`}>
-              {health.system_health.status?.toUpperCase() || 'UNKNOWN'}
+              {health.system_health?.status?.toUpperCase() || 'UNKNOWN'}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-6 text-sm">
           <div className="flex items-center gap-2">
-            {health.system_health.db_healthy ? 
+            {health.system_health?.db_healthy ? 
               <CheckCircle className="w-4 h-4 text-green-500" /> : 
               <XCircle className="w-4 h-4 text-red-500" />}
             <span className="text-gray-400">Database</span>
           </div>
           <div className="flex items-center gap-2">
-            {health.system_health.scraper_healthy ? 
+            {health.system_health?.scraper_healthy ? 
               <CheckCircle className="w-4 h-4 text-green-500" /> : 
               <XCircle className="w-4 h-4 text-red-500" />}
             <span className="text-gray-400">Scraper</span>
           </div>
           <div className="flex items-center gap-2">
-            {health.healing.llm_enabled ? 
+            {health.agent?.llm_enabled ? 
               <Brain className="w-4 h-4 text-green-500" /> : 
               <Brain className="w-4 h-4 text-gray-500" />}
             <span className="text-gray-400">LLM Healer</span>
