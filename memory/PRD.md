@@ -16,6 +16,13 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### Deployment Readiness Fix (Apr 2026)
+- **Bug**: Deployed site at `drops-curated.emergent.host` returned HTTP 200 on frontend but timed out on `/api/*` routes.
+- **Root cause 1**: `backend/.env` line 24 had `SMTP_PASSWORD=gkth dktt hgat dxis` — unquoted value with spaces breaks .env parsing in containerised environments, causing backend to fail early during config load.
+- **Root cause 2**: `backend/security.py` CORS allowlist was missing `https://drops-curated.emergent.host`. Requests from the deployed frontend to its own API were rejected at the CORS layer.
+- **Fixed**: Quoted the SMTP password value; added the emergent.host origin to `ALLOWED_ORIGINS`; made the allowlist extensible via optional `ALLOWED_ORIGINS` env var so future custom domains can be added without code changes.
+- Next deploy should restore `/api/*` on the production host.
+
 ### Freshness Guard + Auto-Heal (CRITICAL FIX — Apr 2026)
 - **Bug**: Users received wrong price alerts (e.g. EVEMEN soul t-shirt citing ₹3,486 → ₹2,520 when real site had dropped to ₹1,800). Root cause: ALL 25 brands had stale scrape data (oldest = Culture Circle, 1,469h / 61 days). Scheduler's `'interval'` trigger delayed first run by 90 min, and since backend restarts were more frequent than that, the scrape never fired in this pod instance.
 - **Fix 1 (system rule)**: New `/app/backend/freshness.py` module. `MAX_ALERT_AGE_HOURS=10` (env-tunable). `alerts.py`, `cross_store_savings.py`, and `send_daily_digests` all gate alerts: if price data is older than the cap → silently drop + log to `stale_alerts_log` collection.

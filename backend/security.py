@@ -38,13 +38,20 @@ logger = logging.getLogger(__name__)
 
 # ============ CONFIGURATION ============
 
-# Allowed frontend origins (lock down CORS)
+# Allowed frontend origins (lock down CORS).
+# Includes the Emergent native deployment host so API calls from the deployed
+# site succeed. Also reads an optional ALLOWED_ORIGINS env var so production
+# can add new custom domains without a code change.
 ALLOWED_ORIGINS = [
     os.getenv("FRONTEND_URL", "https://drops-curated.preview.emergentagent.com"),
+    "https://drops-curated.emergent.host",
     "https://dropscurated.com",
     "https://www.dropscurated.com",
     "http://localhost:3000",  # Development only
 ]
+_extra_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _extra_origins:
+    ALLOWED_ORIGINS += [o.strip() for o in _extra_origins.split(",") if o.strip()]
 
 # Admin IP allowlist (add your IPs here)
 ADMIN_IP_ALLOWLIST = os.getenv("ADMIN_IP_ALLOWLIST", "").split(",") if os.getenv("ADMIN_IP_ALLOWLIST") else []
