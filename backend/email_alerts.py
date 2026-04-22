@@ -137,9 +137,22 @@ def _fmt_inr(value) -> str:
 # ============ TEMPLATES ============
 def _tpl_price_drop(name: str, brand: str, new_price, old_price,
                     image_url: str, product_url: str, savings_pct: Optional[int] = None) -> str:
+    # Guard: only render "Save X%" badge when savings_pct is a real positive
+    # number AND the old_price is actually higher than new_price. Otherwise
+    # the badge is fictitious (e.g. merchant MSRP spam).
+    real_save = False
+    try:
+        np = float(str(new_price).replace(',', '').replace('₹', '').strip())
+        op = float(str(old_price).replace(',', '').replace('₹', '').strip())
+        real_save = savings_pct and savings_pct > 0 and op > np * 1.01
+    except (ValueError, TypeError):
+        real_save = bool(savings_pct)
+
     save_badge = (f'<span class="save" style="display:inline-block;background:#D4AF37;color:#001F3F;'
                   f'padding:4px 10px;font-size:10px;letter-spacing:.15em;text-transform:uppercase;'
-                  f'margin-left:10px;vertical-align:middle;font-weight:700">Save {savings_pct}%</span>') if savings_pct else ''
+                  f'margin-left:10px;vertical-align:middle;font-weight:700">Save {savings_pct}%</span>') if real_save else ''
+    # Only show the old price strikethrough if the save is genuine
+    old_price_html = f'<span class="price-old">{_fmt_inr(old_price)}</span>' if real_save else ''
     img = f'<img src="{image_url}" alt="{name}">' if image_url else ''
     inner = f"""
 <div class="hero">
@@ -150,7 +163,7 @@ def _tpl_price_drop(name: str, brand: str, new_price, old_price,
     <div class="info">
       <p class="pbrand">{brand}</p>
       <p class="pname">{name}</p>
-      <p class="price-big">{_fmt_inr(new_price)}<span class="price-old">{_fmt_inr(old_price)}</span>{save_badge}</p>
+      <p class="price-big">{_fmt_inr(new_price)}{old_price_html}{save_badge}</p>
       <a href="{product_url}" class="btn">View Product →</a>
     </div>
   </div>

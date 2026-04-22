@@ -3678,10 +3678,16 @@ async def send_daily_digests():
         if not raw_alerts:
             continue
 
-        # Freshness filter — drop alerts whose product price data has gone stale
+        # Freshness + live-verification filter.
+        # freshness: drop alerts whose price data is older than cap (already).
+        # live verify: for price_drop alerts, re-fetch the current stored price
+        # right NOW — if the price has bounced back to or above the original,
+        # the brand has already reverted and the alert is a lie-by-delivery.
+        # Same for cross_store_save: re-check the cheapest store still wins.
         alerts = []
         for a in raw_alerts:
             data = a.get('data') or {}
+            atype = a.get('type', 'unknown')
             # Figure out the productId + store to check. Different alert types
             # stash them under different keys — we try the common ones.
             pid = data.get('productId') or data.get('id')
@@ -3692,7 +3698,7 @@ async def send_daily_digests():
                     stale_dropped += 1
                     await log_stale_skip(
                         db,
-                        alert_type=f"digest/{a.get('type', 'unknown')}",
+                        alert_type=f"digest/{atype}",
                         reason=f"age {age}h > cap {MAX_ALERT_AGE_HOURS}h",
                         product_id=pid,
                         store=store,
@@ -3701,6 +3707,48 @@ async def send_daily_digests():
                         extra={'name': data.get('name')},
                     )
                     continue
+
+                # Live-verification: for price-drop alerts, re-check the
+                # current stored price is still at-or-below what we alerted.
+                # If the brand bounced the price back UP before digest time,
+                # the alert becomes a lie-by-delivery — drop it silently.
+                if atype == 'price_drop' and pid and store:
+                    live = await db.prices.find_one(
+                        {'productId': pid, 'store': store},
+                        {'_id': 0, 'currentPrice': 1},
+                    )
+                    live_price = (live or {}).get('currentPrice') or 0
+                    alerted_new = data.get('new_price') or data.get('price') or 0
+                    alerted_old = data.get('old_price') or 0
+                    # Tolerate ≤1% drift (rounding). If live price is >1% above
+                    # the price we alerted, the drop is no longer valid.
+                    if alerted_new > 0 and live_price > alerted_new * 1.01:
+                        stale_dropped += 1
+                        await log_stale_skip(
+                            db,
+                            alert_type=f"digest/{atype}/bounced",
+                            reason=f"live price ₹{live_price} > alerted new ₹{alerted_new}; brand reverted before delivery",
+                            product_id=pid,
+                            store=store,
+                            phone=phone,
+                            extra={
+                                'name': data.get('name'),
+                                'alerted_new': alerted_new,
+                                'alerted_old': alerted_old,
+                                'live_price': live_price,
+                            },
+                        )
+                        continue
+
+                # Historical-MSRP sanity: if old_price == new_price OR gap <1%,
+                # the "SAVE X%" claim is meaningless. Strip the historical
+                # old_price so the email template only shows the current price.
+                if atype == 'price_drop':
+                    op = data.get('old_price') or 0
+                    np = data.get('new_price') or 0
+                    if op and np and op <= np * 1.01:
+                        data['old_price'] = None
+                        data['drop_percent'] = None
             alerts.append(a)
 
         if not alerts:

@@ -251,6 +251,24 @@ class ShopifyScraper(AetherBaseScraper):
         lowest_price = min(available_prices) if available_prices else min(prices)
         highest_price = max(available_prices) if available_prices else max(prices)
 
+        # Sanity-check compare_at_price. Many Shopify merchants leave
+        # compare_at_price set to the MSRP year-round even when the
+        # product isn't actually on sale — which caused our alert system
+        # to fabricate fake "SAVE X%" badges. Only treat compare_at_price
+        # as a genuine "was" price when ALL hold:
+        #   1. max(compare) is strictly greater than the display price
+        #   2. the gap is at least 5% (tiny gaps are rounding / merchant noise)
+        #   3. the gap is at most 5x (gaps larger than that are usually
+        #      a data-entry mistake, not a real sale — e.g. a ₹10,000 item
+        #      listed with compare=₹99,999 as a typo)
+        max_compare = max(compare_prices) if compare_prices else 0
+        if max_compare and max_compare > display_price * 1.05 and max_compare <= display_price * 5:
+            original_price_value = max_compare
+        else:
+            # No genuine discount: original == current. The alert pipeline
+            # uses this equality to skip rendering any "SAVE X%" badge.
+            original_price_value = display_price
+
         return {
             "id": f"prod_{self.store_key}_{product_id}",
             "shopify_id": product_id,
@@ -260,7 +278,7 @@ class ShopifyScraper(AetherBaseScraper):
             "price": display_price,
             "lowest_price": lowest_price,
             "highest_price": highest_price,
-            "original_price": max(compare_prices) if compare_prices else display_price,
+            "original_price": original_price_value,
             "image_url": image_url,
             "product_url": f"{self.base_url}/products/{handle}",
             "store": self.store_key,

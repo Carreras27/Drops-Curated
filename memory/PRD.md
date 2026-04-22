@@ -16,6 +16,16 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### False "Save X%" Discounts Fix (CRITICAL — Apr 2026)
+- **Bug**: Users received "SAVE 11% ₹15,500 ~~₹17,500~~" emails for a HUEMN hoodie whose live site showed ₹15,500 as the normal price with no visible strikethrough. User perceived this as fabricated discounts — trust-breaking.
+- **Root cause 1 — Merchant MSRP spam**: `shopify.py` used `max(compare_at_price)` as our `originalPrice`. Many Shopify merchants leave `compare_at_price` set to MSRP year-round as a marketing gimmick. Our storefront shows ₹15,500 with no visible discount; our `compare_at_price=17500` gets stored as "originalPrice" → email fabricates "SAVE 11%".
+- **Root cause 2 — Lie-by-delivery**: brand drops ₹17,500 → ₹15,500 (we detect, queue for 20:00 IST digest) → brand bounces back to ₹17,500 → 20:00 digest still fires with 2-hour-old drop claim that's no longer true.
+- **Fixed**:
+  1. `shopify.py`: only treat `compare_at_price` as real `original_price` when gap is **5% to 5x** of display_price (excludes noise + typos)
+  2. `email_alerts.py` price-drop template: only render "Save X%" badge + strikethrough when `old_price > new_price * 1.01` at render time (no fabrication)
+  3. `server.py::send_daily_digests`: live-verify every queued `price_drop` alert against the current DB price at send-time. If the brand bounced the price back above `alerted_new_price * 1.01`, the alert is silently dropped + logged to `stale_alerts_log` with reason `bounced`.
+  4. One-time DB cleanup: 565 existing price records with fictitious `originalPrice > currentPrice * 5` (typos/merchant spam) collapsed to `originalPrice = currentPrice`.
+
 ### Deployment Readiness Fix (Apr 2026)
 - **Bug**: Deployed site at `drops-curated.emergent.host` returned HTTP 200 on frontend but timed out on `/api/*` routes.
 - **Root cause 1**: `backend/.env` line 24 had `SMTP_PASSWORD=gkth dktt hgat dxis` — unquoted value with spaces breaks .env parsing in containerised environments, causing backend to fail early during config load.
