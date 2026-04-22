@@ -3500,12 +3500,44 @@ async def admin_freshness_status():
         })
     rows.sort(key=lambda r: (r['isFresh'], -(r['ageHours'] or 9999)))
 
-    # Recent stale-skip events (last 48h)
-    cutoff = (now - timedelta(hours=48)).isoformat()
+    # Recent stale-skip events (last 7 days for trend view, last 48h for list)
+    cutoff_48h = (now - timedelta(hours=48)).isoformat()
+    cutoff_7d = (now - timedelta(days=7)).isoformat()
+
     recent = await db.stale_alerts_log.find(
-        {'createdAt': {'$gte': cutoff}},
+        {'createdAt': {'$gte': cutoff_48h}},
         {'_id': 0},
     ).sort('createdAt', -1).limit(100).to_list(100)
+
+    # Aggregate skips by reason category so the admin sees immediately whether
+    # the system is dropping alerts because of (a) stale scrapes or (b) brands
+    # bouncing prices back mid-digest. Both deserve attention but for
+    # different reasons.
+    weekly_skips = await db.stale_alerts_log.find(
+        {'createdAt': {'$gte': cutoff_7d}},
+        {'_id': 0, 'alertType': 1, 'reason': 1, 'store': 1, 'extra': 1, 'createdAt': 1},
+    ).to_list(5000)
+
+    buckets = {'stale_age': 0, 'bounced': 0, 'empty_scrape': 0, 'other': 0}
+    bounced_by_store = {}
+    for s in weekly_skips:
+        at = s.get('alertType') or ''
+        rsn = (s.get('reason') or '').lower()
+        if 'bounced' in at or 'bounced' in rsn:
+            buckets['bounced'] += 1
+            st = s.get('store') or 'unknown'
+            bounced_by_store[st] = bounced_by_store.get(st, 0) + 1
+        elif 'batch' in at or 'empty' in rsn:
+            buckets['empty_scrape'] += 1
+        elif 'digest' in at or 'age' in rsn:
+            buckets['stale_age'] += 1
+        else:
+            buckets['other'] += 1
+
+    # Top 5 brands causing bounced alerts — these are your "flagged" brands.
+    top_bounced_stores = sorted(
+        bounced_by_store.items(), key=lambda x: -x[1]
+    )[:5]
 
     stale_brands = [r for r in rows if not r['isFresh']]
     return {
@@ -3515,6 +3547,9 @@ async def admin_freshness_status():
         'stale_brands_count': len(stale_brands),
         'brands': rows,
         'recent_stale_skips': recent,
+        'weekly_skip_buckets': buckets,
+        'weekly_skip_total': sum(buckets.values()),
+        'top_bounced_stores': [{'store': s, 'count': n} for s, n in top_bounced_stores],
         'generatedAt': now.isoformat(),
     }
 

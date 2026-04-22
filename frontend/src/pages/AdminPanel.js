@@ -1875,6 +1875,57 @@ function FreshnessDashboard() {
             </div>
           </div>
 
+          {/* Blocked alerts — last 7 days. Bounced = brand reverted price
+              before digest delivery (potential manipulation or our digest
+              cadence is too slow). Stale age = brand wasn't scraped within
+              the cap. Empty scrape = scraper returned nothing. */}
+          {(data.weekly_skip_total ?? 0) > 0 && (
+            <div className="bg-gray-800 p-4 rounded-lg" data-testid="freshness-blocked-alerts-panel">
+              <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-500" />
+                Blocked alerts · last 7 days ({data.weekly_skip_total.toLocaleString('en-IN')})
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="bg-gray-900 p-3 rounded">
+                  <div className="text-2xl font-bold text-red-300 tabular-nums">{data.weekly_skip_buckets?.bounced ?? 0}</div>
+                  <div className="text-gray-500 text-[11px] uppercase tracking-wider">Bounced<div className="normal-case tracking-normal text-gray-600">price reverted</div></div>
+                </div>
+                <div className="bg-gray-900 p-3 rounded">
+                  <div className="text-2xl font-bold text-amber-300 tabular-nums">{data.weekly_skip_buckets?.stale_age ?? 0}</div>
+                  <div className="text-gray-500 text-[11px] uppercase tracking-wider">Stale age<div className="normal-case tracking-normal text-gray-600">data too old</div></div>
+                </div>
+                <div className="bg-gray-900 p-3 rounded">
+                  <div className="text-2xl font-bold text-gray-300 tabular-nums">{data.weekly_skip_buckets?.empty_scrape ?? 0}</div>
+                  <div className="text-gray-500 text-[11px] uppercase tracking-wider">Empty scrape<div className="normal-case tracking-normal text-gray-600">scraper broke</div></div>
+                </div>
+                <div className="bg-gray-900 p-3 rounded">
+                  <div className="text-2xl font-bold text-gray-400 tabular-nums">{data.weekly_skip_buckets?.other ?? 0}</div>
+                  <div className="text-gray-500 text-[11px] uppercase tracking-wider">Other</div>
+                </div>
+              </div>
+              {(data.top_bounced_stores ?? []).length > 0 && (
+                <div className="border-t border-gray-700 pt-3">
+                  <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Top brands flagged for bouncing prices</div>
+                  <div className="flex flex-wrap gap-2">
+                    {data.top_bounced_stores.map(t => (
+                      <div
+                        key={t.store}
+                        className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs px-3 py-1.5 rounded flex items-center gap-2"
+                        data-testid={`bounced-store-${t.store}`}
+                      >
+                        <span className="font-medium">{t.store}</span>
+                        <span className="text-red-200 font-semibold tabular-nums">{t.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-gray-500 text-xs mt-2">
+                    These brands dropped a price, then reverted it before our digest fired. Either manipulation or our digest cadence is too slow for them.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Brand table */}
           <div className="bg-gray-800 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
