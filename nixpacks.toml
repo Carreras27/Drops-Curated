@@ -4,9 +4,12 @@
 nixPkgs = ["python311Full", "nodejs_20", "yarn"]
 
 [phases.install]
+# Nixpacks does NOT add a bare `pip` to PATH even with python311Full — only
+# `python -m pip` is reliably callable. Frontend build runs here too so the
+# static bundle is baked into the image (no runtime yarn install).
 cmds = [
-  "pip install --upgrade pip",
-  "pip install -r backend/requirements.txt",
+  "python -m pip install --upgrade pip",
+  "python -m pip install -r backend/requirements.txt",
   "cd frontend && yarn install --frozen-lockfile && yarn build"
 ]
 
@@ -14,4 +17,4 @@ cmds = [
 cmds = ["echo 'Build complete'"]
 
 [start]
-cmd = "cd backend && uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1"
+cmd = "cd backend && python -m uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1"
