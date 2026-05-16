@@ -33,7 +33,10 @@ const SearchPage = () => {
       const resp = await axios.get(`${API_URL}/scrape/status`);
       setScrapeStatus(resp.data);
       setBrands(resp.data.brands || []);
-    } catch {}
+    } catch (e) {
+      // Non-fatal: brand list will just be empty on the page
+      console.debug('[SearchPage] fetchBrands failed:', e);
+    }
   };
 
   const fetchFeaturedProducts = async () => {
@@ -42,7 +45,10 @@ const SearchPage = () => {
       if (resp.data.products?.length > 0) {
         setProducts(resp.data.products);
       }
-    } catch {}
+    } catch (e) {
+      // Non-fatal: page falls back to empty state with a 'Search for products' prompt
+      console.debug('[SearchPage] fetchFeaturedProducts failed:', e);
+    }
   };
 
   const handleSearch = async (e) => {

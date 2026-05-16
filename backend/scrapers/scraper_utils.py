@@ -258,9 +258,11 @@ class FingerprintCache:
             logger.error(f"[FingerprintCache] Failed to load: {e}")
     
     def generate_fingerprint(self, product_id: str, updated_at: str = None, price: float = None) -> str:
-        """Generate a fingerprint hash for a product."""
+        """Generate a fingerprint hash for a product.
+        SHA-256 is overkill for a dedup cache key (no security context), but
+        it silences security scanners and costs nothing measurable here."""
         data = f"{product_id}|{updated_at or ''}|{price or ''}"
-        return hashlib.md5(data.encode()).hexdigest()
+        return hashlib.sha256(data.encode()).hexdigest()
     
     def has_changed(self, product_id: str, updated_at: str = None, price: float = None) -> bool:
         """Check if product has changed since last scrape."""

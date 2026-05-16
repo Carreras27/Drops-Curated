@@ -88,7 +88,10 @@ const RaffleCard = ({ raffle, userPhone, onEnter }) => {
     try {
       const resp = await axios.get(`${API_URL}/raffles/check-entry/${raffle.id}/${userPhone}`);
       setEntry(resp.data);
-    } catch {} finally {
+    } catch (e) {
+      // Non-fatal: a 404 here just means the user hasn't entered yet — treat as no entry
+      console.debug('[RafflesPage] checkEntry failed:', e?.response?.status);
+    } finally {
       setChecking(false);
     }
   };

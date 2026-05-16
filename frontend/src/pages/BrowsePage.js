@@ -759,7 +759,10 @@ export default function BrowsePage() {
     try {
       const resp = await axios.get(`${API_URL}/celebrity/styles`);
       setCelebrityPicks(resp.data.celebrity_picks || []);
-    } catch {}
+    } catch (e) {
+      // Non-fatal: section just stays empty
+      console.debug('[BrowsePage] fetchCelebrityStyles failed:', e?.response?.status);
+    }
   };
 
   const fetchBrands = async () => {
@@ -767,7 +770,9 @@ export default function BrowsePage() {
       const resp = await axios.get(`${API_URL}/scrape/status`);
       setBrands(resp.data.brands || []);
       setTotalProducts(resp.data.total_products || 0);
-    } catch {}
+    } catch (e) {
+      console.debug('[BrowsePage] fetchBrands failed:', e?.response?.status);
+    }
   };
 
   const fetchCuratedDrops = async (isAutoRefresh = false) => {
@@ -782,7 +787,9 @@ export default function BrowsePage() {
       // Use backend timestamp if available, otherwise use current time
       const serverTime = resp.data.generated_at ? new Date(resp.data.generated_at) : new Date();
       setLastUpdated(serverTime);
-    } catch {} finally {
+    } catch (e) {
+      console.debug('[BrowsePage] fetchCuratedDrops failed:', e?.response?.status);
+    } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
@@ -825,7 +832,9 @@ export default function BrowsePage() {
       
       setHasMore(newProducts.length === 24);
       setPage(pageNum);
-    } catch {} finally {
+    } catch (e) {
+      console.debug('[BrowsePage] fetchAllProducts failed:', e?.response?.status);
+    } finally {
       setLoading(false);
       setLoadingMore(false);
     }
