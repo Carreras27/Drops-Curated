@@ -25,7 +25,11 @@ dnspython==2.8.0
 dparse==0.6.4
 ecdsa==0.19.1
 email-validator==2.3.0
-emergentintegrations==0.1.0
+# emergentintegrations==0.1.0  # Removed for Railway/public deploy compatibility.
+# This package lives on Emergent's private PyPI index. On Railway/Render/Fly
+# we use the direct Gemini API via `google-generativeai` (already pinned below).
+# `backend/llm_client.py` auto-detects which path is available and falls back
+# gracefully if `emergentintegrations` is missing.
 et_xmlfile==2.0.0
 fastapi==0.110.1
 fastuuid==0.14.0
