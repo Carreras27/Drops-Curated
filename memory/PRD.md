@@ -16,6 +16,15 @@ Premium VIP subscription platform (₹399/month) for the Indian luxury streetwea
 
 ## What's Been Implemented
 
+### Railway Migration Prep (Apr 2026)
+- **Why**: Emergent deployment pods sleep when idle, breaking the APScheduler-based scraper rotation. Railway/Render/Fly offer always-on workers at ~$5/mo plus direct Gemini API at ~$0.075 per 1M tokens (cheaper than Emergent credits).
+- **Code changes**:
+  - New `backend/llm_client.py` adapter — prefers `GEMINI_API_KEY` (direct, portable, cheaper); falls back to `EMERGENT_LLM_KEY` if direct not set; degrades gracefully to rule-based fallbacks if neither.
+  - `backend/classifier.py` + `backend/scraper_agent.py` switched to the adapter. No behaviour change on Emergent.
+  - `railway.json`, `Procfile`, `nixpacks.toml` — Railway-specific config (ignored by Emergent).
+  - `DEPLOY_TO_RAILWAY.md` — step-by-step guide (GitHub push → Atlas → Gemini key → Railway deploy → Cloudflare CNAME → re-verify).
+- **Rollback**: code still works on Emergent unchanged. Emergent deployment kept running during migration; revert is a single CF CNAME flip.
+
 ### False "Save X%" Discounts Fix (CRITICAL — Apr 2026)
 - **Bug**: Users received "SAVE 11% ₹15,500 ~~₹17,500~~" emails for a HUEMN hoodie whose live site showed ₹15,500 as the normal price with no visible strikethrough. User perceived this as fabricated discounts — trust-breaking.
 - **Root cause 1 — Merchant MSRP spam**: `shopify.py` used `max(compare_at_price)` as our `originalPrice`. Many Shopify merchants leave `compare_at_price` set to MSRP year-round as a marketing gimmick. Our storefront shows ₹15,500 with no visible discount; our `compare_at_price=17500` gets stored as "originalPrice" → email fabricates "SAVE 11%".

@@ -130,28 +130,27 @@ class ScraperAgent:
     async def init(self, db):
         """Initialize the agent with database and LLM."""
         self._db = db
-        
-        # Initialize LLM using emergentintegrations
-        try:
-            from emergentintegrations.llm.chat import LlmChat
-            api_key = os.getenv("EMERGENT_LLM_KEY")
-            if not api_key:
-                logger.warning("[ScraperAgent] EMERGENT_LLM_KEY not found in environment")
-                self._llm = None
-            else:
-                chat = LlmChat(
-                    api_key=api_key,
-                    session_id="scraper_agent_healer",
-                    system_message="""You are an expert web scraping diagnostic agent. Your job is to:
-1. Analyze scraper errors and diagnose the root cause
-2. Pick the best fix strategy from available options
-3. When websites change structure, analyze HTML and suggest new CSS selectors or JSON paths
-4. Learn from past successes and failures
 
-Always respond with valid JSON. Be concise and technical."""
-                )
-                self._llm = chat.with_model("gemini", "gemini-2.5-flash")
-                logger.info("[ScraperAgent] LLM initialized successfully with Gemini 2.5 Flash")
+        # LLM client — uses GEMINI_API_KEY if present (preferred for Railway /
+        # any non-Emergent host), else falls back to EMERGENT_LLM_KEY. Returns
+        # None when no key is configured — agent then runs rule-based only.
+        try:
+            from llm_client import get_llm_client
+            self._llm = await get_llm_client(
+                system_message=(
+                    "You are an expert web scraping diagnostic agent. Your job is to:\n"
+                    "1. Analyze scraper errors and diagnose the root cause\n"
+                    "2. Pick the best fix strategy from available options\n"
+                    "3. When websites change structure, analyze HTML and suggest new CSS selectors or JSON paths\n"
+                    "4. Learn from past successes and failures\n\n"
+                    "Always respond with valid JSON. Be concise and technical."
+                ),
+                session_id="scraper_agent_healer",
+            )
+            if self._llm:
+                logger.info("[ScraperAgent] LLM initialized successfully")
+            else:
+                logger.warning("[ScraperAgent] LLM unavailable — running rule-based only")
         except Exception as e:
             logger.error(f"[ScraperAgent] Failed to initialize LLM: {e}")
             self._llm = None
@@ -279,10 +278,9 @@ Respond with JSON:
 """
         
         try:
-            from emergentintegrations.llm.chat import UserMessage
-            user_message = UserMessage(text=prompt)
-            response = await self._llm.send_message(user_message)
-            response_text = str(response) if response else ""
+            from llm_client import LLMMessage
+            response_text = await self._llm.send(LLMMessage(role="user", content=prompt))
+            response_text = str(response_text) if response_text else ""
             
             # Try to parse JSON
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
@@ -509,10 +507,9 @@ Provide CSS selectors or JSON paths to extract this data. Respond with JSON:
 """
         
         try:
-            from emergentintegrations.llm.chat import UserMessage
-            user_message = UserMessage(text=prompt)
-            response = await self._llm.send_message(user_message)
-            response_text = str(response) if response else ""
+            from llm_client import LLMMessage
+            response_text = await self._llm.send(LLMMessage(role="user", content=prompt))
+            response_text = str(response_text) if response_text else ""
             
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:

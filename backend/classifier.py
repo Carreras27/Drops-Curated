@@ -17,10 +17,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import Emergent LLM integration
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+# LLM client adapter — supports both Emergent universal key and direct
+# Gemini API. See llm_client.py. We import lazily inside each call so the
+# classifier still imports cleanly when no LLM key is configured.
 
-# Emergent LLM Key
+# Kept for backwards compatibility with any external callers
 EMERGENT_LLM_KEY = os.getenv('EMERGENT_LLM_KEY', os.getenv('OPENAI_API_KEY'))
 
 # ============ DATA CLEANING FUNCTIONS ============
@@ -189,14 +190,20 @@ async def classify_batch_with_gemini(products: List[Dict]) -> List[Dict]:
         return []
     
     try:
-        # Initialize Gemini chat with batch-optimized settings
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+        # LLM client (Emergent universal key OR direct Gemini API)
+        from llm_client import get_llm_client, LLMMessage
+        chat = await get_llm_client(
+            system_message=(
+                "You are a streetwear product classifier. You will receive a batch of products "
+                "and must classify ALL of them.\nRespond with a JSON array containing classification "
+                "for each product in the EXACT same order as received.\nBe concise. Respond ONLY with "
+                "valid JSON array, no markdown, no explanation."
+            ),
             session_id=f"batch_classify_{datetime.now().timestamp()}",
-            system_message="""You are a streetwear product classifier. You will receive a batch of products and must classify ALL of them.
-Respond with a JSON array containing classification for each product in the EXACT same order as received.
-Be concise. Respond ONLY with valid JSON array, no markdown, no explanation."""
-        ).with_model("gemini", "gemini-2.5-flash")
+        )
+        if chat is None:
+            logger.warning("[Classifier] No LLM key configured; skipping batch classification")
+            return []
         
         # Build batch items for the prompt
         batch_items = []
@@ -235,9 +242,8 @@ Classification Rules:
 
 Return ONLY the JSON array, nothing else."""
 
-        # Send to LLM
-        message = UserMessage(text=prompt)
-        response = await chat.send_message(message)
+        # Send to LLM via the adapter
+        response = await chat.send(LLMMessage(role="user", content=prompt))
         
         # Parse JSON response
         response_text = response.strip()
@@ -302,13 +308,17 @@ async def classify_product_with_llm(
     For batch processing, use classify_batch_with_gemini instead.
     """
     try:
-        # Initialize Gemini chat
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+        # LLM client adapter
+        from llm_client import get_llm_client, LLMMessage
+        chat = await get_llm_client(
+            system_message=(
+                "You are a streetwear product classifier. Given a product title, "
+                "classify it accurately.\nBe concise and respond ONLY with valid JSON."
+            ),
             session_id=f"classify_{hash(title) % 100000}",
-            system_message="""You are a streetwear product classifier. Given a product title, classify it accurately. 
-Be concise and respond ONLY with valid JSON."""
-        ).with_model("gemini", "gemini-2.5-flash")
+        )
+        if chat is None:
+            return fallback_classification(title, existing_brand, existing_category)
         
         # Build the prompt
         prompt = f"""Classify this streetwear product:
@@ -332,9 +342,8 @@ Rules:
 - If unclear, default to "Unisex"
 - Detect brand from title first, fallback to store brand"""
 
-        # Send to LLM
-        message = UserMessage(text=prompt)
-        response = await chat.send_message(message)
+        # Send to LLM via the adapter
+        response = await chat.send(LLMMessage(role="user", content=prompt))
         
         # Parse JSON response
         response_text = response.strip()
