@@ -1,5 +1,7 @@
 [phases.setup]
-nixPkgs = ["python311", "nodejs_20", "yarn"]
+# python311Full bundles pip + standard tools. The slim `python311` package
+# omits pip, which makes the install phase fail with "pip: command not found".
+nixPkgs = ["python311Full", "nodejs_20", "yarn"]
 
 [phases.install]
 cmds = [
