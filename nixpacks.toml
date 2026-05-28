@@ -1,15 +1,10 @@
 [phases.setup]
-# python311Full bundles pip + standard tools. The slim `python311` package
-# omits pip, which makes the install phase fail with "pip: command not found".
 nixPkgs = ["python311Full", "nodejs_20", "yarn"]
 
 [phases.install]
-# Nixpacks does NOT add a bare `pip` to PATH even with python311Full — only
-# `python -m pip` is reliably callable. Frontend build runs here too so the
-# static bundle is baked into the image (no runtime yarn install).
-[phases.install]
 cmds = [
-  "python -m pip install -r backend/requirements.txt --no-deps playwright || python -m pip install -r backend/requirements.txt",
+  "python -m venv /app/venv",
+  "/app/venv/bin/pip install -r backend/requirements.txt",
   "cd frontend && yarn install --frozen-lockfile && yarn build"
 ]
 
@@ -17,4 +12,4 @@ cmds = [
 cmds = ["echo 'Build complete'"]
 
 [start]
-cmd = "cd backend && python -m uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1"
+cmd = "/app/venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1 --app-dir backend"
