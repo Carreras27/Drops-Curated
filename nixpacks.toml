@@ -1,8 +1,8 @@
 [variables]
-NODE_VERSION = "20"
+NODE_VERSION = "22"
 
 [phases.setup]
-nixPkgs = ["python311Full", "nodejs_20", "yarn"]
+nixPkgs = ["python311Full", "nodejs_22", "yarn"]
 
 [phases.install]
 cmds = [
