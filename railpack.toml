@@ -1,0 +1,19 @@
+[providers]
+node = { version = "20" }
+python = { version = "3.11" }
+
+[packages]
+yarn = "*"
+
+[phases.install]
+cmds = [
+  "python -m venv /app/venv",
+  "/app/venv/bin/pip install -r backend/requirements.txt",
+  "cd frontend && yarn install --frozen-lockfile && yarn build"
+]
+
+[phases.build]
+cmds = ["echo 'Build complete'"]
+
+[start]
+cmd = "/app/venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1 --app-dir backend"
